@@ -156,6 +156,7 @@ model CrmLead {
   logisticStatus String?  @map("logistic_status")
   codStatus      String?  @map("cod_status")
   kpiStatus      String?  @map("kpi_status")
+  notes          String?
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
