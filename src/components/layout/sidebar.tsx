@@ -118,7 +118,7 @@ export function Sidebar() {
                 <Link
                   key={item.name}
                   href={item.href}
-                  className="group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors"
+                  className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors`}
                   style={isActive
                     ? {backgroundColor: '#3ECF8E', color: '#FFFFFF'}
                     : {color: '#687076'}

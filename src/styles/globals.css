@@ -26,8 +26,29 @@
     --input: #27272a; /* zinc-700 */
     --ring: #14b8a6; /* teal-500 */
     --radius: 0.5rem;
+    
+    --text-primary: #171717;
+    --text-secondary: #707070;
+    --text-primary-dark: #FAFAFA;
+    --text-secondary: #898989;
   }
 }
+
+.text-primary{
+  color: var(--text-primary);
+}
+.text-secondary{
+  color: var(--text-secondary);
+}
+
+
+.text-primary-dark{
+  color: var(--text-primary-dark);
+}
+.text-secondary-dark{
+  color: var(--text-secondary-dark);
+}
+
 
 @layer base {
   *, *::before, *::after {
