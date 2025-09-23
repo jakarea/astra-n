@@ -278,8 +278,8 @@ export function AddLeadModal({ isOpen, onClose, onSuccess }: AddLeadModalProps) 
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="space-y-3 pb-4">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto px-4">
+        <DialogHeader className="space-y-3">
           <DialogTitle className="flex items-center gap-2 text-xl">
             <User className="h-6 w-6 text-primary" />
             Add New Lead
@@ -414,6 +414,8 @@ export function AddLeadModal({ isOpen, onClose, onSuccess }: AddLeadModalProps) 
             </div>
           </div>
 
+          
+
           {/* Status Information */}
           <div className="space-y-4 p-4 bg-muted/30 rounded-lg">
             <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
@@ -423,20 +425,21 @@ export function AddLeadModal({ isOpen, onClose, onSuccess }: AddLeadModalProps) 
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Logistic Status */}
-              <div className="space-y-2">
+              <div className="space-y-2 relative">
                 <Label className="text-sm font-medium text-foreground">Logistic Status</Label>
                 <Select
                   value={formData.logisticStatus || 'pending'}
                   onValueChange={(value) => handleInputChange('logisticStatus', value)}
                   disabled={loading}
+                 
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent >
                     {logisticStatusOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        <Badge variant="outline" className="text-xs">
+                      <SelectItem key={option.value} value={option.value} className="bg-red-300">
+                        <Badge variant="outline" className="text-xs bg-red-400">
                           {option.label}
                         </Badge>
                       </SelectItem>
@@ -446,7 +449,7 @@ export function AddLeadModal({ isOpen, onClose, onSuccess }: AddLeadModalProps) 
               </div>
 
               {/* COD Status */}
-              <div className="space-y-2">
+              <div className="space-y-2 relative">
                 <Label className="text-sm font-medium text-foreground">COD Status</Label>
                 <Select
                   value={formData.codStatus || 'pending'}
@@ -469,7 +472,7 @@ export function AddLeadModal({ isOpen, onClose, onSuccess }: AddLeadModalProps) 
               </div>
 
               {/* KPI Status */}
-              <div className="space-y-2">
+              <div className="space-y-2 relative">
                 <Label className="text-sm font-medium text-foreground">KPI Status</Label>
                 <Select
                   value={formData.kpiStatus || 'new'}
@@ -494,7 +497,7 @@ export function AddLeadModal({ isOpen, onClose, onSuccess }: AddLeadModalProps) 
           </div>
 
           {/* Tags */}
-          <div className="space-y-4 p-4 bg-muted/30 rounded-lg">
+          <div className="space-y-4 p-4 bg-muted/30 rounded-lg relative">
             <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
               <Tag className="h-5 w-5 text-primary" />
               Tags

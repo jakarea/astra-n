@@ -25,7 +25,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         <div className="md:hidden h-16" />
 
         {/* Content area */}
-        <main className="flex-1 overflow-y-auto p-6 pb-20 md:pb-6">
+        <main className="flex-1 overflow-y-auto p-6 pb-20 md:pb-6 lg:p-8 lg:pb-24">
           {children}
         </main>
       </div>

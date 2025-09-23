@@ -68,15 +68,15 @@ export function Sidebar() {
   const filteredNavigation = navigation.filter(item => !item.adminOnly || isAdmin)
 
   return (
-    <div className="flex h-screen w-64 flex-col" style={{backgroundColor: '#FFFFFF', borderRight: '1px solid #EAEDF0'}}>
+    <div className="flex h-screen w-64 flex-col bg-[#121212f2]" >
       <div className="flex flex-col flex-grow pt-5 overflow-y-auto">
         {/* Logo */}
         <div className="flex items-center flex-shrink-0 px-6">
           <div className="flex items-center">
-            <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{backgroundColor: '#3ECF8E'}}>
-              <span className="text-white font-bold text-lg">A</span>
+            <div className="h-8 w-8 rounded-md flex items-center justify-center bg-primary-1">
+              <span className="text-primary-1 font-bold text-lg">A</span>
             </div>
-            <span className="ml-2 text-xl font-bold" style={{color: '#11181C'}}>Astra</span>
+            <span className="ml-2 text-xl font-bold text-primary-1">Astra</span>
           </div>
         </div>
 
@@ -111,39 +111,22 @@ export function Sidebar() {
 
         {/* Navigation */}
         <div className="mt-8 flex-grow flex flex-col">
-          <nav className="flex-1 px-4 space-y-2">
+          <nav className="flex-1 px-4 space-y-2 lg:space-y-3">
             {filteredNavigation.map((item) => {
               const isActive = pathname === item.href
               return (
                 <Link
                   key={item.name}
                   href={item.href}
-                  className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors`}
-                  style={isActive
-                    ? {backgroundColor: '#3ECF8E', color: '#FFFFFF'}
-                    : {color: '#687076'}
-                  }
-                  onMouseOver={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.backgroundColor = '#F8F9FA';
-                      e.currentTarget.style.color = '#11181C';
-                    }
-                  }}
-                  onMouseOut={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                      e.currentTarget.style.color = '#687076';
-                    }
-                  }}
+                  className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-primary-1 hover:text-secondary-1 group ${isActive ? 'text-primary-1 bg-primary-1' : 'text-secondary-1'}`}
                 >
                   <item.icon
-                    className="mr-3 h-5 w-5 flex-shrink-0"
-                    style={{color: isActive ? '#FFFFFF' : '#94A3B8'}}
+                    className={`mr-3 h-5 w-5 flex-shrink-0 group-hover:!text-white ${isActive ? 'text-white' : 'text-primary-1'}`} 
                   />
-                  <span translate="no" suppressHydrationWarning>
+                  <span className="text-primary-1 group-hover:text-white" translate="no" suppressHydrationWarning>
                     {item.name}
                     {item.adminOnly && (
-                      <Shield className="ml-2 h-3 w-3 inline" style={{color: '#3ECF8E'}} />
+                      <Shield className="ml-2 h-3 w-3 inline !text-primary-1 group-hover:!text-white" />
                     )}
                   </span>
                 </Link>

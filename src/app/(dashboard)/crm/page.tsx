@@ -219,19 +219,19 @@ export default function CRMPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">CRM Dashboard</h1>
-            <p className="text-muted-foreground">Manage your leads and track conversions</p>
+            <h1 className="text-3xl lg:text-[42px] font-bold text-primary-1">CRM Dashboard</h1>
+            <p className="text-secondary-1 font-normal text-sm lg:text-base mt-1">Manage your leads and track conversions</p>
           </div>
           <div className="flex space-x-3">
-            <Button variant="outline">
+            <Button variant="outline" className="bg-secondary-1 border-primary-1 !text-sm font-normal btn-hover py-2 px-4">
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
-            <Button variant="outline" onClick={refreshData} disabled={loading}>
+            <Button className="bg-secondary-1 border-primary-1 !text-sm font-normal hover:bg-primary-1 btn-hover py-2 px-4" variant="outline" onClick={refreshData} disabled={loading}>
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
-            <Button onClick={() => setAddModalOpen(true)}>
+            <Button className="bg-primary-1 border-primary-1 !text-sm font-normal btn-hover py-2 px-4" onClick={() => setAddModalOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Add Lead
             </Button>
@@ -242,14 +242,14 @@ export default function CRMPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Leads</CardTitle>
+              <CardTitle className="text-sm lg:text-base font-medium text-primary-1">Total Leads</CardTitle>
               <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
                 <span className="text-primary text-xs font-bold">L</span>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.total}</div>
-              <p className="text-xs text-muted-foreground">
+              <div className="text-2xl font-bold text-primary-1 lg:text-3xl mb-1">{stats.total}</div>
+              <p className="text-xs text-secondary-1">
                 {isAdmin ? 'All system leads' : 'Your leads'}
                 {searchTerm && ` (${filteredStats.showing} shown)`}
               </p>
@@ -258,27 +258,27 @@ export default function CRMPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending</CardTitle>
+              <CardTitle className="text-sm lg:text-base font-medium text-primary-1">Pending</CardTitle>
               <div className="h-8 w-8 rounded-full bg-orange-500/10 flex items-center justify-center">
                 <span className="text-orange-600 text-xs font-bold">P</span>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.pending}</div>
-              <p className="text-xs text-muted-foreground">Awaiting confirmation</p>
+              <div className="text-2xl font-bold text-primary-1 lg:text-3xl mb-1">{stats.pending}</div>
+              <p className="text-xs text-secondary-1">Awaiting confirmation</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Confirmed</CardTitle>
+              <CardTitle className="text-sm lg:text-base font-medium text-primary-1">Confirmed</CardTitle>
               <div className="h-8 w-8 rounded-full bg-green-500/10 flex items-center justify-center">
                 <span className="text-green-600 text-xs font-bold">C</span>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.confirmed}</div>
-              <p className="text-xs text-muted-foreground">
+              <div className="text-2xl font-bold text-primary-1 lg:text-3xl mb-1">{stats.confirmed}</div>
+              <p className="text-xs text-secondary-1">
                 {stats.total > 0 ? `${Math.round((stats.confirmed / stats.total) * 100)}% conversion rate` : 'No data'}
               </p>
             </CardContent>
@@ -286,14 +286,14 @@ export default function CRMPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Revenue</CardTitle>
+              <CardTitle className="text-sm lg:text-base font-medium text-primary-1">Revenue</CardTitle>
               <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
                 <span className="text-primary text-xs font-bold">€</span>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">€{stats.revenue.toFixed(2)}</div>
-              <p className="text-xs text-muted-foreground">From converted leads</p>
+              <div className="text-2xl font-bold text-primary-1 lg:text-3xl mb-1">€{stats.revenue.toFixed(2)}</div>
+              <p className="text-xs text-secondary-1">From converted leads</p>
             </CardContent>
           </Card>
         </div>
@@ -302,13 +302,13 @@ export default function CRMPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>Lead Management</CardTitle>
+              <CardTitle className="text-primary-1">Lead Management</CardTitle>
               <div className="flex space-x-3">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search leads..."
-                    className="pl-10 w-80"
+                    className="pl-10 w-80 focus-within:outline-none focus-visible:"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     disabled={loading}
@@ -346,23 +346,23 @@ export default function CRMPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Created</TableHead>
-                    <TableHead>Lead</TableHead>
-                    <TableHead>Contact</TableHead>
-                    <TableHead>Order</TableHead>
-                    <TableHead>Source</TableHead>
-                    <TableHead>Assigned</TableHead>
-                    <TableHead>COD Status</TableHead>
-                    <TableHead>Logistics Status</TableHead>
-                    <TableHead>KPI</TableHead>
-                    <TableHead>Tags</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead className="text-primary-1">Created</TableHead>
+                    <TableHead className="text-primary-1">Lead</TableHead>
+                    <TableHead className="text-primary-1">Contact</TableHead>
+                    <TableHead className="text-primary-1">Order</TableHead>
+                    <TableHead className="text-primary-1">Source</TableHead>
+                    <TableHead className="text-primary-1">Assigned</TableHead>
+                    <TableHead className="text-primary-1">COD Status</TableHead>
+                    <TableHead className="text-primary-1">Logistics Status</TableHead>
+                    <TableHead className="text-primary-1">KPI</TableHead>
+                    <TableHead className="text-primary-1">Tags</TableHead>
+                    <TableHead className="text-primary-1">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredLeads.map((lead) => (
                     <TableRow key={lead.id}>
-                      <TableCell className="font-mono text-sm">
+                      <TableCell className="font-inter text-[13px] text-primary-1">
                         {new Date(lead.created_at).toLocaleDateString('en-US', {
                           day: '2-digit',
                           month: '2-digit',
@@ -373,20 +373,20 @@ export default function CRMPage() {
                       </TableCell>
                       <TableCell>
                         <div>
-                          <div className="font-medium">{lead.name}</div>
+                          <div className="font-inter text-[13px] text-primary-1 font-medium">{lead.name}</div>
                           <div className="text-xs text-muted-foreground">ID: {lead.id}</div>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="space-y-1">
                           {lead.email && (
-                            <div className="flex items-center text-xs">
+                            <div className="font-inter text-[13px] text-primary-1 flex items-center gap-x-1">
                               <Mail className="h-3 w-3 mr-1" />
                               {lead.email}
                             </div>
                           )}
                           {lead.phone && (
-                            <div className="flex items-center text-xs">
+                            <div className="font-inter text-[13px] text-primary-1 flex items-center gap-x-1">
                               <Phone className="h-3 w-3 mr-1" />
                               {lead.phone}
                             </div>
@@ -400,7 +400,7 @@ export default function CRMPage() {
                             <div className="text-xs text-muted-foreground">€{lead.order.total_amount.toFixed(2)}</div>
                           </div>
                         ) : (
-                          <span className="text-muted-foreground text-sm">-</span>
+                          <span className="text-[13px] text-primary-1">-</span>
                         )}
                       </TableCell>
                       <TableCell>
