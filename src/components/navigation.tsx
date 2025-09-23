@@ -14,7 +14,7 @@ import {
 } from "lucide-react"
 
 const navigation = [
-  { name: "Dashboard", href: "/", icon: Home },
+  { name: "Dashboard", href: "/dashboard", icon: Home },
   { name: "CRM", href: "/crm", icon: UserCheck },
   { name: "Ordini", href: "/orders", icon: ShoppingCart },
   { name: "Clienti", href: "/clients", icon: Users },

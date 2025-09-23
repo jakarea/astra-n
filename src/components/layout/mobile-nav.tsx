@@ -4,6 +4,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useState } from "react"
 import { useRole } from "@/contexts/RoleContext"
+import { useAuth } from "@/contexts/AuthContext"
 import { cn } from "@/lib/utils"
 import {
   Home,
@@ -21,7 +22,7 @@ import {
 } from "lucide-react"
 
 const navigation = [
-  { name: "Dashboard", href: "/", icon: BarChart3, adminOnly: false },
+  { name: "Dashboard", href: "/dashboard", icon: BarChart3, adminOnly: false },
   { name: "CRM", href: "/crm", icon: UserCheck, adminOnly: false },
   { name: "Ordini", href: "/orders", icon: ShoppingCart, adminOnly: false },
   { name: "Clienti", href: "/clients", icon: Users, adminOnly: false },
@@ -33,7 +34,8 @@ const navigation = [
 export function MobileNav() {
   const pathname = usePathname()
   const router = useRouter()
-  const { user, isAdmin, logout } = useRole()
+  const { user, isAdmin } = useRole()
+  const { signOut } = useAuth()
   const [showMenu, setShowMenu] = useState(false)
 
   // Filter navigation based on user role
@@ -43,10 +45,34 @@ export function MobileNav() {
   const bottomNavItems = filteredNavigation.slice(0, 4)
   const menuItems = filteredNavigation.slice(4)
 
-  const handleLogout = () => {
-    logout()
-    router.push('/auth')
-    setShowMenu(false)
+  const handleLogout = async () => {
+    try {
+      // Call the logout API endpoint
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        console.error('Logout API error:', error)
+      }
+
+      // Also clear local auth context and role context
+      await signOut()
+
+      // Close menu and force redirect to login page
+      setShowMenu(false)
+      window.location.href = '/login'
+
+    } catch (error) {
+      console.error('Error signing out:', error)
+      // Even if there's an error, try to clear local state and redirect
+      setShowMenu(false)
+      window.location.href = '/login'
+    }
   }
 
   return (

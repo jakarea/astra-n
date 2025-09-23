@@ -1,4 +1,5 @@
-import { createServerComponentSupabase } from '@/lib/supabase'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
@@ -6,11 +7,13 @@ import crypto from 'crypto'
 
 const createIntegrationSchema = z.object({
   name: z.string().min(1, 'Integration name is required'),
-  type: z.enum(['shopify', 'woocommerce'], {
-    errorMap: () => ({ message: 'Type must be either shopify or woocommerce' })
+  type: z.enum(['shopify', 'woocommerce', 'wordpress'], {
+    errorMap: () => ({ message: 'Type must be shopify, woocommerce, or wordpress' })
   }),
-  domain: z.string().url('Domain must be a valid URL'),
-  adminAccessToken: z.string().min(1, 'Admin access token is required')
+  domain: z.string().min(1, 'Domain is required'),
+  baseUrl: z.string().optional(),
+  webhookSecret: z.string().optional(),
+  adminAccessToken: z.string().optional()
 })
 
 const updateIntegrationSchema = z.object({
@@ -22,7 +25,8 @@ const updateIntegrationSchema = z.object({
 // GET /api/integrations - List all integrations for the current user
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerComponentSupabase()
+    const cookieStore = await cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
     const { data: { session } } = await supabase.auth.getSession()
 
     if (!session) {
@@ -76,7 +80,8 @@ export async function GET(request: NextRequest) {
 // POST /api/integrations - Create a new integration
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerComponentSupabase()
+    const cookieStore = await cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
     const { data: { session } } = await supabase.auth.getSession()
 
     if (!session) {
@@ -84,10 +89,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, type, domain, adminAccessToken } = createIntegrationSchema.parse(body)
+    const { name, type, domain, baseUrl, webhookSecret, adminAccessToken } = createIntegrationSchema.parse(body)
 
-    // Generate a secure webhook secret
-    const webhookSecret = crypto.randomBytes(32).toString('hex')
+    // Generate a secure webhook secret if not provided
+    const finalWebhookSecret = webhookSecret || crypto.randomBytes(32).toString('hex')
 
     // Check if domain already exists
     const existingIntegration = await prisma.integration.findUnique({
@@ -104,9 +109,11 @@ export async function POST(request: NextRequest) {
         name,
         type,
         domain,
-        webhookSecret,
-        adminAccessToken,
-        isActive: true
+        baseUrl,
+        webhookSecret: finalWebhookSecret,
+        adminAccessToken: adminAccessToken || null,
+        isActive: true,
+        status: 'active'
       },
       include: {
         user: {
@@ -118,7 +125,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ integration })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 })
+      return NextResponse.json({ error: error.issues }, { status: 400 })
     }
     console.error('Error creating integration:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

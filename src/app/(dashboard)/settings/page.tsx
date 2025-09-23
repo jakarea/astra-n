@@ -184,9 +184,11 @@ export default function SettingsPage() {
               <RefreshCw className="h-4 w-4 mr-2" />
               Sincronizza Tutto
             </Button>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Nuova Integrazione
+            <Button asChild>
+              <Link href="/settings/integrations">
+                <Plus className="h-4 w-4 mr-2" />
+                Gestisci Integrazioni
+              </Link>
             </Button>
           </div>
         </div>
