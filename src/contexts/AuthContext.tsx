@@ -81,6 +81,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     const { error } = await supabase.auth.signOut()
+
+    // Also clear localStorage (used by RoleContext)
+    localStorage.removeItem('astra_user')
+
+    // Clear state immediately
+    setSession(null)
+    setUser(null)
+
     if (error) {
       console.error('Error signing out:', error)
       throw error

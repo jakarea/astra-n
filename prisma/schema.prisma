@@ -45,11 +45,14 @@ model Integration {
   id               Int      @id @default(autoincrement())
   userId           String   @map("user_id") @db.Uuid
   name             String
-  type             String   // 'shopify', 'woocommerce'
+  type             String   // 'shopify', 'woocommerce', 'wordpress'
   domain           String   @unique
-  webhookSecret    String   @map("webhook_secret")
-  adminAccessToken String   @map("admin_access_token")
+  baseUrl          String?  @map("base_url")
+  webhookSecret    String?  @map("webhook_secret")
+  adminAccessToken String?  @map("admin_access_token")
   isActive         Boolean  @default(true) @map("is_active")
+  status           String   @default("active") // 'active', 'inactive', 'error'
+  lastSyncAt       DateTime? @map("last_sync_at")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
@@ -59,6 +62,8 @@ model Integration {
 
   @@index([userId])
   @@index([domain])
+  @@index([type])
+  @@index([status])
   @@map("integrations")
 }
 

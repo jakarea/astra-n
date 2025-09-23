@@ -12,6 +12,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  console.log({params})
   try {
     const { id } = await params
     const leadId = parseInt(id)

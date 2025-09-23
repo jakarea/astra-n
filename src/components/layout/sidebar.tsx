@@ -21,7 +21,7 @@ import {
 } from "lucide-react"
 
 const navigation = [
-  { name: "Dashboard", href: "/", icon: BarChart3, adminOnly: false },
+  { name: "Dashboard", href: "/dashboard", icon: BarChart3, adminOnly: false },
   { name: "CRM", href: "/crm", icon: UserCheck, adminOnly: false },
   { name: "Ordini", href: "/orders", icon: ShoppingCart, adminOnly: false },
   { name: "Clienti", href: "/clients", icon: Users, adminOnly: false },
@@ -38,10 +38,29 @@ export function Sidebar() {
 
   const handleLogout = async () => {
     try {
+      // Call the logout API endpoint
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        console.error('Logout API error:', error)
+      }
+
+      // Also clear local auth context and role context
       await signOut()
-      router.push('/login')
+
+      // Force redirect to login page and reload to clear all client state
+      window.location.href = '/login'
+
     } catch (error) {
       console.error('Error signing out:', error)
+      // Even if there's an error, try to clear local state and redirect
+      window.location.href = '/login'
     }
   }
 

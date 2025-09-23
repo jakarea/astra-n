@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
 
     // Calculate offset for pagination
     const offset = (page - 1) * limit
-
+console.log({searchParams})
     // Database query - no fallback needed since database is working
     let query = supabase
       .from('crm_leads')
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
       query = query.eq('source', source)
     }
 
-
+console.log({query})
     const { data: leads, error } = await query
 
     if (error) {
