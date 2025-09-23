@@ -1,0 +1,63 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
+export async function POST(request: NextRequest) {
+  try {
+    const { email, password } = await request.json()
+
+    console.log('Login API called for:', email)
+
+    // Validate input
+    if (!email || !password) {
+      return NextResponse.json(
+        { error: 'Email and password are required' },
+        { status: 400 }
+      )
+    }
+
+    // Sign in with Supabase Auth
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    })
+
+    if (signInError) {
+      console.error('Login error:', signInError)
+
+      // Map Supabase errors to user-friendly messages
+      let errorMessage = signInError.message
+      if (signInError.message.includes('Invalid login credentials')) {
+        errorMessage = 'Invalid login credentials'
+      } else if (signInError.message.includes('Email not confirmed')) {
+        errorMessage = 'Email not confirmed'
+      } else if (signInError.message.includes('Too many requests')) {
+        errorMessage = 'Too many requests'
+      }
+
+      return NextResponse.json(
+        { error: errorMessage },
+        { status: 400 }
+      )
+    }
+
+    console.log('Login successful for:', email)
+
+    return NextResponse.json({
+      success: true,
+      user: data.user,
+      session: data.session
+    })
+
+  } catch (error) {
+    console.error('Login API error:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}

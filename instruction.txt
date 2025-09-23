@@ -1,0 +1,501 @@
+Project Astra: Comprehensive Overview
+Project Vision: Astra is a centralized dashboard designed for e-commerce sellers to manage operations across multiple online stores. It simplifies lead and order management, tracks customer interactions, and provides key performance insights, all in one place.
+
+1. User & Access Management
+Purpose: To control who can access the platform and what they can see, ensuring data is secure and private.
+Key Features:
+Authentication: Secure login will be handled by Supabase's built-in Authentication.
+User Profiles: A separate users table will store application-specific data for each account, such as their assigned role.
+No Public Registration: New accounts are created internally by an Administrator.
+Two User Roles:
+Admin: Has a complete overview of the entire business. They can see and manage data across all stores and all users.
+User (Seller): Has a restricted view. They can only see and manage data related to their own connected stores (their leads, orders, customers, and analytics).
+
+2. CRM Module
+Purpose: To serve as the main operational hub for tracking every potential sale from the moment it arrives until it is resolved.
+Lead List View: This is the main dashboard showing all leads.
+| Column | Description |
+| :--- | :--- |
+| Arrived | The date and time the lead was created. |
+| Customer Name | The name of the potential customer. |
+| Order ID | The webshop order ID, if the lead came from a sale. |
+| Item | The primary product associated with the lead. |
+| SKU | The SKU of the primary product. |
+| Source | Where the lead came from (e.g., 'Shopify', 'Manual Entry'). |
+| Assigned User| The seller responsible for the lead (visible to Admins only). |
+| COD Status | The current Cash on Delivery status. |
+Functionality:
+Filtering & Searching: Users can search by customer name/email/phone, and filter by COD Status. Admins can also search by SKU and Assigned User.
+Lead Detail Page: Clicking on a lead will open a detailed view where users can see all information, view a timeline of events, and add notes.
+Editable Leads: On the detail page, users can edit the customer's name, address, or phone number to correct mistakes. These changes are saved only in Astra.
+
+3. Orders Module
+Purpose: To provide a clear, filterable list of all sales transactions from all connected stores.
+Order List View:
+| Column | Description |
+| :--- | :--- |
+| Date | The date the order was placed. |
+| Order ID | The unique ID from the webshop. |
+| Customer Name | The name of the buyer. |
+| Store | The store where the sale occurred. |
+| Assigned User | The seller credited with the sale (visible to Admins only). |
+| Status | The current order status (e.g., pending, shipped, cancelled). |
+| Total | The total monetary value of the order. |
+Functionality:
+Filtering & Searching: Users can filter the list by Store. A date range filter (calendar) will allow searching within a specific period. Admins can also search by Assigned User.
+Editable Orders: Users can edit the customer's name, address, and phone number on an order.
+
+4. Customers (Clienti) Module
+Purpose: To build a persistent database of all customers for remarketing and viewing purchase history.
+Customer List View:
+| Column | Description |
+| :--- | :--- |
+| Created | The date the customer was first added. |
+| Name | The customer's full name. |
+| E-mail | The customer's email address. |
+| Telephone | The customer's phone number. |
+| # Orders | The total number of orders placed by this customer. |
+Functionality:
+Automatic Profile Creation: When a new order arrives, the system automatically checks if the customer exists. If not, a new profile is created. If they do exist, their # Orders count is updated.
+Customer Detail Page: Clicking on a customer's name opens their profile, which shows a complete history of their orders. This history will include the Order ID, Status, Total, and the Assigned Seller for each purchase.
+
+5. Inventory Module
+Purpose: To maintain a master list of products that can be sold by users.
+Functionality:
+Manual Management: This is a standalone inventory system within Astra. Products are added and updated manually.
+SKU Matching: The SKU entered for a product in Astra must exactly match the SKU in the webshop. This is the critical link for tracking sales against the inventory.
+Multi-User Inventory: The inventory will contain both products provided by the platform and products that Users/Sellers manage themselves.
+
+6. KPI Panel (Dashboard)
+Purpose: To provide a quick, visual summary of lead and sales performance.
+Metrics to Display:
+Total Leads Entered
+Leads Waiting to be Processed
+Paid Leads
+Shipped Leads
+Rejected Leads
+Functionality:
+Date Range Filter: A calendar tool will allow users to select a specific date range to view performance for that period.
+Role-Based Views:
+Admins see combined KPIs from all users.
+Users (Sellers) see a dashboard with stats from their own leads only.
+
+7. Settings Module
+Purpose: To allow users to manage their connections and preferences.
+Key Features:
+Integrations: A section where users can add and manage their connections to e-commerce stores like Shopify and WooCommerce.
+Telegram Notifications: A dedicated panel where each user can connect their personal Telegram account to receive real-time notifications about their new leads. The notification will include lead details, the store it came from, the item purchased, and the order total.
+
+
+This structure is optimized for performance and security, keeping in mind that it will be implemented in a Next.js application using Supabase as the database and Prisma as the ORM.
+
+Core Architectural Principles
+Normalization: Data is stored in one place to prevent duplication and ensure consistency. For example, a customer's name is stored only in the customers table and referenced elsewhere.
+Relational Integrity: Relationships between tables (e.g., an Order must belong to a Customer) are strictly enforced using foreign keys.
+Performance: Strategic indexes are placed on columns that are frequently used in searches, filters, and joins to ensure fast query responses.
+Security: The schema is designed for Supabase's Row-Level Security (RLS). Every relevant table includes a user_id to easily restrict data access, ensuring sellers can only see their own information.
+
+1. Core Tables: Users & Integrations
+These tables manage who can use the platform and which stores they have connected.
+users
+Purpose: Stores application-specific data for your platform's accounts (Admins/Sellers), securely linked to Supabase's built-in authentication.
+Column Name
+Data Type
+Key, Relation & Indexing Notes
+id
+UUID
+Primary Key. This ID must match the id from Supabase's auth.users table. This creates a one-to-one link.
+name
+Text
+The user's full name.
+role
+Text
+The user's role (e.g., 'admin', 'seller').
+created_at
+Timestamp with Timezone
+
+
+updated_at
+Timestamp with Timezone
+
+
+
+
+user_settings
+Purpose: Holds individual preferences for each user, starting with Telegram notifications.
+Column Name
+Data Type
+Key, Relation & Indexing Notes
+user_id
+UUID
+Primary Key and Foreign Key to users.id. Creates a one-to-one relationship.
+telegram_chat_id
+Text
+The unique ID for sending a user notifications on Telegram.
+updated_at
+Timestamp with Timezone
+
+
+
+
+integrations
+Purpose: Stores the connection details for each e-commerce store a user adds.
+Column Name
+Data Type
+Key, Relation & Indexing Notes
+id
+Auto-incrementing Integer
+Primary Key.
+user_id
+UUID
+Foreign Key to users.id. Creates a one-to-many link: one User can have many Integrations. Indexed for quickly finding a user's stores.
+name
+Text
+A nickname for the store connection.
+type
+Text
+The platform type (e.g., 'shopify', 'woocommerce').
+domain
+Text
+The store's domain. Unique and Indexed for very fast lookups when a webhook is received.
+webhook_secret
+Text
+Security key for verifying incoming webhooks.
+admin_access_token
+Text
+Security key for API access.
+is_active
+Boolean
+Toggles the connection on or off.
+created_at
+Timestamp with Timezone
+
+
+updated_at
+Timestamp with Timezone
+
+
+
+
+2. E-commerce Tables: Products, Customers & Orders
+These tables handle the core business data synced from the connected stores.
+products (Inventory)
+Purpose: The master list of products managed within Astra.
+Column Name
+Data Type
+Key, Relation & Indexing Notes
+id
+Auto-incrementing Integer
+Primary Key.
+user_id
+UUID
+Foreign Key to users.id. Defines ownership.
+sku
+Text
+Stock Keeping Unit. Unique (per user) and Indexed for the critical task of matching products from incoming orders.
+name
+Text
+The name of the product.
+stock
+Integer
+The current available quantity.
+price
+Decimal
+The sale price. Use Decimal for financial accuracy.
+created_at
+Timestamp with Timezone
+
+
+updated_at
+Timestamp with Timezone
+
+
+
+
+customers
+Purpose: The central, unique list of all end-buyers, used for history and remarketing.
+Column Name
+Data Type
+Key, Relation & Indexing Notes
+id
+Auto-incrementing Integer
+Primary Key.
+name
+Text
+The customer's full name.
+email
+Text
+The customer's email. Unique and Indexed to prevent duplicate customer profiles and for fast lookups.
+phone
+Text
+The customer's phone number.
+address
+JSON
+Stores a structured address (street, city, zip, country).
+created_at
+Timestamp with Timezone
+
+
+updated_at
+Timestamp with Timezone
+
+
+
+
+orders
+Purpose: A record of every sales transaction from the connected stores.
+Column Name
+Data Type
+Key, Relation & Indexing Notes
+id
+Auto-incrementing Integer
+Primary Key.
+integration_id
+Integer
+Foreign Key to integrations.id. Links the order to the store it came from. Indexed.
+customer_id
+Integer
+Foreign Key to customers.id. Links the order to the buyer. Indexed.
+external_order_id
+Text
+The original Order ID from Shopify/WooCommerce. Unique (per integration) to prevent importing the same order twice.
+status
+Text
+Order status (e.g., 'pending', 'shipped'). Indexed for fast filtering.
+total_amount
+Decimal
+The total value of the order.
+order_created_at
+Timestamp with Timezone
+The original timestamp of the sale from the webshop.
+created_at
+Timestamp with Timezone
+
+
+updated_at
+Timestamp with Timezone
+
+
+
+
+order_items
+Purpose: Lists the specific products included in each order.
+Column Name
+Data Type
+Key, Relation & Indexing Notes
+id
+Auto-incrementing Integer
+Primary Key.
+order_id
+Integer
+Foreign Key to orders.id. Links this item to its order. Indexed.
+product_sku
+Text
+The product's SKU, stored directly to preserve historical accuracy. Indexed.
+product_name
+Text
+The product's name, stored for historical accuracy.
+quantity
+Integer
+The number of units purchased.
+price_per_unit
+Decimal
+The price of the item at the time of sale.
+
+
+3. CRM Tables: Leads & Activities
+These tables power the operational dashboard for managing leads.
+crm_leads
+Purpose: The central table for all operational activities. It can represent a lead from an order or an independent lead.
+Column Name
+Data Type
+Key, Relation & Indexing Notes
+id
+Auto-incrementing Integer
+Primary Key.
+order_id
+Integer
+Foreign Key to orders.id. Optional (nullable) and Unique. This is the critical link if the lead came from a sale.
+user_id
+UUID
+Foreign Key to users.id. The seller assigned to the lead. Indexed.
+name
+Text
+The lead's name (for leads without an order).
+email
+Text
+The lead's email. Indexed.
+phone
+Text
+The lead's phone number.
+source
+Text
+Where the lead came from (e.g., 'Shopify', 'Manual Entry').
+logistic_status
+Text
+Shipping status. Indexed for fast filtering.
+cod_status
+Text
+Cash on Delivery status. Indexed for fast filtering.
+kpi_status
+Text
+Status for the KPI dashboard. Indexed for fast analytics.
+created_at
+Timestamp with Timezone
+
+
+updated_at
+Timestamp with Timezone
+
+
+
+
+crm_lead_events
+Purpose: The timeline of every action taken on a lead.
+Column Name
+Data Type
+Key, Relation & Indexing Notes
+id
+Auto-incrementing Integer
+Primary Key.
+lead_id
+Integer
+Foreign Key to crm_leads.id. Indexed for very fast loading of a lead's timeline.
+user_id
+UUID
+Foreign Key to users.id. The user who performed the action.
+type
+Text
+The type of action (e.g., 'note_added', 'status_changed').
+details
+JSON
+Stores rich data about the event (e.g., the content of a note).
+created_at
+Timestamp with Timezone
+
+
+
+
+crm_tags and crm_lead_tags
+Purpose: A flexible tagging system for categorizing leads.
+crm_tags
+| Column Name | Data Type | Key, Relation & Indexing Notes |
+| :--- | :--- | :--- |
+| id | Auto-incrementing Integer| Primary Key. |
+| name | Text | The tag name (e.g., 'VIP'). Unique and Indexed. |
+| color| Text | An optional color for the tag. |
+crm_lead_tags (A "junction" table)
+| Column Name | Data Type | Key, Relation & Indexing Notes |
+| :--- | :--- | :--- |
+| lead_id | Integer | Foreign Key to crm_leads.id. Part of a Composite Primary Key. |
+| tag_id | Integer | Foreign Key to crm_tags.id. Part of a Composite Primary Key. |
+
+
+Instructions for AI: Building Project Astra
+Objective: Build a multi-store e-commerce dashboard named "Astra" from scratch. You will follow the technical stack, database schema, and feature requirements provided. The final product should be a secure, high-performance, and deployable web application.
+
+1. Technical Details (The Stack)
+You must use the following technologies. The database schema provided in our previous discussion is the single source of truth.
+Framework: Next.js (latest version, App Router)
+Language: TypeScript (Strict mode enabled)
+Database: Supabase (PostgreSQL)
+Authentication: Supabase Auth
+ORM: Prisma
+UI Styling: Tailwind CSS
+UI Components: Use a headless component library like Shadcn/UI or Radix UI for a high-quality, accessible foundation.
+State Management: Zustand (for client-side state)
+Validation: Zod (for API inputs and form validation)
+Deployment: Vercel
+
+2. High-Level Task Breakdown (The Phases)
+The project will be built in logical phases to ensure a stable foundation.
+Phase 0: Foundation & Setup: Initialize the project, connect to the database, set up authentication, and establish the basic layout.
+Phase 1: Core Backend & Data Flow: Implement the API routes and business logic for all core modules (Users, Integrations, Orders, Webhooks, CRM).
+Phase 2: Core UI Implementation: Build the user interface for all the backend functionality created in Phase 1.
+Phase 3: Advanced Features: Develop the KPI Dashboard and Telegram notification system.
+Phase 4: Finalization & Deployment: Conduct final testing, polish the UI, and deploy the application.
+
+3. Detailed To-Do List (The Checklist)
+Complete these tasks sequentially.
+[ ] Phase 0: Foundation & Setup
+[ ] Initialize a new Next.js project with TypeScript and Tailwind CSS.
+[ ] Install all required dependencies (prisma, zustand, zod, etc.).
+[ ] Initialize Prisma and connect it to the Supabase database.
+[ ] Create the complete schema.prisma file based on the final database structure we defined.
+[ ] Push the schema to the Supabase database.
+[ ] Implement the main application layout (sidebar, main content area).
+[ ] Set up Supabase Auth and create a protected route middleware.
+[ ] Create the Login page UI.
+[ ] Phase 1: Core Backend
+[ ] Implement the logic to sync a new auth.users entry to the public users table.
+[ ] Create API routes for CRUD (Create, Read, Update, Delete) operations on Integrations.
+[ ] Create the main Webhook API route to ingest order data from stores. Include HMAC verification for security.
+[ ] Implement the data flow logic inside the webhook: Find/create Customer, create Order & OrderItems, create the corresponding CrmLead.
+[ ] Create API routes to list and filter Orders.
+[ ] Create API routes to list and filter Customers.
+[ ] Create API routes to list, filter, and update CRM Leads.
+[ ] Create API routes for CRUD operations on Inventory.
+[ ] Phase 2: Core UI
+[ ] Build the Settings -> Integrations page to list and add new stores.
+[ ] Build the Orders page with a data table, filters (including date range), and search.
+[ ] Build the Customers page with a data table and implement the "click to view detail page" functionality.
+[ ] Build the Customer Detail page showing their order history.
+[ ] Build the CRM page with its unique data table, filters, and search functions.
+[ ] Build the CRM Lead Detail page for viewing timelines and editing lead information.
+[ ] Build the Inventory page with a data table and forms to add/edit products.
+[ ] Phase 3: Advanced Features
+[ ] Create the API route for the KPI Dashboard. It must aggregate data and respect user roles (Admin vs. Seller).
+[ ] Build the UI for the KPI Dashboard, including the date range filter.
+[ ] Build the UI in the Settings area for users to enter their Telegram Chat ID.
+[ ] Implement the backend logic to send a Telegram notification when a new lead is created.
+[ ] Phase 4: Finalization
+[ ] Ensure all forms are validated using Zod.
+[ ] Ensure the UI is fully responsive and works well on mobile devices.
+[ ] Set up the project on Vercel for deployment.
+
+4. Module-by-Module Development Order
+To ensure dependencies are handled correctly, build the application in this specific order:
+Authentication & User System: The login page and user roles are the entry point to the app.
+Settings & Integrations: Users must be able to connect a store before any data can be synced.
+Webhook & Data Ingestion: The core pipeline for getting data into the system.
+Orders & Customers UI: The first pages that display the automatically synced data.
+CRM Module: The primary operational layer that builds on top of the order data.
+Inventory Module: Can be built once the user system is in place.
+KPI Dashboard: Built last, as it requires all other data to be present for aggregation.
+Telegram Notifications: A final feature that hooks into the lead creation process.
+
+5. UI/UX Guidelines
+The goal is a nice, modern, and trendy UI.
+Inspiration: Look at modern dashboards like Vercel, Stripe, prisma, supabase, and Linear. It must be light and dark mode, default light 
+Principles:
+Clean & Minimalist: Use plenty of white space. Avoid clutter.
+Typography: Use a clean, sans-serif font (like Inter) with clear visual hierarchy.
+Color Palette: Use a primary brand color for interactive elements (buttons, links) and a palette of neutral grays for text, backgrounds, and borders.
+Responsiveness: The application must be usable on all screen sizes, from mobile phones to desktops.
+Feedback: Provide clear loading states (spinners, skeletons) and success/error notifications to the user.
+Astra Design System (Based on Supabase Theme):
+1. Font Family:
+Primary Font: Since 'Circular' is commercial, use 'Inter' as the primary font.
+Font Stack (for tailwind.config.js): ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'sans-serif']
+2. Typography:
+H1 / Hero Text: Color #FFFFFF (dark) / #11181C (light), Size 3rem (48px), Weight 700.
+H2-H3 / Subheading: Color #cbd5e1 (dark) / #687076 (light), Size 1.5rem (24px), Weight 600.
+Body Text: Color #cbd5e1 (dark) / #44494d (light), Size 1rem (16px), Line Height 1.6.
+3. Color Palette:
+Primary/Brand: #3ECF8E (bright green)
+Primary Hover: #4CDF9D (brighter green)
+Background (Dark Mode): #11181C
+Background (Light Mode): #F8F9FA
+Card/Surface (Dark Mode): #192229
+Card/Surface (Light Mode): #FFFFFF
+Text (Dark Mode): Main #cbd5e1, Headings #FFFFFF
+Text (Light Mode): Main #44494d, Headings #11181C
+Border (Dark Mode): #3C4C58
+Border (Light Mode): #EAEDF0
+4. Buttons:
+Primary Button: Background #3ECF8E, Text #FFFFFF. Hover state uses background #4CDF9D.
+Secondary (Outline) Button: Background transparent, Text #3ECF8E, Border #3ECF8E. Hover state has a faint green background fill.
+5. Gradients:
+Use subtle, dark radial gradients for hero sections or main page backgrounds to add depth. For example, a gradient from #11181C to a slightly different dark tone like #13141a.
+
+
