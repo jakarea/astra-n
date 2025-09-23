@@ -149,6 +149,8 @@ export default function CRMPage() {
   // Handle successful lead creation
   const handleLeadSuccess = (newLead: CrmLead) => {
     setAllLeads(prev => [newLead, ...prev])
+    // Clear search term to ensure new lead is visible
+    setSearchTerm('')
   }
 
   // Handle view lead

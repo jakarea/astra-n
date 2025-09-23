@@ -102,8 +102,21 @@ console.log({query})
 // POST - Create new CRM lead
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
+    // First, get the current user from session
+    const cookieStore = await (await import('next/headers')).cookies()
+    const { createRouteHandlerClient } = await import('@supabase/auth-helpers-nextjs')
+    const authSupabase = createRouteHandlerClient({ cookies: () => cookieStore })
 
+    const { data: { session } } = await authSupabase.auth.getSession()
+
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } },
+        { status: 401 }
+      )
+    }
+
+    const body = await request.json()
 
     // Validate and sanitize input
     const validation = validateAndSanitize(
@@ -121,10 +134,47 @@ export async function POST(request: NextRequest) {
 
     const validatedData = validation.data
 
+    // Ensure user exists in our users table (auto-create if needed)
+    const { data: existingUser, error: getUserError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', session.user.id)
+      .single()
+
+    if (getUserError && getUserError.code === 'PGRST116') {
+      // User doesn't exist, create them
+      const { data: newUser, error: createUserError } = await supabase
+        .from('users')
+        .insert([{
+          id: session.user.id,
+          name: session.user.email?.split('@')[0] || 'User',
+          role: 'admin'
+        }])
+        .select()
+        .single()
+
+      if (createUserError) {
+        console.error('Failed to create user:', createUserError)
+        return NextResponse.json({
+          success: false,
+          error: { code: 'USER_CREATION_ERROR', message: 'Failed to create user record' }
+        }, { status: 500 })
+      }
+
+      console.log('Auto-created user:', newUser)
+    } else if (getUserError) {
+      console.error('Database error getting user:', getUserError)
+      return NextResponse.json({
+        success: false,
+        error: { code: 'DATABASE_ERROR', message: 'Failed to verify user' }
+      }, { status: 500 })
+    }
+
     // Create lead in database
     const { data: lead, error: leadError } = await supabase
       .from('crm_leads')
       .insert([{
+        user_id: session.user.id,
         name: validatedData.name,
         email: validatedData.email || null,
         phone: validatedData.phone || null,
@@ -193,6 +243,7 @@ export async function POST(request: NextRequest) {
       .from('crm_lead_events')
       .insert([{
         lead_id: lead.id,
+        user_id: session.user.id,
         type: 'created',
         details: {
           source: validatedData.source,
