@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -68,12 +69,16 @@ export function MobileNav() {
       {/* Mobile header */}
       <div className="fixed top-0 left-0 right-0 z-50 bg-[#121212f2] border-b border-gray-700">
         <div className="flex items-center justify-between h-16 px-4">
-          <div className="flex items-center">
-            <div className="h-8 w-8 rounded-md flex items-center justify-center bg-blue-600">
-              <span className="text-white font-bold text-lg">A</span>
-            </div>
-            <span className="ml-2 text-xl font-bold text-white">Astra</span>
-          </div>
+          <Link href="/dashboard" className="flex items-center hover:opacity-80 transition-opacity">
+            <Image
+              src="/astra-logo.svg"
+              alt="Astra"
+              width={120}
+              height={32}
+              className="h-12 w-auto"
+              priority
+            />
+          </Link>
 
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
@@ -85,10 +90,16 @@ export function MobileNav() {
               <div className="flex flex-col h-full pt-4">
                 {/* Logo */}
                 <div className="flex items-center px-2 mb-6">
-                  <div className="h-8 w-8 rounded-md flex items-center justify-center bg-blue-600">
-                    <span className="text-white font-bold text-lg">A</span>
-                  </div>
-                  <span className="ml-2 text-xl font-bold text-white">Astra</span>
+                  <Link href="/dashboard" className="flex items-center hover:opacity-80 transition-opacity">
+                    <Image
+                      src="/astra-logo.svg"
+                      alt="Astra"
+                      width={120}
+                      height={32}
+                      className="h-12 w-auto"
+                      priority
+                    />
+                  </Link>
                 </div>
 
                 {/* User Info */}

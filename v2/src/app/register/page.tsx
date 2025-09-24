@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import Link from 'next/link'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -162,8 +163,18 @@ export default function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center bg-background px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-foreground">Astra</h1>
-          <p className="mt-2 text-sm text-muted-foreground">E-commerce Dashboard</p>
+          <div className="flex justify-center mb-4">
+            <Image
+              src="/astra-logo.svg"
+              alt="Astra"
+              width={250}
+              height={70}
+              className="h-12 w-auto"
+              priority
+            />
+          </div>
+          <h1 className="text-3xl font-bold text-foreground">Join Astra</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Create your Astra CRM account</p>
         </div>
 
         <Card>

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from 'react'
+import Image from 'next/image';
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -114,7 +115,13 @@ export default function LoginPage() {
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <h1 className="text-3xl font-bold text-foreground">Astra</h1>
-          <p className="mt-2 text-sm text-muted-foreground">E-commerce Dashboard</p>
+          <Image
+                      src="/public/astra-logo.png" // Path relative to the public folder
+                      alt="Description of my image"
+                      width={500} // Specify width
+                      height={300} // Specify height
+                    />
+          <p className="mt-2 text-sm text-muted-foreground">Dashboard</p>
         </div>
 
         <Card>

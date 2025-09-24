@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { getAuthenticatedClient } from '@/lib/auth'
+import { getAuthenticatedClient, getSession } from '@/lib/auth'
 import {
   Dialog,
   DialogContent,
@@ -109,12 +109,18 @@ export function EditLeadModal({ isOpen, onClose, onSuccess, leadId }: EditLeadMo
 
     try {
       setLoading(true)
+      const session = getSession()
+      if (!session) {
+        throw new Error('User not authenticated')
+      }
+
       const supabase = getAuthenticatedClient()
 
       const { data, error } = await supabase
         .from('crm_leads')
         .select('*')
         .eq('id', leadId)
+        .eq('user_id', session.user.id)
         .single()
 
       if (error) {
@@ -147,6 +153,11 @@ export function EditLeadModal({ isOpen, onClose, onSuccess, leadId }: EditLeadMo
     setSaving(true)
 
     try {
+      const session = getSession()
+      if (!session) {
+        throw new Error('User not authenticated')
+      }
+
       const supabase = getAuthenticatedClient()
 
       const updateData = {
@@ -166,6 +177,7 @@ export function EditLeadModal({ isOpen, onClose, onSuccess, leadId }: EditLeadMo
         .from('crm_leads')
         .update(updateData)
         .eq('id', leadId)
+        .eq('user_id', session.user.id)
         .select()
         .single()
 

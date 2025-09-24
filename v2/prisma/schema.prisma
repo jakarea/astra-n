@@ -16,7 +16,8 @@ datasource db {
 model User {
   id            String   @id @db.Uuid
   name          String
-  role          String   // 'admin' or 'seller'
+  email         String?  @unique
+  role          String   @default("seller") // 'admin' or 'seller'
   webhookSecret String?  @unique @map("webhook_secret")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")

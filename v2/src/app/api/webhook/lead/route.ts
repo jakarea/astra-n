@@ -1,5 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthenticatedClient } from '@/lib/auth'
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+})
 
 export async function POST(request: NextRequest) {
   try {
@@ -41,11 +51,8 @@ export async function POST(request: NextRequest) {
 
     const leadData = body
 
-    // Get Supabase client
-    const supabase = getAuthenticatedClient()
-
     // Find user by webhook secret
-    const { data: user, error: userError } = await supabase
+    const { data: user, error: userError } = await supabaseAdmin
       .from('users')
       .select('id')
       .eq('webhook_secret', webhookSecret)
@@ -166,7 +173,7 @@ export async function POST(request: NextRequest) {
     console.log('[WEBHOOK] Creating lead with data:', leadInsertData)
 
     // Insert lead into database
-    const { data: createdLead, error: insertError } = await supabase
+    const { data: createdLead, error: insertError } = await supabaseAdmin
       .from('crm_leads')
       .insert([leadInsertData])
       .select()

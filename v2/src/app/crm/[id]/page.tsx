@@ -1,15 +1,15 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
-import { prisma } from '@/lib/prisma'
+import { getAuthenticatedClient, getSession } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 import { CopyButton } from '@/components/crm/copy-button'
 import { ArrowLeft, Edit, Mail, Phone, Calendar, User, Package, Tag, Activity } from 'lucide-react'
-
-interface CRMViewPageProps {
-  params: { id: string }
-}
 
 // Status badge helper
 function getStatusBadge(status: string | null, type: 'cod' | 'logistic' | 'kpi') {
@@ -40,42 +40,136 @@ function getStatusBadge(status: string | null, type: 'cod' | 'logistic' | 'kpi')
   return config ? <Badge variant={config.variant}>{config.label}</Badge> : <Badge variant="outline" className="capitalize">{status}</Badge>
 }
 
-export default async function CRMViewPage({ params }: CRMViewPageProps) {
-  const leadId = parseInt(params.id)
+export default function CRMViewPage() {
+  const params = useParams()
+  const router = useRouter()
+  const leadId = params.id as string
 
-  if (isNaN(leadId)) {
-    notFound()
+  const [lead, setLead] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    loadLead()
+  }, [leadId])
+
+  const loadLead = async () => {
+    try {
+      setLoading(true)
+      const session = getSession()
+      if (!session) {
+        router.push('/login')
+        return
+      }
+
+      const supabase = getAuthenticatedClient()
+
+      const { data, error } = await supabase
+        .from('crm_leads')
+        .select(`
+          *,
+          order:orders(
+            id,
+            external_order_id,
+            total_amount,
+            customer:customers(name, email)
+          ),
+          user:users(name)
+        `)
+        .eq('id', leadId)
+        .eq('user_id', session.user.id)
+        .single()
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          setError('Lead not found or access denied')
+        } else {
+          setError(error.message)
+        }
+        return
+      }
+
+      setLead(data)
+    } catch (err) {
+      console.error('Error loading lead:', err)
+      setError('Failed to load lead')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  // Direct Prisma query with all relations
-  const lead = await prisma.crmLead.findUnique({
-    where: { id: leadId },
-    include: {
-      order: {
-        include: {
-          customer: true,
-          items: true
-        }
-      },
-      user: true,
-      events: {
-        include: {
-          user: true
-        },
-        orderBy: {
-          createdAt: 'desc'
-        }
-      },
-      tags: {
-        include: {
-          tag: true
-        }
-      }
-    }
-  })
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-10 w-10" />
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-32" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-32" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex justify-between">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-32" />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-32" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="flex justify-between">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-6 w-20 rounded-full" />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/crm">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to CRM
+            </Link>
+          </Button>
+        </div>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center py-12">
+              <div className="text-destructive mb-4">
+                <h3 className="text-lg font-medium">Error</h3>
+                <p className="text-sm text-muted-foreground mt-2">{error}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   if (!lead) {
-    notFound()
+    return null
   }
 
   return (

@@ -1,15 +1,59 @@
+"use client"
+
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Users, ShoppingCart, UserCheck, Package, TrendingUp, DollarSign } from "lucide-react"
+import { Users, ShoppingCart, UserCheck, Package } from "lucide-react"
+import { useAuth } from "@/contexts/AuthContext"
+import { getSupabaseClient } from "@/lib/supabase"
 
 export default function DashboardPage() {
+  const { user } = useAuth()
+  const [userName, setUserName] = useState<string>('')
+  const [userRole, setUserRole] = useState<string>('User')
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (user?.id) {
+        try {
+          const supabase = getSupabaseClient()
+          const { data, error } = await supabase
+            .from('users')
+            .select('name, role')
+            .eq('id', user.id)
+            .single()
+
+          if (!error && data) {
+            setUserName(data.name || '')
+            // Capitalize first letter of role
+            const capitalizedRole = data.role ?
+              data.role.charAt(0).toUpperCase() + data.role.slice(1).toLowerCase() : 'User'
+            setUserRole(capitalizedRole)
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error)
+        }
+      }
+    }
+
+    fetchUserData()
+  }, [user?.id])
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Welcome to your admin dashboard overview
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Welcome to your admin dashboard overview
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-lg font-medium text-foreground">
+            {userName || user?.email?.split('@')[0] || 'User'}
+          </p>
+          <p className="text-sm text-muted-foreground">{userRole}</p>
+        </div>
       </div>
 
       {/* Stats Cards */}

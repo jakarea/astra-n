@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+  import Image from 'next/image';
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useRole, type User } from "@/contexts/RoleContext"
@@ -81,9 +82,16 @@ export default function LoginPage() {
           </div>
           <h1 className="text-4xl font-bold" style={{color: '#11181C'}}>
             <span style={{color: '#3ECF8E'}}>Astra</span>
+            <Image
+            src="/public/astra-logo.png" // Path relative to the public folder
+            alt="Description of my image"
+            width={500} // Specify width
+            height={300} // Specify height
+          />
+            <img src="" alt="" />
           </h1>
           <p className="mt-2" style={{color: '#687076'}}>
-            E-commerce Dashboard
+            E-commerce Dashboard E-commerce Dashboard
           </p>
         </div>
 

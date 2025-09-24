@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -86,32 +87,18 @@ export function Sidebar() {
       <div className="flex flex-col flex-grow pt-5 overflow-y-auto">
         {/* Logo */}
         <div className="flex items-center flex-shrink-0 px-6">
-          <div className="flex items-center">
-            <div className="h-8 w-8 rounded-md flex items-center justify-center bg-blue-600">
-              <span className="text-white font-bold text-lg">A</span>
-            </div>
-            <span className="ml-2 text-xl font-bold text-white">Astra</span>
-          </div>
+          <Link href="/dashboard" className="flex items-center hover:opacity-80 transition-opacity">
+            <Image
+              src="/astra-logo.svg"
+              alt="Astra"
+              width={250}
+              height={70}
+              className="h-12 w-auto"
+              priority
+            />
+          </Link>
         </div>
 
-        {/* User Info */}
-        <div className="px-6 mt-4">
-          <div className="flex items-center space-x-3 p-3 rounded-lg bg-gray-100">
-            <div className="h-10 w-10 rounded-full flex items-center justify-center bg-green-500">
-              <Shield className="h-5 w-5 text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate text-gray-900">
-                {user?.email?.split('@')[0] || user?.user_metadata?.name || 'User'}
-              </p>
-              <div className="flex items-center mt-1">
-                <Badge className="text-xs bg-green-500 text-white">
-                  Admin
-                </Badge>
-              </div>
-            </div>
-          </div>
-        </div>
 
         {/* Navigation */}
         <div className="mt-8 flex-grow flex flex-col">

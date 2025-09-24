@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { getAuthenticatedClient } from '@/lib/auth'
+import { getAuthenticatedClient, getSession } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -118,10 +118,16 @@ export default function CRMPage() {
       setLoading(true)
       console.log('[CRM] Starting to load leads...', { page, search })
 
+      const session = getSession()
+      if (!session) {
+        console.error('[CRM] No session found')
+        return
+      }
+
       const supabase = getAuthenticatedClient()
       console.log('[CRM] Authenticated client retrieved')
 
-      // Build search query
+      // Build search query - filter by current user's leads only
       let query = supabase
         .from('crm_leads')
         .select(`
@@ -137,6 +143,7 @@ export default function CRMPage() {
             tag:crm_tags(id, name, color)
           )
         `, { count: 'exact' })
+        .eq('user_id', session.user.id)
 
       // Add search filters if search query exists and has 3+ characters
       if (search && search.length >= 3) {
@@ -176,15 +183,22 @@ export default function CRMPage() {
 
   const loadStats = async () => {
     try {
+      const session = getSession()
+      if (!session) {
+        console.error('[CRM] No session found for stats')
+        return
+      }
+
       const supabase = getAuthenticatedClient()
 
-      // Always load stats without search filters - show total system stats
+      // Load stats for current user's leads only
       const { data: statsData, error: statsError } = await supabase
         .from('crm_leads')
         .select(`
           cod_status,
           order:orders(total_amount)
         `)
+        .eq('user_id', session.user.id)
 
       if (!statsError && statsData) {
         const stats = {
@@ -281,12 +295,19 @@ export default function CRMPage() {
     // This function is now called after confirmation dialog
 
     try {
+      const session = getSession()
+      if (!session) {
+        console.error('[CRM] No session found for delete')
+        return
+      }
+
       const supabase = getAuthenticatedClient()
 
       const { error } = await supabase
         .from('crm_leads')
         .delete()
         .eq('id', leadId)
+        .eq('user_id', session.user.id)
 
       if (error) {
         throw new Error(error.message)

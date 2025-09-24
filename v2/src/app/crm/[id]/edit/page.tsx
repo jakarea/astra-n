@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { getAuthenticatedClient } from '@/lib/auth'
+import { getAuthenticatedClient, getSession } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -99,6 +99,12 @@ export default function EditLeadPage() {
   const loadLead = async () => {
     try {
       setLoading(true)
+      const session = getSession()
+      if (!session) {
+        router.push('/login')
+        return
+      }
+
       const supabase = getAuthenticatedClient()
 
       const { data, error } = await supabase
@@ -112,6 +118,7 @@ export default function EditLeadPage() {
           )
         `)
         .eq('id', leadId)
+        .eq('user_id', session.user.id)
         .single()
 
       if (error) {
@@ -143,6 +150,12 @@ export default function EditLeadPage() {
     setSaving(true)
 
     try {
+      const session = getSession()
+      if (!session) {
+        router.push('/login')
+        return
+      }
+
       const supabase = getAuthenticatedClient()
 
       const updateData = {
@@ -160,6 +173,7 @@ export default function EditLeadPage() {
         .from('crm_leads')
         .update(updateData)
         .eq('id', leadId)
+        .eq('user_id', session.user.id)
 
       if (error) {
         throw new Error(error.message)
