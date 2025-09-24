@@ -5,8 +5,9 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
-    "start": "next start",
-    "lint": "eslint"
+    "start": "next start", 
+    "lint": "next lint",
+     "type": "tsc --noEmit"
   },
   "dependencies": {
     "@prisma/client": "^6.16.2",

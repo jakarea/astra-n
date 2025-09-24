@@ -85,7 +85,7 @@ export function Sidebar() {
   const filteredNavigation = navigation.filter(item => !item.adminOnly || true) // Show all for admin
 
   return (
-    <div className="flex h-screen w-64 flex-col bg-[#121212f2]">
+    <div className="flex h-screen w-64 flex-col bg-card borde-r border-accent">
       <div className="flex flex-col flex-grow pt-5 overflow-y-auto">
         {/* Logo */}
         <div className="flex items-center flex-shrink-0 px-6">
@@ -114,8 +114,8 @@ export function Sidebar() {
                   className={cn(
                     "group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors",
                     isActive
-                      ? "bg-blue-600 text-white"
-                      : "text-gray-300 hover:bg-blue-600 hover:text-white"
+                      ? "bg-active-parimary text-white"
+                      : "text-primary hover:bg-popover hover:text-white"
                   )}
                 >
                   <item.icon
