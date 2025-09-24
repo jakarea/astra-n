@@ -24,86 +24,41 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Plus, Eye, Edit, Trash2, Mail, Phone, Users, UserCheck, TrendingUp, DollarSign, Search, ChevronLeft, ChevronRight } from 'lucide-react'
 
-// Status badge helper with enhanced colors
+// Status badge helper using default Shadcn Badge variants
 function getStatusBadge(status: string | null, type: 'cod' | 'logistic' | 'kpi') {
-  if (!status) return <Badge variant="outline" className="text-gray-500">-</Badge>
+  if (!status) return <Badge variant="outline">-</Badge>
 
   const variants = {
     cod: {
-      pending: {
-        variant: "outline" as const,
-        label: "Pending",
-        className: "border-orange-300 text-orange-700 bg-orange-50 hover:bg-orange-100"
-      },
-      confirmed: {
-        variant: "default" as const,
-        label: "Confirmed",
-        className: "border-green-300 bg-green-100 text-green-800 hover:bg-green-200"
-      },
-      rejected: {
-        variant: "destructive" as const,
-        label: "Rejected",
-        className: "border-red-300 bg-red-100 text-red-800 hover:bg-red-200"
-      }
+      pending: { variant: "outline" as const, label: "Pending" },
+      confirmed: { variant: "default" as const, label: "Confirmed" },
+      rejected: { variant: "destructive" as const, label: "Rejected" }
     },
     logistic: {
-      pending: {
-        variant: "outline" as const,
-        label: "Pending",
-        className: "border-gray-300 text-gray-600 bg-gray-50 hover:bg-gray-100"
-      },
-      processing: {
-        variant: "secondary" as const,
-        label: "Processing",
-        className: "border-blue-300 bg-blue-100 text-blue-800 hover:bg-blue-200"
-      },
-      shipped: {
-        variant: "outline" as const,
-        label: "Shipped",
-        className: "border-purple-300 text-purple-700 bg-purple-50 hover:bg-purple-100"
-      },
-      delivered: {
-        variant: "default" as const,
-        label: "Delivered",
-        className: "border-green-300 bg-green-100 text-green-800 hover:bg-green-200"
-      },
-      cancelled: {
-        variant: "destructive" as const,
-        label: "Cancelled",
-        className: "border-red-300 bg-red-100 text-red-800 hover:bg-red-200"
-      }
+      pending: { variant: "outline" as const, label: "Pending" },
+      processing: { variant: "secondary" as const, label: "Processing" },
+      shipped: { variant: "outline" as const, label: "Shipped" },
+      delivered: { variant: "default" as const, label: "Delivered" },
+      cancelled: { variant: "destructive" as const, label: "Cancelled" }
     },
     kpi: {
-      won: {
-        variant: "default" as const,
-        label: "Won",
-        className: "border-green-300 bg-green-100 text-green-800 hover:bg-green-200"
-      },
-      lost: {
-        variant: "destructive" as const,
-        label: "Lost",
-        className: "border-red-300 bg-red-100 text-red-800 hover:bg-red-200"
-      },
-      pending: {
-        variant: "outline" as const,
-        label: "Pending",
-        className: "border-gray-300 text-gray-600 bg-gray-50 hover:bg-gray-100"
-      },
-      qualified: {
-        variant: "secondary" as const,
-        label: "Qualified",
-        className: "border-blue-300 bg-blue-100 text-blue-800 hover:bg-blue-200"
-      }
+      new: { variant: "outline" as const, label: "New" },
+      contacted: { variant: "secondary" as const, label: "Contacted" },
+      qualified: { variant: "secondary" as const, label: "Qualified" },
+      proposal: { variant: "outline" as const, label: "Proposal" },
+      negotiation: { variant: "secondary" as const, label: "Negotiation" },
+      won: { variant: "default" as const, label: "Won" },
+      lost: { variant: "destructive" as const, label: "Lost" }
     }
   }
 
   const config = variants[type][status as keyof typeof variants[typeof type]]
   return config ? (
-    <Badge variant={config.variant} className={config.className}>
+    <Badge variant={config.variant}>
       {config.label}
     </Badge>
   ) : (
-    <Badge variant="outline" className="capitalize border-gray-300 text-gray-600">
+    <Badge variant="outline" className="capitalize">
       {status}
     </Badge>
   )

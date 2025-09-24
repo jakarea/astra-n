@@ -1,58 +1,425 @@
-"use client"
+'use client'
 
-import { useState, useEffect } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Puzzle, Webhook, Link2, Settings, Zap, Database } from "lucide-react"
-import { useAuth } from "@/contexts/AuthContext"
-import { getSupabaseClient } from "@/lib/supabase"
+import { useState, useEffect, useRef } from 'react'
+import { getAuthenticatedClient, getSession } from '@/lib/auth'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
+import { toast } from 'sonner'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Plus, Edit, Trash2, Link, ShoppingCart, DollarSign, Search, ChevronLeft, ChevronRight, Webhook, Copy } from 'lucide-react'
+import { AddIntegrationModal } from '@/components/integration/add-integration-modal'
+import { EditIntegrationModal } from '@/components/integration/edit-integration-modal'
 
-export default function IntegrationPage() {
-  const { user } = useAuth()
-  const [userName, setUserName] = useState<string>('')
-  const [userRole, setUserRole] = useState<string>('User')
+// Status badge helper
+function getStatusBadge(status: string | null) {
+  if (!status) return <Badge variant="outline" className="text-gray-500">-</Badge>
+
+  const variants: { [key: string]: { variant: "default" | "destructive" | "outline" | "secondary", className: string } } = {
+    active: {
+      variant: "default",
+      className: "border-green-300 bg-green-100 text-green-800 hover:bg-green-200"
+    },
+    inactive: {
+      variant: "outline",
+      className: "border-gray-300 text-gray-600 bg-gray-50 hover:bg-gray-100"
+    },
+    error: {
+      variant: "destructive",
+      className: "border-red-300 bg-red-100 text-red-800 hover:bg-red-200"
+    }
+  }
+
+  const config = variants[status]
+  return config ? (
+    <Badge variant={config.variant} className={config.className}>
+      {status.charAt(0).toUpperCase() + status.slice(1)}
+    </Badge>
+  ) : (
+    <Badge variant="outline" className="capitalize border-gray-300 text-gray-600">
+      {status}
+    </Badge>
+  )
+}
+
+// Animated counter component
+function AnimatedCounter({ value, duration = 1000 }: { value: number; duration?: number }) {
+  const [count, setCount] = useState(0)
+  const countRef = useRef<NodeJS.Timeout>()
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      if (user?.id) {
-        try {
-          const supabase = getSupabaseClient()
-          const { data, error } = await supabase
-            .from('users')
-            .select('name, role')
-            .eq('id', user.id)
-            .single()
-
-          if (!error && data) {
-            setUserName(data.name || '')
-            // Capitalize first letter of role
-            const capitalizedRole = data.role ?
-              data.role.charAt(0).toUpperCase() + data.role.slice(1).toLowerCase() : 'User'
-            setUserRole(capitalizedRole)
-          }
-        } catch (error) {
-          console.error('Error fetching user data:', error)
-        }
-      }
+    if (countRef.current) {
+      clearInterval(countRef.current)
     }
 
-    fetchUserData()
-  }, [user?.id])
+    const increment = value / (duration / 16) // 60fps
+    let current = 0
+
+    countRef.current = setInterval(() => {
+      current += increment
+      if (current >= value) {
+        setCount(value)
+        clearInterval(countRef.current!)
+      } else {
+        setCount(Math.floor(current))
+      }
+    }, 16)
+
+    return () => {
+      if (countRef.current) {
+        clearInterval(countRef.current)
+      }
+    }
+  }, [value, duration])
+
+  return <span>{count}</span>
+}
+
+// Copy to clipboard function with toast
+const copyToClipboard = async (text: string, label: string = 'Text') => {
+  try {
+    await navigator.clipboard.writeText(text)
+    toast.success(`${label} copied to clipboard`)
+  } catch (err) {
+    toast.error(`Failed to copy ${label.toLowerCase()}`)
+  }
+}
+
+// Generate delivery URL for integration
+const getDeliveryUrl = (integration: any) => {
+  if (typeof window !== 'undefined' && integration.type) {
+    const baseUrl = window.location.origin
+    return `${baseUrl}/api/webhooks/${integration.type}-order-integration`
+  }
+  return ''
+}
+
+// Get supported actions for integration type
+const getSupportedActions = (type: string) => {
+  const SHOP_TYPES = {
+    'shopify': ['order:created', 'order:updated', 'order:deleted', 'order:shipped'],
+    'woocommerce': ['order:created', 'order:updated', 'order:cancelled', 'order:completed'],
+    'wordpress': ['order:created', 'order:updated', 'order:deleted'],
+    'custom': ['webhook:received', 'data:sync']
+  }
+  return SHOP_TYPES[type as keyof typeof SHOP_TYPES] || []
+}
+
+export default function IntegrationPage() {
+  const [integrations, setIntegrations] = useState<any[]>([])
+  const [hasError, setHasError] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [addModalOpen, setAddModalOpen] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [editIntegrationId, setEditIntegrationId] = useState<string | null>(null)
+  const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean; integrationId: string; integrationName: string }>({
+    isOpen: false,
+    integrationId: '',
+    integrationName: ''
+  })
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+  const [totalStats, setTotalStats] = useState({
+    total: 0,
+    active: 0,
+    totalOrders: 0,
+    totalRevenue: 0
+  })
+
+  const ITEMS_PER_PAGE = 10
+
+  const loadIntegrations = async (page = 1, search = '') => {
+    try {
+      setLoading(true)
+      console.log('[INTEGRATION] Starting to load integrations...', { page, search })
+
+      const session = getSession()
+      if (!session) {
+        console.error('[INTEGRATION] No session found')
+        setHasError(true)
+        setErrorMessage('You must be logged in to view integrations. Please log in first.')
+        setLoading(false)
+        return
+      }
+
+      const supabase = getAuthenticatedClient()
+      console.log('[INTEGRATION] Authenticated client retrieved')
+
+      // Build search query - filter by current user's integrations only
+      let query = supabase
+        .from('integrations')
+        .select(`
+          *,
+          orders:orders(
+            id,
+            total_amount
+          )
+        `, { count: 'exact' })
+        .eq('user_id', session.user.id)
+
+      // Add search filters if search query exists and has 3+ characters
+      if (search && search.length >= 3) {
+        query = query.or(`name.ilike.%${search}%,domain.ilike.%${search}%,type.ilike.%${search}%`)
+      }
+
+      // Add pagination
+      const from = (page - 1) * ITEMS_PER_PAGE
+      const to = from + ITEMS_PER_PAGE - 1
+
+      const { data, error, count } = await query
+        .order('created_at', { ascending: false })
+        .range(from, to)
+
+      console.log('[INTEGRATION] Query result:', { data, error, integrationCount: data?.length, totalCount: count })
+
+      if (error) {
+        console.error('[INTEGRATION] Database error:', error)
+        throw new Error(`Database error: ${error.message}`)
+      }
+
+      setIntegrations(data || [])
+      setTotalCount(count || 0)
+      setHasError(false)
+      console.log('[INTEGRATION] Integrations loaded successfully:', data?.length || 0)
+
+      // Load stats separately (without pagination or search filters)
+      await loadStats()
+    } catch (error) {
+      console.error('[INTEGRATION] Database connection error:', error)
+      setHasError(true)
+      if (error.message && error.message.includes('JWT')) {
+        setErrorMessage('Authentication token expired. Please log in again.')
+      } else {
+        setErrorMessage(`Database error: ${error.message}`)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadStats = async () => {
+    try {
+      const session = getSession()
+      if (!session) {
+        console.error('[INTEGRATION] No session found for stats')
+        return
+      }
+
+      const supabase = getAuthenticatedClient()
+
+      // Load stats for current user's integrations only
+      const { data: statsData, error: statsError } = await supabase
+        .from('integrations')
+        .select(`
+          status,
+          orders:orders(total_amount)
+        `)
+        .eq('user_id', session.user.id)
+
+      if (!statsError && statsData) {
+        const stats = {
+          total: statsData.length,
+          active: statsData.filter(i => i.status === 'active').length,
+          totalOrders: statsData.reduce((sum, i) => sum + (i.orders?.length || 0), 0),
+          totalRevenue: statsData
+            .reduce((sum, i) => {
+              const integrationRevenue = i.orders?.reduce((orderSum: number, order: any) => {
+                return orderSum + Number(order.total_amount || 0)
+              }, 0) || 0
+              return sum + integrationRevenue
+            }, 0)
+        }
+        setTotalStats(stats)
+      }
+    } catch (error) {
+      console.error('[INTEGRATION] Stats loading error:', error)
+    }
+  }
+
+  // Debounced search effect
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchInput.length === 0 || searchInput.length >= 3) {
+        setSearchQuery(searchInput)
+        setCurrentPage(1) // Reset to first page on search
+      }
+    }, 500)
+
+    return () => clearTimeout(timeoutId)
+  }, [searchInput])
+
+  // Load integrations when search query or page changes
+  useEffect(() => {
+    loadIntegrations(currentPage, searchQuery)
+  }, [searchQuery, currentPage])
+
+  // Initial load
+  useEffect(() => {
+    loadIntegrations()
+  }, [])
+
+  // Optimistic updates - no server reload needed
+  const handleIntegrationAdded = (newIntegration: any) => {
+    // Add to current integrations list
+    setIntegrations(prev => [newIntegration, ...prev])
+
+    // Update total count
+    setTotalCount(prev => prev + 1)
+
+    // Update stats
+    setTotalStats(prev => ({
+      ...prev,
+      total: prev.total + 1,
+      active: newIntegration.status === 'active' ? prev.active + 1 : prev.active
+    }))
+  }
+
+  const handleIntegrationUpdated = (updatedIntegration: any) => {
+    // Update the specific integration in the list
+    setIntegrations(prev => prev.map(integration =>
+      integration.id === updatedIntegration.id ? { ...integration, ...updatedIntegration } : integration
+    ))
+
+    // Recalculate stats by re-fetching only stats (lightweight)
+    loadStats()
+  }
+
+  const handleIntegrationDeleted = (integrationId: string) => {
+    // Remove from current integrations list
+    setIntegrations(prev => prev.filter(integration => integration.id !== integrationId))
+
+    // Update total count
+    setTotalCount(prev => prev - 1)
+
+    // Recalculate stats
+    loadStats()
+  }
+
+  const handleEditIntegration = (integrationId: string) => {
+    setEditIntegrationId(integrationId)
+    setEditModalOpen(true)
+  }
+
+  const handleEditClose = () => {
+    setEditModalOpen(false)
+    setEditIntegrationId(null)
+  }
+
+  const openDeleteDialog = (integrationId: string, integrationName: string) => {
+    setDeleteDialog({ isOpen: true, integrationId, integrationName })
+  }
+
+  const handleDeleteIntegration = async () => {
+    const { integrationId } = deleteDialog
+
+    try {
+      const session = getSession()
+      if (!session) {
+        console.error('[INTEGRATION] No session found for delete')
+        return
+      }
+
+      const supabase = getAuthenticatedClient()
+
+      const { error } = await supabase
+        .from('integrations')
+        .delete()
+        .eq('id', integrationId)
+        .eq('user_id', session.user.id)
+
+      if (error) {
+        throw new Error(error.message)
+      }
+
+      handleIntegrationDeleted(integrationId)
+      // Close dialog
+      setDeleteDialog({ isOpen: false, integrationId: '', integrationName: '' })
+    } catch (error) {
+      console.error('Error deleting integration:', error)
+      alert('Failed to delete integration. Please try again.')
+      setDeleteDialog({ isOpen: false, integrationId: '', integrationName: '' })
+    }
+  }
+
+  // Pagination calculations
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE)
+  const startItem = (currentPage - 1) * ITEMS_PER_PAGE + 1
+  const endItem = Math.min(currentPage * ITEMS_PER_PAGE, totalCount)
+
+  // Show error state if database connection failed
+  if (hasError) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Integration Dashboard</h1>
+            <p className="text-muted-foreground">
+              Manage your webshop integrations and webhooks
+            </p>
+          </div>
+        </div>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center py-12">
+              <div className="text-destructive mb-4">
+                <h3 className="text-lg font-medium">
+                  {errorMessage.includes('logged in') ? 'Authentication Required' : 'Connection Error'}
+                </h3>
+                <p className="text-sm text-muted-foreground mt-2">{errorMessage}</p>
+              </div>
+              {errorMessage.includes('logged in') ? (
+                <div className="text-sm text-muted-foreground">
+                  <p>Please log in to access the Integration module.</p>
+                  <p className="mt-2">
+                    <a href="/login" className="text-blue-600 hover:underline">
+                      Go to Login Page
+                    </a>
+                  </p>
+                </div>
+              ) : (
+                <div className="text-sm text-muted-foreground">
+                  <p>This is likely a database configuration issue.</p>
+                  <p className="mt-2">The Integration module is fully implemented and ready to use once the connection is resolved.</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Integration</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Integration Dashboard</h1>
           <p className="text-muted-foreground">
-            Manage your integrations and third-party connections
+            Manage your webshop integrations and webhooks
           </p>
         </div>
-        <div className="text-right">
-          <p className="text-lg font-medium text-foreground">
-            {userName || user?.email?.split('@')[0] || 'User'}
-          </p>
-          <p className="text-sm text-muted-foreground">{userRole}</p>
+        <div className="flex gap-3">
+          <Button onClick={() => setAddModalOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Integration
+          </Button>
         </div>
       </div>
 
@@ -60,116 +427,377 @@ export default function IntegrationPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Integrations</CardTitle>
-            <Puzzle className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Total Integrations</CardTitle>
+            <Link className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
+            <div className="text-2xl font-bold">
+              <AnimatedCounter value={totalStats.total} duration={1200} />
+            </div>
             <p className="text-xs text-muted-foreground">
-              Connected services
+              Connected webshops
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Webhooks</CardTitle>
+            <CardTitle className="text-sm font-medium">Active</CardTitle>
             <Webhook className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
+            <div className="text-2xl font-bold">
+              <AnimatedCounter value={totalStats.active} duration={1000} />
+            </div>
             <p className="text-xs text-muted-foreground">
-              Active endpoints
+              Working integrations
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">API Calls</CardTitle>
-            <Zap className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
+            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
+            <div className="text-2xl font-bold">
+              <AnimatedCounter value={totalStats.totalOrders} duration={1100} />
+            </div>
             <p className="text-xs text-muted-foreground">
-              This month
+              From all integrations
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Data Sync</CardTitle>
-            <Database className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Revenue</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
+            <div className="text-2xl font-bold">
+              €<AnimatedCounter value={totalStats.totalRevenue} duration={1300} />
+            </div>
             <p className="text-xs text-muted-foreground">
-              Synced records
+              Total earnings
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Latest integration activities</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Integration module initialized</p>
-                  <p className="text-xs text-muted-foreground">Just now</p>
-                </div>
-                <Badge variant="outline">System</Badge>
+      {/* Integrations Table */}
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <CardTitle>Integration Management</CardTitle>
+            <div className="flex items-center space-x-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search integrations (min 3 chars)..."
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  className="pl-10 w-80"
+                />
               </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Hello World displayed</p>
-                  <p className="text-xs text-muted-foreground">Few seconds ago</p>
+              {totalCount > 0 && (
+                <div className="text-sm text-muted-foreground whitespace-nowrap">
+                  {searchQuery ? `${totalCount} filtered` : `${totalCount} total`}
                 </div>
-                <Badge variant="outline">User</Badge>
-              </div>
+              )}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            // Loading skeleton
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Domain</TableHead>
+                    <TableHead>Delivery URL</TableHead>
+                    <TableHead>Actions</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Webhook</TableHead>
+                    <TableHead>Operations</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Array.from({ length: ITEMS_PER_PAGE }).map((_, index) => (
+                    <TableRow key={index}>
+                      <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                      <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                      <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
+                      <TableCell><Skeleton className="h-8 w-24" /></TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Skeleton className="h-8 w-8 rounded" />
+                          <Skeleton className="h-8 w-8 rounded" />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : integrations.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-muted-foreground mb-4">
+                {searchQuery ? 'No integrations found matching your search.' : 'No integrations available. Add your first integration!'}
+              </div>
+              <Button onClick={() => setAddModalOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add First Integration
+              </Button>
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Created</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Domain</TableHead>
+                      <TableHead>Delivery URL</TableHead>
+                      <TableHead>Actions</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Webhook</TableHead>
+                      <TableHead>Operations</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {integrations.map((integration) => {
+                      return (
+                        <TableRow key={integration.id}>
+                          <TableCell className="text-sm">
+                            {new Date(integration.created_at).toLocaleDateString('en-US', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric'
+                            })}
+                          </TableCell>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Common integration tasks</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Setup webhooks</p>
-                  <p className="text-xs text-muted-foreground">Configure real-time notifications</p>
-                </div>
-                <Webhook className="h-4 w-4 text-muted-foreground" />
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">{integration.name || 'N/A'}</div>
+                              <div className="text-xs text-muted-foreground">ID: {integration.id}</div>
+                            </div>
+                          </TableCell>
+
+                          <TableCell>
+                            <Badge variant="outline" className="capitalize">
+                              {integration.type.replace('_', ' ')}
+                            </Badge>
+                          </TableCell>
+
+                          <TableCell>
+                            <span className="font-mono text-sm">{integration.domain}</span>
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-xs bg-muted px-2 py-1 rounded border max-w-48 truncate">
+                                {getDeliveryUrl(integration)}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => copyToClipboard(getDeliveryUrl(integration), 'Delivery URL')}
+                                className="h-6 w-6 p-0"
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </TableCell>
+
+                          <TableCell>
+                            {(() => {
+                              const actions = getSupportedActions(integration.type)
+                              if (actions.length === 0) return '-'
+
+                              const actionType = actions[0].split(':')[0] // e.g., "order", "webhook", "data"
+                              const actionNames = actions.map(a => a.split(':')[1]) // e.g., ["created", "updated", ...]
+
+                              let displayText = actionType + '['
+                              if (actionNames.length <= 2) {
+                                displayText += actionNames.join(',')
+                              } else {
+                                displayText += actionNames.slice(0, 2).join(',') + '+' + (actionNames.length - 2)
+                              }
+                              displayText += ']'
+
+                              return (
+                                <span
+                                  className="font-mono text-xs bg-muted px-2 py-1 rounded border cursor-help"
+                                  title={`Supported actions: ${actions.join(', ')}`}
+                                >
+                                  {displayText}
+                                </span>
+                              )
+                            })()}
+                          </TableCell>
+
+                          <TableCell>
+                            {getStatusBadge(integration.status)}
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-xs bg-muted px-2 py-1 rounded max-w-24 truncate border">
+                                {integration.webhook_secret || 'Not set'}
+                              </span>
+                              {integration.webhook_secret && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => copyToClipboard(integration.webhook_secret, 'Webhook secret')}
+                                  className="h-6 w-6 p-0"
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditIntegration(integration.id)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openDeleteDialog(integration.id, integration.name)}
+                                className="text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
               </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">API documentation</p>
-                  <p className="text-xs text-muted-foreground">View available endpoints</p>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-2 py-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {startItem} to {endItem} of {totalCount} results
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(currentPage - 1)}
+                      disabled={currentPage === 1 || loading}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Previous
+                    </Button>
+                    <div className="flex items-center space-x-1">
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNumber
+                        if (totalPages <= 5) {
+                          pageNumber = i + 1
+                        } else if (currentPage <= 3) {
+                          pageNumber = i + 1
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNumber = totalPages - 4 + i
+                        } else {
+                          pageNumber = currentPage - 2 + i
+                        }
+
+                        return (
+                          <Button
+                            key={pageNumber}
+                            variant={currentPage === pageNumber ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(pageNumber)}
+                            disabled={loading}
+                            className="w-10"
+                          >
+                            {pageNumber}
+                          </Button>
+                        )
+                      })}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(currentPage + 1)}
+                      disabled={currentPage === totalPages || loading}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-                <Link2 className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Manage connections</p>
-                  <p className="text-xs text-muted-foreground">Configure integration settings</p>
-                </div>
-                <Settings className="h-4 w-4 text-muted-foreground" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Add Integration Modal */}
+      <AddIntegrationModal
+        isOpen={addModalOpen}
+        onClose={() => setAddModalOpen(false)}
+        onSuccess={handleIntegrationAdded}
+      />
+
+      {/* Edit Integration Modal */}
+      <EditIntegrationModal
+        isOpen={editModalOpen}
+        onClose={handleEditClose}
+        onSuccess={handleIntegrationUpdated}
+        integrationId={editIntegrationId}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={deleteDialog.isOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteDialog({ isOpen: false, integrationId: '', integrationName: '' })
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Integration</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete integration &quot;{deleteDialog.integrationName}&quot;? This action cannot be undone and will also delete all associated orders.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteIntegration}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
