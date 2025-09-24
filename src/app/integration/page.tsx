@@ -387,9 +387,9 @@ export default function IntegrationPage() {
                 <div className="text-sm text-muted-foreground">
                   <p>Please log in to access the Integration module.</p>
                   <p className="mt-2">
-                    <a href="/login" className="text-blue-600 hover:underline">
+                    <Link href="/login" className="text-blue-600 hover:underline">
                       Go to Login Page
-                    </a>
+                    </Link>
                   </p>
                 </div>
               ) : (

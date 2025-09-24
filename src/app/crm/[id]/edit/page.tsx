@@ -80,7 +80,7 @@ export default function EditLeadPage() {
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [lead, setLead] = useState<any>(null)
+  const [lead, setLead] = useState<unknown>(null)
   const [formData, setFormData] = useState<FormData>({
     name: '',
     email: '',

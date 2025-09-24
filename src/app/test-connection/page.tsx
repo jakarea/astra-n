@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
 export default function TestConnectionPage() {
-  const [results, setResults] = useState<any>({})
+  const [results, setResults] = useState<unknown>({})
   const [testing, setTesting] = useState(false)
 
   const testConnection = async () => {

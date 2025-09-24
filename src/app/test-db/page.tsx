@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 
 export default function TestDbPage() {
   const { user } = useAuth()
-  const [results, setResults] = useState<any>({})
+  const [results, setResults] = useState<unknown>({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {

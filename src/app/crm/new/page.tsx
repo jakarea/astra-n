@@ -247,7 +247,7 @@ export default async function CRMNewPage() {
           <CardTitle className="text-lg">Tips for Creating Leads</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-muted-foreground">
-          <p>• <strong>Name</strong> is required - enter the lead's full name</p>
+          <p>• <strong>Name</strong> is required - enter the lead&apos;s full name</p>
           <p>• <strong>Source</strong> helps track where leads come from</p>
           <p>• <strong>Email and Phone</strong> are optional but recommended for contact</p>
           <p>• <strong>Status fields</strong> can be updated later as the lead progresses</p>

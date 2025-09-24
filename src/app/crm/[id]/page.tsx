@@ -45,7 +45,7 @@ export default function CRMViewPage() {
   const router = useRouter()
   const leadId = params.id as string
 
-  const [lead, setLead] = useState<any>(null)
+  const [lead, setLead] = useState<unknown>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 

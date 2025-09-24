@@ -3,10 +3,11 @@
 import { useAuth } from '@/contexts/AuthContext'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 
 export default function AuthStatusPage() {
   const { user, session, loading } = useAuth()
-  const [sessionCheck, setSessionCheck] = useState<any>(null)
+  const [sessionCheck, setSessionCheck] = useState<unknown>(null)
 
   useEffect(() => {
     async function checkSession() {
@@ -66,7 +67,7 @@ export default function AuthStatusPage() {
         {!user && (
           <div className="border-2 border-red-500 p-4 rounded bg-red-50">
             <h3 className="font-semibold text-red-700">Not Authenticated</h3>
-            <p className="text-red-600">You are not logged in. Please go to <a href="/login" className="underline">/login</a> to authenticate.</p>
+            <p className="text-red-600">You are not logged in. Please go to <Link href="/login" className="underline">/login</Link> to authenticate.</p>
           </div>
         )}
 
@@ -74,7 +75,7 @@ export default function AuthStatusPage() {
           <div className="border-2 border-green-500 p-4 rounded bg-green-50">
             <h3 className="font-semibold text-green-700">Authenticated</h3>
             <p className="text-green-600">You are logged in as {user.email}. You can access protected routes.</p>
-            <a href="/crm" className="underline text-blue-600">Go to CRM</a>
+            <Link href="/crm" className="underline text-blue-600">Go to CRM</Link>
           </div>
         )}
       </div>
