@@ -467,11 +467,6 @@ export default function CRMPage() {
                   className="pl-10 w-80"
                 />
               </div>
-              {totalCount > 0 && (
-                <div className="text-sm text-muted-foreground whitespace-nowrap">
-                  {searchQuery ? `${totalCount} filtered` : `${totalCount} total`}
-                </div>
-              )}
             </div>
           </div>
         </CardHeader>
