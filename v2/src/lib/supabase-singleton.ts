@@ -1,0 +1,25 @@
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
+
+let supabaseInstance: SupabaseClient | null = null
+
+export function getSupabaseClient(): SupabaseClient {
+  if (!supabaseInstance) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error('Missing Supabase environment variables')
+    }
+
+    console.log('[SUPABASE] Creating singleton client instance')
+    supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: false
+      }
+    })
+  }
+
+  return supabaseInstance
+}

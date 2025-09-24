@@ -1,10 +1,13 @@
 import { createClient } from '@supabase/supabase-js'
 
 // Server-side client (for Server Components and API routes)
-export const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+// Only create this in server environment
+export const supabase = typeof window === 'undefined'
+  ? createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+  : null
 
 // Client-side client factory function
 export function createSupabaseClient() {

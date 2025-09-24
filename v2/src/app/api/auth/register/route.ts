@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { assignWebhookSecretToUser } from '@/lib/webhook-utils'
 
 export async function POST(request: NextRequest) {
   try {
@@ -73,11 +74,25 @@ export async function POST(request: NextRequest) {
 
     console.log('Registration successful for:', email)
 
+    // Generate and assign webhook secret to the new user
+    let webhookSecret = null
+    if (data.user?.id) {
+      try {
+        webhookSecret = await assignWebhookSecretToUser(data.user.id)
+        console.log('Webhook secret assigned to new user:', email)
+      } catch (webhookError) {
+        console.error('Failed to assign webhook secret to new user:', email, webhookError)
+        // Don't fail the registration if webhook secret assignment fails
+        // User can get webhook secret later through other means
+      }
+    }
+
     return NextResponse.json({
       success: true,
       user: data.user,
       session: data.session,
-      needsEmailConfirmation: !data.session
+      needsEmailConfirmation: !data.session,
+      webhookSecret: webhookSecret // Include webhook secret in response
     })
 
   } catch (error) {

@@ -1,11 +1,13 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { login, isAuthenticated, setSession } from '@/lib/auth'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { LoadingSpinner } from '@/components/ui/loading'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react'
@@ -20,6 +22,13 @@ export default function LoginPage() {
     email: '',
     password: ''
   })
+
+  // Check if already logged in
+  useEffect(() => {
+    if (isAuthenticated()) {
+      router.push('/dashboard')
+    }
+  }, [router])
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -55,53 +64,34 @@ export default function LoginPage() {
     setError('')
 
     try {
-      // Call our API route for authentication
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password
-        })
-      })
+      const user = await login(formData.email, formData.password)
 
-      const result = await response.json()
-
-      if (!response.ok) {
-        // Handle error without throwing - directly set the error message
-        let errorMessage = 'Error during login'
-
-        if (result.error) {
-          if (result.error.includes('Invalid login credentials')) {
-            errorMessage = 'Invalid credentials. Check your email and password.'
-          } else if (result.error.includes('Email not confirmed')) {
-            errorMessage = 'Email not confirmed. Check your email and click the confirmation link.'
-          } else if (result.error.includes('Too many requests')) {
-            errorMessage = 'Too many login attempts. Please try again in a few minutes.'
-          } else {
-            errorMessage = 'Login error. Please try again later.'
-          }
-        }
-
-        setError(errorMessage)
-        return // Exit early, don't continue with the rest of the function
+      // Set auth cookie for middleware
+      const session = JSON.parse(localStorage.getItem('auth_session') || '{}')
+      if (session.token) {
+        document.cookie = `auth_token=${session.token}; path=/; max-age=${Math.floor((session.expiresAt - Date.now()) / 1000)}`
       }
 
-      if (result.success && result.user && result.session) {
-        // Login successful, redirect to dashboard
-        router.push('/dashboard')
-      }
+      // Redirect to dashboard
+      window.location.href = '/dashboard'
 
     } catch (error) {
-      console.error('Network or unexpected error:', error)
-      // Only handle network/fetch errors here, since API errors are handled above
-      if (error instanceof Error && (error.message.includes('fetch') || error.message.includes('Network'))) {
-        setError('Connection error. Check your internet connection.')
-      } else {
-        setError('Unexpected error. Please try again later.')
+      console.error('Login error:', error)
+
+      let errorMessage = 'Error during login'
+      if (error instanceof Error) {
+        if (error.message.includes('Invalid login credentials')) {
+          errorMessage = 'Invalid credentials. Check your email and password.'
+        } else if (error.message.includes('Email not confirmed')) {
+          errorMessage = 'Email not confirmed. Check your email and click the confirmation link.'
+        } else if (error.message.includes('Too many requests')) {
+          errorMessage = 'Too many login attempts. Please try again in a few minutes.'
+        } else {
+          errorMessage = 'Login error. Please try again later.'
+        }
       }
+
+      setError(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -149,7 +139,15 @@ export default function LoginPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">Password</Label>
+                  <Link
+                    href="/forgot-password"
+                    className="text-sm text-primary hover:text-primary/80"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -179,7 +177,8 @@ export default function LoginPage() {
               >
                 {isLoading ? (
                   <>
-                    Loading...
+                    <LoadingSpinner className="mr-2 h-4 w-4" />
+                    Logging in...
                   </>
                 ) : (
                   'Login'

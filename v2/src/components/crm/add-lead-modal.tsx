@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from 'react'
-import { getSupabaseClient } from '@/lib/supabase'
+import { getAuthenticatedClient, getSession } from '@/lib/auth'
 import {
   Dialog,
   DialogContent,
@@ -34,7 +34,7 @@ import {
 interface AddLeadModalProps {
   isOpen: boolean
   onClose: () => void
-  onSuccess: () => void
+  onSuccess: (newLead: any) => void
 }
 
 interface FormData {
@@ -101,8 +101,10 @@ export function AddLeadModal({ isOpen, onClose, onSuccess }: AddLeadModalProps) 
     setLoading(true)
 
     try {
-      // Generate a temporary user ID (in real implementation, get from session)
-      const tempUserId = crypto.randomUUID()
+      const session = getSession()
+      if (!session) {
+        throw new Error('User not authenticated')
+      }
 
       const leadData = {
         name: formData.name || null,
@@ -113,14 +115,22 @@ export function AddLeadModal({ isOpen, onClose, onSuccess }: AddLeadModalProps) 
         cod_status: formData.cod_status || null,
         kpi_status: formData.kpi_status || null,
         notes: formData.notes || null,
-        user_id: tempUserId
+        user_id: session.user.id
       }
 
-      const { error } = await supabaseClient
+      console.log('[ADD_LEAD] Creating lead with data:', leadData)
+
+      const supabase = getAuthenticatedClient()
+      const { data, error } = await supabase
         .from('crm_leads')
         .insert([leadData])
+        .select()
+        .single()
+
+      console.log('[ADD_LEAD] Insert result:', { data, error })
 
       if (error) {
+        console.error('[ADD_LEAD] Insert error:', error)
         throw new Error(error.message)
       }
 
@@ -136,7 +146,8 @@ export function AddLeadModal({ isOpen, onClose, onSuccess }: AddLeadModalProps) 
         notes: ''
       })
 
-      onSuccess()
+      // Pass the new lead data to parent
+      onSuccess(data)
       onClose()
     } catch (error) {
       console.error('Error creating lead:', error)
