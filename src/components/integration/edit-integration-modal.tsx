@@ -183,6 +183,15 @@ export function EditIntegrationModal({ isOpen, onClose, onSuccess, integrationId
 
   const getDeliveryUrl = () => {
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
+
+    // Generate dynamic URL based on shop type and first supported action
+    if (formData.type && supportedActions.length > 0) {
+      const primaryAction = supportedActions[0] // Use first action as primary
+      const actionType = primaryAction.split(':')[0] // Extract action type (order, webhook, data)
+      return `${baseUrl}/api/webhooks/${formData.type}-${actionType}-integration`
+    }
+
+    // Fallback to generic URL
     return `${baseUrl}/api/webhooks/integration`
   }
 
