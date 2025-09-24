@@ -1,41 +1,33 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { supabase } from '@/lib/supabase'
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+    console.log('Logout API called')
 
-    // Sign out from Supabase
+    // Sign out from Supabase Auth
     const { error } = await supabase.auth.signOut()
 
     if (error) {
-      console.error('Supabase logout error:', error)
-      return NextResponse.json({ error: error.message }, { status: 400 })
+      console.error('Logout error:', error)
+      return NextResponse.json(
+        { error: error.message },
+        { status: 400 }
+      )
     }
 
-    console.log('User logged out successfully')
+    console.log('Logout successful')
 
     return NextResponse.json({
       success: true,
       message: 'Logged out successfully'
-    }, {
-      status: 200,
-      headers: {
-        // Clear any auth cookies
-        'Set-Cookie': [
-          'sb-access-token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly',
-          'sb-refresh-token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly'
-        ].join(', ')
-      }
     })
 
   } catch (error) {
     console.error('Logout API error:', error)
-    return NextResponse.json({
-      error: 'Logout failed',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
   }
 }

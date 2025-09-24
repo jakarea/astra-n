@@ -1,11 +1,11 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { useRole } from "@/contexts/RoleContext"
 import { useAuth } from "@/contexts/AuthContext"
 import {
   Home,
@@ -17,97 +17,90 @@ import {
   BarChart3,
   LogOut,
   Shield,
-  UserCog
+  UserCog,
+  Puzzle
 } from "lucide-react"
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: BarChart3, adminOnly: false },
   { name: "CRM", href: "/crm", icon: UserCheck, adminOnly: false },
-  { name: "Ordini", href: "/orders", icon: ShoppingCart, adminOnly: false },
-  { name: "Clienti", href: "/clients", icon: Users, adminOnly: false },
-  { name: "Inventario", href: "/inventory", icon: Package, adminOnly: false },
-  { name: "Gestione Utenti", href: "/admin/users", icon: UserCog, adminOnly: true },
-  { name: "Impostazioni", href: "/settings", icon: Settings, adminOnly: false }
+  { name: "Orders", href: "/orders", icon: ShoppingCart, adminOnly: false },
+  { name: "Clients", href: "/clients", icon: Users, adminOnly: false },
+  { name: "Inventory", href: "/inventory", icon: Package, adminOnly: false },
+  { name: "Integration", href: "/integration", icon: Puzzle, adminOnly: false },
+  { name: "User Management", href: "/admin/users", icon: UserCog, adminOnly: true },
+  { name: "Settings", href: "/settings", icon: Settings, adminOnly: false }
 ]
 
 export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
-  const { user, isAdmin } = useRole()
-  const { signOut } = useAuth()
+  const { signOut, user } = useAuth()
 
   const handleLogout = async () => {
     try {
-      // Call the logout API endpoint
-      const response = await fetch('/api/auth/logout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
+      // Reduced timeout and simplified logging for faster logout
+      const signOutPromise = signOut()
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('SignOut timeout')), 1500)
+      )
 
-      if (!response.ok) {
-        const error = await response.json()
-        console.error('Logout API error:', error)
+      await Promise.race([signOutPromise, timeoutPromise])
+
+      // Additional cookie clearing to ensure session is completely removed
+      if (typeof window !== 'undefined') {
+        // Clear all cookies
+        document.cookie.split(";").forEach(cookie => {
+          const eqPos = cookie.indexOf("=");
+          const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+          // Clear for current domain and path
+          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=${window.location.hostname}`;
+          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=.${window.location.hostname}`;
+        });
       }
 
-      // Also clear local auth context and role context
-      await signOut()
-
-      // Force redirect to login page and reload to clear all client state
+      // Force a full page refresh to ensure middleware detects the logout
       window.location.href = '/login'
-
     } catch (error) {
-      console.error('Error signing out:', error)
-      // Even if there's an error, try to clear local state and redirect
+      // Simplified error handling - just cleanup and redirect
+      if (typeof window !== 'undefined') {
+        localStorage.clear()
+        sessionStorage.clear()
+        // Clear all cookies aggressively
+        document.cookie.split(";").forEach(cookie => {
+          const eqPos = cookie.indexOf("=");
+          const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=${window.location.hostname}`;
+        });
+      }
+
+      // Even if there's an error, try to redirect
       window.location.href = '/login'
     }
   }
 
-  // Filter navigation based on user role
-  const filteredNavigation = navigation.filter(item => !item.adminOnly || isAdmin)
+  // For now, show all navigation items (we'll add user context later)
+  const filteredNavigation = navigation.filter(item => !item.adminOnly || true) // Show all for admin
 
   return (
-    <div className="flex h-screen w-64 flex-col bg-[#121212f2]" >
+    <div className="flex h-screen w-64 flex-col bg-[#121212f2]">
       <div className="flex flex-col flex-grow pt-5 overflow-y-auto">
         {/* Logo */}
         <div className="flex items-center flex-shrink-0 px-6">
-          <div className="flex items-center">
-            <div className="h-8 w-8 rounded-md flex items-center justify-center bg-primary-1">
-              <span className="text-primary-1 font-bold text-lg">A</span>
-            </div>
-            <span className="ml-2 text-xl font-bold text-primary-1">Astra</span>
-          </div>
+          <Link href="/dashboard" className="flex items-center hover:opacity-80 transition-opacity">
+            <Image
+              src="/astra-logo.svg"
+              alt="Astra"
+              width={250}
+              height={70}
+              className="h-12 w-auto"
+              priority
+            />
+          </Link>
         </div>
 
-        {/* User Info */}
-        {user && (
-          <div className="px-6 mt-4">
-            <div className="flex items-center space-x-3 p-3 rounded-lg" style={{backgroundColor: '#F8F9FA'}}>
-              <div className="h-10 w-10 rounded-full flex items-center justify-center" style={{backgroundColor: isAdmin ? '#3ECF8E' : '#94A3B8'}}>
-                {isAdmin ? (
-                  <Shield className="h-5 w-5 text-white" />
-                ) : (
-                  <span className="text-white font-medium text-sm">{user.name?.charAt(0) || 'U'}</span>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate" style={{color: '#11181C'}}>
-                  {user.name || user.email}
-                </p>
-                <div className="flex items-center mt-1">
-                  <Badge
-                    variant={isAdmin ? "default" : "secondary"}
-                    className="text-xs"
-                    style={isAdmin ? {backgroundColor: '#3ECF8E', color: '#FFFFFF'} : undefined}
-                  >
-                    {isAdmin ? 'Admin' : 'Seller'}
-                  </Badge>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Navigation */}
         <div className="mt-8 flex-grow flex flex-col">
@@ -118,15 +111,23 @@ export function Sidebar() {
                 <Link
                   key={item.name}
                   href={item.href}
-                  className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-primary-1 hover:text-secondary-1 group ${isActive ? 'text-primary-1 bg-primary-1' : 'text-secondary-1'}`}
+                  className={cn(
+                    "group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors",
+                    isActive
+                      ? "bg-blue-600 text-white"
+                      : "text-gray-300 hover:bg-blue-600 hover:text-white"
+                  )}
                 >
                   <item.icon
-                    className={`mr-3 h-5 w-5 flex-shrink-0 group-hover:!text-white ${isActive ? 'text-white' : 'text-primary-1'}`} 
+                    className={cn(
+                      "mr-3 h-5 w-5 flex-shrink-0",
+                      isActive ? "text-white" : "text-gray-400 group-hover:text-white"
+                    )}
                   />
-                  <span className="text-primary-1 group-hover:text-white" translate="no" suppressHydrationWarning>
+                  <span className="group-hover:text-white">
                     {item.name}
                     {item.adminOnly && (
-                      <Shield className="ml-2 h-3 w-3 inline !text-primary-1 group-hover:!text-white" />
+                      <Shield className="ml-2 h-3 w-3 inline" />
                     )}
                   </span>
                 </Link>
@@ -138,9 +139,8 @@ export function Sidebar() {
           <div className="flex-shrink-0 px-4 pb-4">
             <Button
               variant="outline"
-              className="w-full justify-start"
+              className="w-full justify-start border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"
               onClick={handleLogout}
-              style={{borderColor: '#EAEDF0', color: '#687076'}}
             >
               <LogOut className="mr-3 h-4 w-4" />
               Logout

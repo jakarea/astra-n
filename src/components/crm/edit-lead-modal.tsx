@@ -1,10 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { useRole } from '@/contexts/RoleContext'
-import { updateCrmLeadSchema, type UpdateCrmLeadFormData } from '@/lib/validations'
-import { LoadingSpinner } from '@/components/ui/loading'
-import { handleError } from '@/lib/error-handling'
+import { getAuthenticatedClient, getSession } from '@/lib/auth'
 import {
   Dialog,
   DialogContent,
@@ -24,457 +21,295 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from "@/components/ui/command"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
+import { LoadingSpinner } from "@/components/ui/loading"
 import {
   User,
   Mail,
   Phone,
-  Tag,
   Globe,
   MessageSquare,
-  AlertCircle,
-  X,
-  Plus,
-  Check,
-  ChevronsUpDown,
   Edit
 } from 'lucide-react'
-
-interface CrmLead {
-  id: number
-  name: string
-  email: string | null
-  phone: string | null
-  source: string
-  logistic_status: string
-  cod_status: string
-  kpi_status: string
-  notes: string | null
-  created_at: string
-  updated_at: string
-  tags?: Array<{
-    tag: {
-      id: number
-      name: string
-      color: string
-    }
-  }>
-}
-
-interface CrmTag {
-  id: number
-  name: string
-  color: string
-}
 
 interface EditLeadModalProps {
   isOpen: boolean
   onClose: () => void
-  onSuccess: (lead: CrmLead) => void
-  lead: CrmLead | null
+  onSuccess: (updatedLead: any) => void
+  leadId: string | null
 }
 
-const sourceOptions = [
-  { value: 'website', label: 'Website', icon: Globe },
-  { value: 'social_media', label: 'Social Media', icon: MessageSquare },
-  { value: 'email', label: 'Email', icon: Mail },
-  { value: 'phone', label: 'Phone', icon: Phone },
-  { value: 'referral', label: 'Referral', icon: User },
-  { value: 'advertisement', label: 'Advertisement', icon: Globe },
-  { value: 'trade_show', label: 'Trade Show', icon: Globe },
-  { value: 'manual', label: 'Manual Entry', icon: User },
-  { value: 'other', label: 'Other', icon: Globe }
+interface FormData {
+  name: string
+  email: string
+  phone: string
+  source: string
+  logistic_status: string
+  cod_status: string
+  kpi_status: string
+  notes: string
+}
+
+const SOURCE_OPTIONS = [
+  { value: 'website', label: 'Website' },
+  { value: 'social_media', label: 'Social Media' },
+  { value: 'email_campaign', label: 'Email Campaign' },
+  { value: 'referral', label: 'Referral' },
+  { value: 'cold_call', label: 'Cold Call' },
+  { value: 'advertisement', label: 'Advertisement' },
+  { value: 'event', label: 'Event' },
+  { value: 'other', label: 'Other' }
 ]
 
-const logisticStatusOptions = [
-  { value: 'pending', label: 'Pending', color: 'orange' },
-  { value: 'processing', label: 'Processing', color: 'blue' },
-  { value: 'shipped', label: 'Shipped', color: 'purple' },
-  { value: 'delivered', label: 'Delivered', color: 'green' },
-  { value: 'cancelled', label: 'Cancelled', color: 'red' }
+const COD_STATUS_OPTIONS = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'confirmed', label: 'Confirmed' },
+  { value: 'rejected', label: 'Rejected' }
 ]
 
-const codStatusOptions = [
-  { value: 'pending', label: 'Pending', color: 'orange' },
-  { value: 'confirmed', label: 'Confirmed', color: 'green' },
-  { value: 'rejected', label: 'Rejected', color: 'red' }
+const LOGISTIC_STATUS_OPTIONS = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'processing', label: 'Processing' },
+  { value: 'shipped', label: 'Shipped' },
+  { value: 'delivered', label: 'Delivered' },
+  { value: 'cancelled', label: 'Cancelled' }
 ]
 
-const kpiStatusOptions = [
-  { value: 'new', label: 'New', color: 'blue' },
-  { value: 'contacted', label: 'Contacted', color: 'purple' },
-  { value: 'qualified', label: 'Qualified', color: 'yellow' },
-  { value: 'proposal', label: 'Proposal', color: 'orange' },
-  { value: 'negotiation', label: 'Negotiation', color: 'pink' },
-  { value: 'won', label: 'Won', color: 'green' },
-  { value: 'lost', label: 'Lost', color: 'red' }
+const KPI_STATUS_OPTIONS = [
+  { value: 'new', label: 'New' },
+  { value: 'contacted', label: 'Contacted' },
+  { value: 'qualified', label: 'Qualified' },
+  { value: 'proposal', label: 'Proposal' },
+  { value: 'negotiation', label: 'Negotiation' },
+  { value: 'won', label: 'Won' },
+  { value: 'lost', label: 'Lost' }
 ]
 
-export function EditLeadModal({ isOpen, onClose, onSuccess, lead }: EditLeadModalProps) {
-  const { user } = useRole()
+export function EditLeadModal({ isOpen, onClose, onSuccess, leadId }: EditLeadModalProps) {
   const [loading, setLoading] = useState(false)
-  const [availableTags, setAvailableTags] = useState<CrmTag[]>([])
-  const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [tagInputOpen, setTagInputOpen] = useState(false)
-  const [newTagName, setNewTagName] = useState('')
-
-  const [formData, setFormData] = useState<UpdateCrmLeadFormData>({
+  const [saving, setSaving] = useState(false)
+  const [formData, setFormData] = useState<FormData>({
     name: '',
     email: '',
     phone: '',
-    source: 'website',
-    logisticStatus: 'pending',
-    codStatus: 'pending',
-    kpiStatus: 'new',
-    tags: [],
+    source: '',
+    logistic_status: '',
+    cod_status: '',
+    kpi_status: '',
     notes: ''
   })
 
-  const [errors, setErrors] = useState<Record<string, string>>({})
-
-  // Initialize form data when lead changes
   useEffect(() => {
-    if (lead && isOpen) {
-      setFormData({
-        name: lead.name,
-        email: lead.email || '',
-        phone: lead.phone || '',
-        source: lead.source,
-        logisticStatus: lead.logistic_status,
-        codStatus: lead.cod_status,
-        kpiStatus: lead.kpi_status,
-        notes: lead.notes || ''
-      })
-
-      // Set selected tags
-      const tagNames = lead.tags?.map(tagRelation => tagRelation.tag.name) || []
-      setSelectedTags(tagNames)
+    if (isOpen && leadId) {
+      loadLead()
     }
-  }, [lead, isOpen])
+  }, [isOpen, leadId])
 
-  // Load available tags
-  useEffect(() => {
-    const loadTags = async () => {
-      try {
-        const response = await fetch('/api/crm/tags')
-        const result = await response.json()
-
-        if (result.success) {
-          setAvailableTags(result.data)
-        }
-      } catch (error) {
-        console.error('Failed to load tags:', error)
-      }
-    }
-
-    if (isOpen) {
-      loadTags()
-    }
-  }, [isOpen])
-
-  const handleInputChange = (field: keyof UpdateCrmLeadFormData, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
-
-    // Clear field error when user starts typing
-    if (errors[field]) {
-      setErrors(prev => {
-        const newErrors = { ...prev }
-        delete newErrors[field]
-        return newErrors
-      })
-    }
-  }
-
-  const handleTagToggle = (tagName: string) => {
-    setSelectedTags(prev =>
-      prev.includes(tagName)
-        ? prev.filter(name => name !== tagName)
-        : [...prev, tagName]
-    )
-  }
-
-  const handleCreateNewTag = async () => {
-    if (!newTagName.trim()) return
+  const loadLead = async () => {
+    if (!leadId) return
 
     try {
-      const response = await fetch('/api/crm/tags', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newTagName.trim().toLowerCase(),
-          color: '#14b8a6'
-        })
-      })
-
-      const result = await response.json()
-
-      if (result.success) {
-        setAvailableTags(prev => [...prev, result.data])
-        setSelectedTags(prev => [...prev, result.data.name])
-        setNewTagName('')
+      setLoading(true)
+      const session = getSession()
+      if (!session) {
+        throw new Error('User not authenticated')
       }
+
+      const supabase = getAuthenticatedClient()
+
+      const { data, error } = await supabase
+        .from('crm_leads')
+        .select('*')
+        .eq('id', leadId)
+        .eq('user_id', session.user.id)
+        .single()
+
+      if (error) {
+        throw new Error(error.message)
+      }
+
+      setFormData({
+        name: data.name || '',
+        email: data.email || '',
+        phone: data.phone || '',
+        source: data.source || '',
+        logistic_status: data.logistic_status || '',
+        cod_status: data.cod_status || '',
+        kpi_status: data.kpi_status || '',
+        notes: data.notes || ''
+      })
     } catch (error) {
-      console.error('Failed to create tag:', error)
+      console.error('Error loading lead:', error)
+      alert('Failed to load lead data')
+      onClose()
+    } finally {
+      setLoading(false)
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!leadId) return
 
-    if (!lead) return
+    setSaving(true)
 
     try {
-      setLoading(true)
-      setErrors({})
-
-      const submitData = {
-        ...formData,
-        tags: selectedTags
+      const session = getSession()
+      if (!session) {
+        throw new Error('User not authenticated')
       }
 
-      // Validate form data
-      const result = updateCrmLeadSchema.safeParse(submitData)
+      const supabase = getAuthenticatedClient()
 
-      if (!result.success) {
-        const fieldErrors: Record<string, string> = {}
-        if (result.error?.errors) {
-          result.error.errors.forEach((error) => {
-            const fieldName = error.path?.[0] as string
-            if (fieldName) {
-              fieldErrors[fieldName] = error.message
-            } else {
-              fieldErrors.general = error.message
-            }
-          })
-        } else {
-          fieldErrors.general = 'Please check the form for errors'
-        }
-        setErrors(fieldErrors)
-        setLoading(false)
-        return
+      const updateData = {
+        name: formData.name || null,
+        email: formData.email || null,
+        phone: formData.phone || null,
+        source: formData.source,
+        logistic_status: formData.logistic_status || null,
+        cod_status: formData.cod_status || null,
+        kpi_status: formData.kpi_status || null,
+        notes: formData.notes || null
       }
 
-      // Submit to API
-      const response = await fetch(`/api/crm/leads/${lead.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': user?.id || 'demo-user'
-        },
-        body: JSON.stringify(result.data)
-      })
+      console.log('[EDIT_LEAD] Updating lead with data:', updateData)
 
-      const apiResult = await response.json()
+      const { data, error } = await supabase
+        .from('crm_leads')
+        .update(updateData)
+        .eq('id', leadId)
+        .eq('user_id', session.user.id)
+        .select()
+        .single()
 
-      if (!apiResult.success) {
-        const errorMessage = typeof apiResult.error === 'string'
-          ? apiResult.error
-          : apiResult.error?.message || 'Error updating lead. Please try again.'
-        setErrors({ general: errorMessage })
-        setLoading(false)
-        return
+      console.log('[EDIT_LEAD] Update result:', { data, error })
+
+      if (error) {
+        console.error('[EDIT_LEAD] Update error:', error)
+        throw new Error(error.message)
       }
 
-      // Success
-      onSuccess(apiResult.data)
-      handleClose()
-
+      // Pass the updated lead data to parent
+      onSuccess(data)
+      onClose()
     } catch (error) {
-      const appError = handleError(error)
-      const errorMessage = typeof appError === 'string'
-        ? appError
-        : appError?.message || 'An unexpected error occurred'
-      setErrors({ general: errorMessage })
-      setLoading(false)
+      console.error('Error updating lead:', error)
+      alert('Failed to update lead. Please try again.')
+    } finally {
+      setSaving(false)
     }
   }
 
   const handleClose = () => {
-    setFormData({
-      name: '',
-      email: '',
-      phone: '',
-      source: 'website',
-      logisticStatus: 'pending',
-      codStatus: 'pending',
-      kpiStatus: 'new',
-      tags: [],
-      notes: ''
-    })
-    setSelectedTags([])
-    setErrors({})
-    setLoading(false)
-    onClose()
+    if (!saving && !loading) {
+      onClose()
+    }
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="space-y-3 pb-4">
-          <DialogTitle className="flex items-center gap-2 text-xl">
-            <Edit className="h-6 w-6 text-primary" />
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Edit className="h-5 w-5" />
             Edit Lead
           </DialogTitle>
-          <DialogDescription className="text-muted-foreground">
-            Update lead information and track changes in the CRM system.
+          <DialogDescription>
+            Update lead information in your CRM system
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* General Error */}
-          {errors.general && (
-            <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20 flex items-center gap-3">
-              <AlertCircle className="h-5 w-5 text-destructive" />
-              <span className="text-sm text-destructive-foreground">{errors.general}</span>
-            </div>
-          )}
-
-          {/* Basic Information */}
-          <div className="space-y-4 p-4 bg-muted/30 rounded-lg">
-            <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-              <User className="h-5 w-5 text-primary" />
-              Basic Information
-            </h3>
-
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <LoadingSpinner className="h-8 w-8" />
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Basic Information */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Name */}
               <div className="space-y-2">
-                <Label htmlFor="name" className="text-sm font-medium text-foreground">
-                  Name <span className="text-destructive">*</span>
+                <Label htmlFor="edit-name" className="flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Name *
                 </Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => handleInputChange('name', e.target.value)}
-                    placeholder="Full name of the lead"
-                    disabled={loading}
-                    className={`pl-10 ${errors.name ? 'border-destructive focus:border-destructive' : ''}`}
-                  />
-                </div>
-                {errors.name && (
-                  <p className="text-sm text-destructive flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" />
-                    {errors.name}
-                  </p>
-                )}
+                <Input
+                  id="edit-name"
+                  value={formData.name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Lead name"
+                  required
+                  disabled={saving}
+                />
               </div>
 
-              {/* Source */}
               <div className="space-y-2">
-                <Label htmlFor="source" className="text-sm font-medium text-foreground">
-                  Source <span className="text-destructive">*</span>
+                <Label htmlFor="edit-email" className="flex items-center gap-2">
+                  <Mail className="h-4 w-4" />
+                  Email
+                </Label>
+                <Input
+                  id="edit-email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="email@example.com"
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-phone" className="flex items-center gap-2">
+                  <Phone className="h-4 w-4" />
+                  Phone
+                </Label>
+                <Input
+                  id="edit-phone"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="+1234567890"
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-source" className="flex items-center gap-2">
+                  <Globe className="h-4 w-4" />
+                  Source *
                 </Label>
                 <Select
                   value={formData.source}
-                  onValueChange={(value) => handleInputChange('source', value)}
-                  disabled={loading}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, source: value }))}
+                  required
+                  disabled={saving}
                 >
-                  <SelectTrigger className={errors.source ? 'border-destructive' : ''}>
+                  <SelectTrigger>
                     <SelectValue placeholder="Select source" />
                   </SelectTrigger>
                   <SelectContent>
-                    {sourceOptions.map((option) => {
-                      const Icon = option.icon
-                      return (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      )
-                    })}
+                    {SOURCE_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
-                {errors.source && (
-                  <p className="text-sm text-destructive flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" />
-                    {errors.source}
-                  </p>
-                )}
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Email */}
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-medium text-foreground">Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange('email', e.target.value)}
-                    placeholder="email@example.com"
-                    disabled={loading}
-                    className={`pl-10 ${errors.email ? 'border-destructive focus:border-destructive' : ''}`}
-                  />
-                </div>
-                {errors.email && (
-                  <p className="text-sm text-destructive flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" />
-                    {errors.email}
-                  </p>
-                )}
-              </div>
-
-              {/* Phone */}
-              <div className="space-y-2">
-                <Label htmlFor="phone" className="text-sm font-medium text-foreground">Phone</Label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) => handleInputChange('phone', e.target.value)}
-                    placeholder="+39 123 456 7890"
-                    disabled={loading}
-                    className={`pl-10 ${errors.phone ? 'border-destructive focus:border-destructive' : ''}`}
-                  />
-                </div>
-                {errors.phone && (
-                  <p className="text-sm text-destructive flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" />
-                    {errors.phone}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Status Information */}
-          <div className="space-y-4 p-4 bg-muted/30 rounded-lg">
-            <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-              <Tag className="h-5 w-5 text-primary" />
-              Lead Status
-            </h3>
-
+            {/* Status Information */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Logistic Status */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-foreground">Logistic Status</Label>
+                <Label htmlFor="edit-cod-status">COD Status</Label>
                 <Select
-                  value={formData.logisticStatus || 'pending'}
-                  onValueChange={(value) => handleInputChange('logisticStatus', value)}
-                  disabled={loading}
+                  value={formData.cod_status}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, cod_status: value }))}
+                  disabled={saving}
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Select COD status" />
                   </SelectTrigger>
                   <SelectContent>
-                    {logisticStatusOptions.map((option) => (
+                    {COD_STATUS_OPTIONS.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
                         {option.label}
                       </SelectItem>
@@ -483,19 +318,18 @@ export function EditLeadModal({ isOpen, onClose, onSuccess, lead }: EditLeadModa
                 </Select>
               </div>
 
-              {/* COD Status */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-foreground">COD Status</Label>
+                <Label htmlFor="edit-logistic-status">Logistics Status</Label>
                 <Select
-                  value={formData.codStatus || 'pending'}
-                  onValueChange={(value) => handleInputChange('codStatus', value)}
-                  disabled={loading}
+                  value={formData.logistic_status}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, logistic_status: value }))}
+                  disabled={saving}
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Select logistics status" />
                   </SelectTrigger>
                   <SelectContent>
-                    {codStatusOptions.map((option) => (
+                    {LOGISTIC_STATUS_OPTIONS.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
                         {option.label}
                       </SelectItem>
@@ -504,19 +338,18 @@ export function EditLeadModal({ isOpen, onClose, onSuccess, lead }: EditLeadModa
                 </Select>
               </div>
 
-              {/* KPI Status */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-foreground">KPI Status</Label>
+                <Label htmlFor="edit-kpi-status">KPI Status</Label>
                 <Select
-                  value={formData.kpiStatus || 'new'}
-                  onValueChange={(value) => handleInputChange('kpiStatus', value)}
-                  disabled={loading}
+                  value={formData.kpi_status}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, kpi_status: value }))}
+                  disabled={saving}
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Select KPI status" />
                   </SelectTrigger>
                   <SelectContent>
-                    {kpiStatusOptions.map((option) => (
+                    {KPI_STATUS_OPTIONS.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
                         {option.label}
                       </SelectItem>
@@ -525,154 +358,48 @@ export function EditLeadModal({ isOpen, onClose, onSuccess, lead }: EditLeadModa
                 </Select>
               </div>
             </div>
-          </div>
 
-          {/* Tags */}
-          <div className="space-y-4 p-4 bg-muted/30 rounded-lg">
-            <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-              <Tag className="h-5 w-5 text-primary" />
-              Tags
-            </h3>
-
+            {/* Notes */}
             <div className="space-y-2">
-              <Popover open={tagInputOpen} onOpenChange={setTagInputOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={tagInputOpen}
-                    className="w-full justify-between"
-                    disabled={loading}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Tag className="h-4 w-4" />
-                      Select tags...
-                    </div>
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-full p-0">
-                  <Command>
-                    <CommandInput
-                      placeholder="Search tags..."
-                      value={newTagName}
-                      onValueChange={setNewTagName}
-                    />
-                    <CommandEmpty>
-                      <div className="flex items-center justify-center p-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={handleCreateNewTag}
-                          disabled={!newTagName.trim()}
-                        >
-                          <Plus className="h-4 w-4 mr-2" />
-                          Create "{newTagName}"
-                        </Button>
-                      </div>
-                    </CommandEmpty>
-                    <CommandGroup>
-                      {availableTags.map((tag) => (
-                        <CommandItem
-                          key={tag.id}
-                          onSelect={() => handleTagToggle(tag.name)}
-                        >
-                          <Check
-                            className={`mr-2 h-4 w-4 ${
-                              selectedTags.includes(tag.name) ? "opacity-100" : "opacity-0"
-                            }`}
-                          />
-                          <Badge
-                            variant="outline"
-                            className="text-xs mr-2"
-                            style={{
-                              backgroundColor: tag.color + '20',
-                              borderColor: tag.color
-                            }}
-                          >
-                            {tag.name}
-                          </Badge>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-
-              {/* Selected Tags Display */}
-              {selectedTags.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {selectedTags.map((tagName) => {
-                    const tag = availableTags.find(t => t.name === tagName)
-                    return (
-                      <Badge
-                        key={tagName}
-                        variant="outline"
-                        className="text-xs flex items-center gap-1"
-                        style={{
-                          backgroundColor: tag?.color ? tag.color + '20' : undefined,
-                          borderColor: tag?.color
-                        }}
-                      >
-                        {tagName}
-                        <X
-                          className="h-3 w-3 cursor-pointer hover:text-destructive"
-                          onClick={() => handleTagToggle(tagName)}
-                        />
-                      </Badge>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Notes */}
-          <div className="space-y-4 p-4 bg-muted/30 rounded-lg">
-            <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-              <MessageSquare className="h-5 w-5 text-primary" />
-              Notes
-            </h3>
-            <div className="space-y-2">
-              <Label htmlFor="notes" className="text-sm font-medium text-foreground">Additional notes</Label>
+              <Label htmlFor="edit-notes" className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" />
+                Notes
+              </Label>
               <Textarea
-                id="notes"
+                id="edit-notes"
                 value={formData.notes}
-                onChange={(e) => handleInputChange('notes', e.target.value)}
-                placeholder="Enter additional notes about the lead..."
+                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Additional notes about this lead..."
                 rows={4}
-                disabled={loading}
-                className={`resize-none ${errors.notes ? 'border-destructive focus:border-destructive' : ''}`}
+                disabled={saving}
               />
-              {errors.notes && (
-                <p className="text-sm text-destructive flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" />
-                  {errors.notes}
-                </p>
-              )}
             </div>
-          </div>
 
-          <DialogFooter className="gap-3 pt-6 border-t border-border mt-6">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleClose}
-              disabled={loading}
-              className="min-w-24"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={loading}
-              className="flex items-center gap-2 min-w-32 bg-primary hover:bg-primary/90"
-            >
-              {loading && <LoadingSpinner size="sm" />}
-              {loading ? 'Updating...' : 'Update Lead'}
-            </Button>
-          </DialogFooter>
-        </form>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClose}
+                disabled={saving || loading}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={saving || loading || !formData.name || !formData.source}>
+                {saving ? (
+                  <>
+                    <LoadingSpinner className="mr-2" />
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    <Edit className="h-4 w-4 mr-2" />
+                    Update Lead
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   )

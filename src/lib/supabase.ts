@@ -1,111 +1,38 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+// Server-side client (for Server Components and API routes)
+// Only create this in server environment
+export const supabase = typeof window === 'undefined'
+  ? createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+  : null
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables. Please check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY')
+// Client-side client factory function
+export function createSupabaseClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!url || !anonKey) {
+    console.error('Missing Supabase environment variables:', {
+      url: !!url,
+      anonKey: !!anonKey,
+      urlValue: url,
+      anonKeyValue: anonKey?.slice(0, 10) + '...'
+    })
+    throw new Error('Missing Supabase environment variables')
+  }
+
+  return createClient(url, anonKey)
 }
 
-// Single Supabase client for all client-side operations
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true
-  }
-})
+// Singleton client instance
+let clientInstance: ReturnType<typeof createClient> | null = null
 
-export type User = {
-  id: string
-  email?: string
-  user_metadata?: {
-    name?: string
-    role?: string
+export function getSupabaseClient() {
+  if (!clientInstance) {
+    clientInstance = createSupabaseClient()
   }
-}
-
-export type Database = {
-  public: {
-    Tables: {
-      users: {
-        Row: {
-          id: string
-          name: string
-          role: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id: string
-          name: string
-          role: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          name?: string
-          role?: string
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      user_settings: {
-        Row: {
-          user_id: string
-          telegram_chat_id: string | null
-          updated_at: string
-        }
-        Insert: {
-          user_id: string
-          telegram_chat_id?: string | null
-          updated_at?: string
-        }
-        Update: {
-          user_id?: string
-          telegram_chat_id?: string | null
-          updated_at?: string
-        }
-      }
-      integrations: {
-        Row: {
-          id: number
-          user_id: string
-          name: string
-          type: string
-          domain: string
-          webhook_secret: string
-          admin_access_token: string
-          is_active: boolean
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: number
-          user_id: string
-          name: string
-          type: string
-          domain: string
-          webhook_secret: string
-          admin_access_token: string
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: number
-          user_id?: string
-          name?: string
-          type?: string
-          domain?: string
-          webhook_secret?: string
-          admin_access_token?: string
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-      }
-    }
-  }
+  return clientInstance
 }
