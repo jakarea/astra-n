@@ -1,12 +1,15 @@
 "use client"
 
-import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
 import { useState } from "react"
-import { useRole } from "@/contexts/RoleContext"
-import { useAuth } from "@/contexts/AuthContext"
+import Link from "next/link"
+import Image from "next/image"
+import { usePathname } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 import {
+  Menu,
   Home,
   Users,
   ShoppingCart,
@@ -14,8 +17,6 @@ import {
   Settings,
   UserCheck,
   BarChart3,
-  Menu,
-  X,
   LogOut,
   Shield,
   UserCog
@@ -24,26 +25,16 @@ import {
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: BarChart3, adminOnly: false },
   { name: "CRM", href: "/crm", icon: UserCheck, adminOnly: false },
-  { name: "Ordini", href: "/orders", icon: ShoppingCart, adminOnly: false },
-  { name: "Clienti", href: "/clients", icon: Users, adminOnly: false },
-  { name: "Inventario", href: "/inventory", icon: Package, adminOnly: false },
-  { name: "Utenti", href: "/admin/users", icon: UserCog, adminOnly: true },
-  { name: "Impostazioni", href: "/settings", icon: Settings, adminOnly: false }
+  { name: "Orders", href: "/orders", icon: ShoppingCart, adminOnly: false },
+  { name: "Clients", href: "/clients", icon: Users, adminOnly: false },
+  { name: "Inventory", href: "/inventory", icon: Package, adminOnly: false },
+  { name: "User Management", href: "/admin/users", icon: UserCog, adminOnly: true },
+  { name: "Settings", href: "/settings", icon: Settings, adminOnly: false }
 ]
 
 export function MobileNav() {
   const pathname = usePathname()
-  const router = useRouter()
-  const { user, isAdmin } = useRole()
-  const { signOut } = useAuth()
-  const [showMenu, setShowMenu] = useState(false)
-
-  // Filter navigation based on user role
-  const filteredNavigation = navigation.filter(item => !item.adminOnly || isAdmin)
-
-  // Show only first 4 items in bottom nav, rest in menu
-  const bottomNavItems = filteredNavigation.slice(0, 4)
-  const menuItems = filteredNavigation.slice(4)
+  const [open, setOpen] = useState(false)
 
   const handleLogout = async () => {
     try {
@@ -60,133 +51,125 @@ export function MobileNav() {
         console.error('Logout API error:', error)
       }
 
-      // Also clear local auth context and role context
-      await signOut()
-
-      // Close menu and force redirect to login page
-      setShowMenu(false)
+      // Force redirect to login page and reload to clear all client state
       window.location.href = '/login'
 
     } catch (error) {
       console.error('Error signing out:', error)
       // Even if there's an error, try to clear local state and redirect
-      setShowMenu(false)
       window.location.href = '/login'
     }
   }
 
-  return (
-    <>
-      {/* Mobile header */}
-      <div className="md:hidden">
-        <div className="fixed inset-x-0 top-0 z-40" style={{backgroundColor: '#FFFFFF', borderBottom: '1px solid #EAEDF0'}}>
-          <div className="flex items-center justify-between h-16 px-4">
-            <div className="flex items-center">
-              <div className="h-6 w-6 rounded flex items-center justify-center" style={{backgroundColor: '#3ECF8E'}}>
-                <span className="text-white font-bold text-sm">A</span>
-              </div>
-              <span className="ml-2 text-lg font-bold" style={{color: '#11181C'}}>Astra</span>
-            </div>
+  // For now, show all navigation items (we'll add user context later)
+  const filteredNavigation = navigation.filter(item => !item.adminOnly || true) // Show all for admin
 
-            {/* User info and menu button */}
-            <div className="flex items-center space-x-3">
-              {user && (
-                <div className="flex items-center space-x-2">
-                  <div className="h-8 w-8 rounded-full flex items-center justify-center text-xs"
-                       style={{backgroundColor: isAdmin ? '#3ECF8E' : '#94A3B8', color: '#FFFFFF'}}>
-                    {isAdmin ? <Shield className="h-4 w-4" /> : user.name?.charAt(0) || 'U'}
-                  </div>
-                  <div className="text-sm">
-                    <div className="font-medium" style={{color: '#11181C'}}>{user.name || user.email}</div>
+  return (
+    <div className="md:hidden">
+      {/* Mobile header */}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-[#121212f2] border-b border-gray-700">
+        <div className="flex items-center justify-between h-16 px-4">
+          <Link href="/dashboard" className="flex items-center hover:opacity-80 transition-opacity">
+            <Image
+              src="/astra-logo.svg"
+              alt="Astra"
+              width={120}
+              height={32}
+              className="h-12 w-auto"
+              priority
+            />
+          </Link>
+
+          <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="sm" className="text-white">
+                <Menu className="h-6 w-6" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-64 bg-[#121212f2] border-gray-700">
+              <div className="flex flex-col h-full pt-4">
+                {/* Logo */}
+                <div className="flex items-center px-2 mb-6">
+                  <Link href="/dashboard" className="flex items-center hover:opacity-80 transition-opacity">
+                    <Image
+                      src="/astra-logo.svg"
+                      alt="Astra"
+                      width={120}
+                      height={32}
+                      className="h-12 w-auto"
+                      priority
+                    />
+                  </Link>
+                </div>
+
+                {/* User Info */}
+                <div className="px-2 mb-6">
+                  <div className="flex items-center space-x-3 p-3 rounded-lg bg-gray-100">
+                    <div className="h-10 w-10 rounded-full flex items-center justify-center bg-green-500">
+                      <Shield className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate text-gray-900">
+                        Admin User
+                      </p>
+                      <div className="flex items-center mt-1">
+                        <Badge className="text-xs bg-green-500 text-white">
+                          Admin
+                        </Badge>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              )}
 
-              <button
-                onClick={() => setShowMenu(!showMenu)}
-                className="p-2 rounded-md"
-                style={{color: '#687076'}}
-              >
-                {showMenu ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-              </button>
-            </div>
-          </div>
+                {/* Navigation */}
+                <nav className="flex-1 px-2 space-y-2">
+                  {filteredNavigation.map((item) => {
+                    const isActive = pathname === item.href
+                    return (
+                      <Link
+                        key={item.name}
+                        href={item.href}
+                        onClick={() => setOpen(false)}
+                        className={cn(
+                          "group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors",
+                          isActive
+                            ? "bg-blue-600 text-white"
+                            : "text-gray-300 hover:bg-blue-600 hover:text-white"
+                        )}
+                      >
+                        <item.icon
+                          className={cn(
+                            "mr-3 h-5 w-5 flex-shrink-0",
+                            isActive ? "text-white" : "text-gray-400 group-hover:text-white"
+                          )}
+                        />
+                        <span className="group-hover:text-white">
+                          {item.name}
+                          {item.adminOnly && (
+                            <Shield className="ml-2 h-3 w-3 inline" />
+                          )}
+                        </span>
+                      </Link>
+                    )
+                  })}
+                </nav>
+
+                {/* Logout button */}
+                <div className="px-2 pb-4">
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="mr-3 h-4 w-4" />
+                    Logout
+                  </Button>
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
       </div>
-
-      {/* Mobile slide-out menu */}
-      {showMenu && (
-        <div className="md:hidden">
-          <div className="fixed inset-0 z-50 bg-black bg-opacity-50" onClick={() => setShowMenu(false)} />
-          <div className="fixed inset-y-0 right-0 z-50 w-64 shadow-lg" style={{backgroundColor: '#FFFFFF'}}>
-            <div className="flex flex-col h-full">
-              <div className="flex items-center justify-between p-4" style={{borderBottom: '1px solid #EAEDF0'}}>
-                <h2 className="text-lg font-semibold" style={{color: '#11181C'}}>Menu</h2>
-                <button onClick={() => setShowMenu(false)} style={{color: '#687076'}}>
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-
-              <div className="flex-1 py-4">
-                {menuItems.map((item) => {
-                  const isActive = pathname === item.href
-                  return (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      onClick={() => setShowMenu(false)}
-                      className="flex items-center px-4 py-3 text-sm font-medium"
-                      style={isActive
-                        ? {backgroundColor: '#F8F9FA', color: '#3ECF8E', borderRight: '3px solid #3ECF8E'}
-                        : {color: '#687076'}
-                      }
-                    >
-                      <item.icon className="mr-3 h-5 w-5" />
-                      {item.name}
-                    </Link>
-                  )
-                })}
-              </div>
-
-              <div className="p-4" style={{borderTop: '1px solid #EAEDF0'}}>
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center w-full px-4 py-3 text-sm font-medium rounded-md"
-                  style={{color: '#DC2626', backgroundColor: '#FEF2F2'}}
-                >
-                  <LogOut className="mr-3 h-5 w-5" />
-                  Logout
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Mobile bottom navigation */}
-      <div className="md:hidden">
-        <div className="fixed inset-x-0 bottom-0 z-40" style={{backgroundColor: '#FFFFFF', borderTop: '1px solid #EAEDF0'}}>
-          <div className="grid grid-cols-4 gap-1 p-2">
-            {bottomNavItems.map((item) => {
-              const isActive = pathname === item.href
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className="flex flex-col items-center py-2 px-1 text-xs font-medium rounded transition-colors"
-                  style={isActive
-                    ? {backgroundColor: '#3ECF8E', color: '#FFFFFF'}
-                    : {color: '#687076'}
-                  }
-                >
-                  <item.icon className="h-5 w-5 mb-1" />
-                  <span className="truncate" translate="no" suppressHydrationWarning>{item.name}</span>
-                </Link>
-              )
-            })}
-          </div>
-        </div>
-      </div>
-    </>
+    </div>
   )
 }

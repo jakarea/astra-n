@@ -1,75 +1,47 @@
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
-  const res = NextResponse.next()
-  const supabase = createMiddlewareClient({ req: request, res })
-
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  console.log(`[MIDDLEWARE] Processing ${pathname}`)
+  // Get auth token from cookies or headers
+  const authCookie = request.cookies.get('auth_token')
+  const authHeader = request.headers.get('authorization')
 
-  // Get session using Supabase auth helpers
-  const { data: { session }, error } = await supabase.auth.getSession()
+  const hasAuth = authCookie?.value || authHeader
 
   // Protected routes (require authentication)
-  const protectedRoutes = ['/orders', '/clients', '/inventory', '/crm', '/settings', '/admin','/dashboard']
+  const protectedRoutes = ['/dashboard', '/orders', '/clients', '/inventory', '/crm', '/settings', '/admin']
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route))
 
-  // Auth routes (login, register, forgot-password)
+  // Auth routes (login, register, etc.)
   const authRoutes = ['/login', '/register', '/forgot-password']
   const isAuthRoute = authRoutes.some(route => pathname.startsWith(route))
 
-  console.log(`[MIDDLEWARE] ${pathname} - Session: ${session ? 'EXISTS' : 'NONE'}${error ? ` (Error: ${error.message})` : ''}`)
-
-  // If user is not authenticated and trying to access protected routes, redirect to login
-  if (!session && isProtectedRoute) {
+  // If accessing protected route without auth, redirect to login
+  if (isProtectedRoute && !hasAuth) {
     console.log(`[MIDDLEWARE] Redirecting ${pathname} to /login - No auth`)
-    const redirectUrl = new URL('/login', request.url)
-    return NextResponse.redirect(redirectUrl)
+    return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // If user is not authenticated and trying to access dashboard, redirect to login
-  if (!session && pathname === '/dashboard') {
-    console.log(`[MIDDLEWARE] Redirecting /dashboard to /login - No auth`)
-    const redirectUrl = new URL('/login', request.url)
-    return NextResponse.redirect(redirectUrl)
-  }
-
-  // If user is authenticated and trying to access auth routes, redirect to dashboard
-  if (session && isAuthRoute) {
+  // If accessing auth route with auth, redirect to dashboard
+  if (isAuthRoute && hasAuth) {
     console.log(`[MIDDLEWARE] Redirecting ${pathname} to /dashboard - Already authenticated`)
-    const redirectUrl = new URL('/dashboard', request.url)
-    return NextResponse.redirect(redirectUrl)
+    return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
   // If authenticated user visits root, redirect to dashboard
-  if (session && pathname === '/') {
+  if (hasAuth && pathname === '/') {
     console.log(`[MIDDLEWARE] Redirecting authenticated user from / to /dashboard`)
-    const redirectUrl = new URL('/dashboard', request.url)
-    return NextResponse.redirect(redirectUrl)
-  }
-
-  // Allow access to /dashboard if authenticated
-  if (session && pathname === '/dashboard') {
-    console.log(`[MIDDLEWARE] Allowing access to /dashboard - Authenticated user`)
-    return res
+    return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
   console.log(`[MIDDLEWARE] Allowing access to ${pathname}`)
-  return res
+  return NextResponse.next()
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
     '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ]
 }
