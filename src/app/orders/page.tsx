@@ -120,6 +120,11 @@ export default function OrdersPage() {
         return
       }
 
+      console.log('[Orders] Loading orders for user:', {
+        userId: session.user.id,
+        email: session.user.email
+      })
+
       const supabase = getAuthenticatedClient()
 
       let query = supabase
@@ -127,7 +132,7 @@ export default function OrdersPage() {
         .select(`
           *,
           customer:customers(id, name, email),
-          integration:integrations(name, type),
+          integration:integrations!inner(name, type, user_id),
           items:order_items(*)
         `, { count: 'exact' })
         .eq('integration.user_id', session.user.id)

@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { LoadingSpinner } from "@/components/ui/loading"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   Select,
   SelectContent,
@@ -25,7 +26,9 @@ import {
   User,
   Mail,
   Shield,
-  Send
+  Send,
+  AlertCircle,
+  CheckCircle
 } from 'lucide-react'
 
 interface InviteUserModalProps {
@@ -41,6 +44,8 @@ interface FormData {
 
 export function InviteUserModal({ isOpen, onClose, onSuccess }: InviteUserModalProps) {
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const userIsAdmin = isAdmin()
   const [formData, setFormData] = useState<FormData>({
     email: '',
@@ -50,21 +55,27 @@ export function InviteUserModal({ isOpen, onClose, onSuccess }: InviteUserModalP
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+    setError('')
+    setSuccess('')
 
     try {
       // Validate required fields
       if (!formData.email) {
-        throw new Error('Email is required')
+        setError('Email is required')
+        setLoading(false)
+        return
       }
-
-      // Ensure sellers can only invite with 'seller' role
-      const inviteRole = userIsAdmin ? formData.role : 'seller'
 
       // Validate email format
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
       if (!emailRegex.test(formData.email)) {
-        throw new Error('Please enter a valid email address')
+        setError('Please enter a valid email address')
+        setLoading(false)
+        return
       }
+
+      // Ensure sellers can only invite with 'seller' role
+      const inviteRole = userIsAdmin ? formData.role : 'seller'
 
       console.log('[INVITE_USER] Inviting user with data:', { email: formData.email, role: inviteRole, userIsAdmin })
 
@@ -80,25 +91,27 @@ export function InviteUserModal({ isOpen, onClose, onSuccess }: InviteUserModalP
         updated_at: new Date().toISOString()
       }
 
-      // Reset form
-      setFormData({
-        email: '',
-        role: 'seller'
-      })
-
-      // Pass the new user data to parent
-      onSuccess(newUser)
-      onClose()
-
-      // Show different success message based on user type
+      // Show success message
       if (userIsAdmin) {
-        alert(`Invitation sent successfully to ${formData.email} with ${inviteRole} role`)
+        setSuccess(`Invitation sent successfully to ${formData.email} with ${inviteRole} role`)
       } else {
-        alert(`Invitation email sent to ${formData.email} with ${inviteRole} role. They will receive an email to complete their signup.`)
+        setSuccess(`Invitation email sent to ${formData.email} with ${inviteRole} role. They will receive an email to complete their signup.`)
       }
+
+      // Reset form after a short delay to show success message
+      setTimeout(() => {
+        setFormData({
+          email: '',
+          role: 'seller'
+        })
+        setSuccess('')
+        onSuccess(newUser)
+        onClose()
+      }, 2000)
+
     } catch (error: any) {
       console.error('Error inviting user:', error)
-      alert(`Failed to invite user: ${error.message}`)
+      setError(error.message || 'Failed to invite user')
     } finally {
       setLoading(false)
     }
@@ -106,6 +119,12 @@ export function InviteUserModal({ isOpen, onClose, onSuccess }: InviteUserModalP
 
   const handleClose = () => {
     if (!loading) {
+      setError('')
+      setSuccess('')
+      setFormData({
+        email: '',
+        role: 'seller'
+      })
       onClose()
     }
   }
@@ -126,6 +145,20 @@ export function InviteUserModal({ isOpen, onClose, onSuccess }: InviteUserModalP
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {success && (
+            <Alert className="border-green-200 bg-green-50">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-700">{success}</AlertDescription>
+            </Alert>
+          )}
+
           <div className="grid grid-cols-1 gap-4">
             <div className="space-y-2">
               <Label htmlFor="email" className="flex items-center gap-2">
@@ -136,7 +169,11 @@ export function InviteUserModal({ isOpen, onClose, onSuccess }: InviteUserModalP
                 id="email"
                 type="email"
                 value={formData.email}
-                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                onChange={(e) => {
+                  setFormData(prev => ({ ...prev, email: e.target.value }))
+                  setError('')
+                  setSuccess('')
+                }}
                 placeholder="user@example.com"
                 required
               />
@@ -154,7 +191,11 @@ export function InviteUserModal({ isOpen, onClose, onSuccess }: InviteUserModalP
                 </Label>
                 <Select
                   value={formData.role}
-                  onValueChange={(value: UserRole) => setFormData(prev => ({ ...prev, role: value }))}
+                  onValueChange={(value: UserRole) => {
+                    setFormData(prev => ({ ...prev, role: value }))
+                    setError('')
+                    setSuccess('')
+                  }}
                   required
                 >
                   <SelectTrigger>

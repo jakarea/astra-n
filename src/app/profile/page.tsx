@@ -18,7 +18,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { User, Mail, Shield, Save, RotateCcw, Send } from 'lucide-react'
+import { User, Mail, Shield, Save, RotateCcw, Send, MessageCircle, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { InviteUserModal } from '@/components/users/invite-user-modal'
 
 interface ProfileData {
@@ -42,6 +43,12 @@ export default function ProfilePage() {
     name: '',
     email: ''
   })
+
+  // Telegram settings state
+  const [telegramChatId, setTelegramChatId] = useState<string>('')
+  const [tempTelegramChatId, setTempTelegramChatId] = useState<string>('')
+  const [telegramLoading, setTelegramLoading] = useState(false)
+  const [telegramTesting, setTelegramTesting] = useState(false)
 
   // Load profile data on mount
   useEffect(() => {
@@ -77,6 +84,18 @@ export default function ProfilePage() {
           email: data.email
         })
         setHasError(false)
+      }
+
+      // Load Telegram settings
+      const { data: settingsData, error: settingsError } = await supabase
+        .from('user_settings')
+        .select('telegram_chat_id')
+        .eq('user_id', session.user.id)
+        .single()
+
+      if (!settingsError && settingsData) {
+        setTelegramChatId(settingsData.telegram_chat_id || '')
+        setTempTelegramChatId(settingsData.telegram_chat_id || '')
       }
     } catch (error: any) {
       console.error('[PROFILE] Error loading profile:', error)
@@ -130,11 +149,11 @@ export default function ProfilePage() {
 
       if (data) {
         setProfile(data)
-        alert('Profile updated successfully!')
+        toast.success('Profile updated successfully!')
       }
     } catch (error: any) {
       console.error('Error updating profile:', error)
-      alert(`Failed to update profile: ${error.message}`)
+      toast.error(`Failed to update profile: ${error.message}`)
     } finally {
       setSaving(false)
     }
@@ -146,10 +165,73 @@ export default function ProfilePage() {
     try {
       await resetUserPassword(profile.email)
       setResetPasswordDialog(false)
-      alert(`Password reset link sent to ${profile.email}`)
+      toast.success(`Password reset link sent to ${profile.email}`)
     } catch (error: any) {
       console.error('Error resetting password:', error)
-      alert(`Failed to send reset email: ${error.message}`)
+      toast.error(`Failed to send reset email: ${error.message}`)
+    }
+  }
+
+  const handleSaveTelegram = async () => {
+    if (!profile?.id) return
+
+    setTelegramLoading(true)
+    try {
+      const supabase = getAuthenticatedClient()
+
+      // Upsert user settings
+      const { error } = await supabase
+        .from('user_settings')
+        .upsert({
+          user_id: profile.id,
+          telegram_chat_id: tempTelegramChatId || null,
+          updated_at: new Date().toISOString()
+        })
+
+      if (error) {
+        throw error
+      }
+
+      setTelegramChatId(tempTelegramChatId)
+      toast.success('Telegram settings saved successfully!')
+    } catch (error: any) {
+      console.error('Error saving Telegram settings:', error)
+      toast.error('Failed to save Telegram settings. Please try again.')
+    } finally {
+      setTelegramLoading(false)
+    }
+  }
+
+  const handleTestTelegram = async () => {
+    if (!tempTelegramChatId.trim()) {
+      toast.error('Please enter your Telegram Chat ID first.')
+      return
+    }
+
+    setTelegramTesting(true)
+    try {
+      const response = await fetch('/api/telegram/test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chatId: tempTelegramChatId.trim()
+        }),
+      })
+
+      const result = await response.json()
+
+      if (response.ok && result.success) {
+        toast.success('Test message sent successfully! Check your Telegram.')
+      } else {
+        toast.error(`Failed to send test message: ${result.error || 'Unknown error'}`)
+      }
+    } catch (error: any) {
+      console.error('Error testing Telegram:', error)
+      toast.error('Failed to test Telegram connection. Please try again.')
+    } finally {
+      setTelegramTesting(false)
     }
   }
 
@@ -324,6 +406,70 @@ export default function ProfilePage() {
                 >
                   <RotateCcw className="h-4 w-4 mr-2" />
                   Reset Password
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Telegram Notifications */}
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageCircle className="h-5 w-5" />
+                Telegram Notifications
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="telegram-chat-id">Telegram Chat ID</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="telegram-chat-id"
+                    placeholder="e.g., 123456789 or -987654321"
+                    value={tempTelegramChatId}
+                    onChange={(e) => setTempTelegramChatId(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleTestTelegram}
+                    disabled={telegramTesting || !tempTelegramChatId.trim()}
+                  >
+                    {telegramTesting ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <Send className="h-4 w-4 mr-2" />
+                    )}
+                    Test
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Configure Telegram bot notifications for new orders from webhooks
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between pt-4 border-t">
+                <div>
+                  <p className="text-sm font-medium">
+                    Current Status: {telegramChatId ? (
+                      <Badge variant="default">Configured</Badge>
+                    ) : (
+                      <Badge variant="outline">Not Configured</Badge>
+                    )}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {telegramChatId ? `Chat ID: ${telegramChatId}` : 'No Telegram notifications configured'}
+                  </p>
+                </div>
+                <Button
+                  onClick={handleSaveTelegram}
+                  disabled={telegramLoading || tempTelegramChatId === telegramChatId}
+                >
+                  {telegramLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : null}
+                  Save Settings
                 </Button>
               </div>
             </CardContent>

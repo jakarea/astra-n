@@ -39,7 +39,7 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-    --popover: #006239; /* hover color */
+    --popover: #53a244; /* hover color */
 }
 
 :root {
@@ -48,7 +48,7 @@
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
-  --popover: #006239; /* hover color */
+  --popover: #53a244; /* hover color */
   --popover-foreground: oklch(0.145 0 0);
   --primary: #171717;
   --primary-foreground: oklch(0.985 0 0);
@@ -75,8 +75,8 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
-  --active-primary: #006239; /* bg active color */
-  --hover-primary: #006239;  /* bg hover color */ 
+  --active-primary: #53a244; /* bg active color */
+  --hover-primary: #53a244;  /* bg hover color */ 
 }
 
 .dark {
@@ -84,7 +84,7 @@
   --foreground: oklch(0.985 0 0);  /* main text color */
   --card: #171717;  /* all card bg color */
   --card-foreground: #FAFAFA;  /* all card title text color */
-  --popover: #006239;
+  --popover: #53a244;
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.922 0 0);
   --primary-foreground: oklch(0.205 0 0);
@@ -111,8 +111,8 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
-  --active-primary: #006239; /* bg active color */
-  --hover-primary: #006239;  /* bg hover color */ 
+  --active-primary: #53a244; /* bg active color */
+  --hover-primary: #53a244;  /* bg hover color */ 
 }
 
 @layer base {

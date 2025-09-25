@@ -59,19 +59,28 @@ export function ViewUserModal({ isOpen, onClose, userId }: ViewUserModalProps) {
         throw new Error('User not authenticated')
       }
 
-      const supabase = getAuthenticatedClient()
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single()
+      console.log('[VIEW_USER] Loading user via admin API:', userId)
 
-      if (error) {
-        throw new Error(error.message)
+      // Make API call with authentication
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.token}`
+        }
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `HTTP ${response.status}`)
       }
 
-      if (data) {
-        setUser(data)
+      const result = await response.json()
+      console.log('[VIEW_USER] User loaded successfully')
+
+      if (result.user) {
+        setUser(result.user)
       }
     } catch (error: any) {
       console.error('Error loading user:', error)

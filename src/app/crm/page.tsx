@@ -344,7 +344,7 @@ export default function CRMPage() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">CRM Dashboard</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Lead Management</h1>
             <p className="text-muted-foreground">
               Manage your leads and track conversions
             </p>
@@ -374,7 +374,7 @@ export default function CRMPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">CRM Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Lead Management</h1>
           <p className="text-muted-foreground">
             Manage your leads and track conversions
           </p>

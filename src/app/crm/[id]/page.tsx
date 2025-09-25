@@ -185,13 +185,7 @@ export default function CRMViewPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/crm">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to CRM
-            </Link>
-          </Button>
+        <div>
           <div>
             <h1 className="text-3xl font-bold tracking-tight">{lead.name || 'Unnamed Lead'}</h1>
             <p className="text-muted-foreground">Lead ID: {lead.id}</p>

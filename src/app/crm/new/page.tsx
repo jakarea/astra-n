@@ -67,13 +67,7 @@ export default async function CRMNewPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" asChild>
-          <Link href="/crm">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to CRM
-          </Link>
-        </Button>
+      <div>
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Create New Lead</h1>
           <p className="text-muted-foreground">Add a new lead to your CRM system</p>

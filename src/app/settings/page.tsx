@@ -4,20 +4,19 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Settings, User, Shield, Bell, MessageCircle, Send, Loader2 } from "lucide-react"
+import { Settings, User, Shield, Bell, Palette, Monitor, Moon, Sun } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { getSupabaseClient } from "@/lib/supabase"
+import { toast } from 'sonner'
 
 export default function SettingsPage() {
   const { user } = useAuth()
   const [userName, setUserName] = useState<string>('')
   const [userRole, setUserRole] = useState<string>('User')
-  const [telegramChatId, setTelegramChatId] = useState<string>('')
-  const [tempTelegramChatId, setTempTelegramChatId] = useState<string>('')
-  const [telegramLoading, setTelegramLoading] = useState(false)
-  const [telegramTesting, setTelegramTesting] = useState(false)
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true)
+  const [emailNotifications, setEmailNotifications] = useState(true)
+  const [darkMode, setDarkMode] = useState(false)
+  const [autoSave, setAutoSave] = useState(true)
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -39,16 +38,18 @@ export default function SettingsPage() {
             setUserRole(capitalizedRole)
           }
 
-          // Fetch user settings (including Telegram chat ID)
+          // Fetch user settings
           const { data: settingsData, error: settingsError } = await supabase
             .from('user_settings')
-            .select('telegram_chat_id')
+            .select('notifications_enabled, email_notifications, dark_mode, auto_save')
             .eq('user_id', user.id)
             .single()
 
           if (!settingsError && settingsData) {
-            setTelegramChatId(settingsData.telegram_chat_id || '')
-            setTempTelegramChatId(settingsData.telegram_chat_id || '')
+            setNotificationsEnabled(settingsData.notifications_enabled ?? true)
+            setEmailNotifications(settingsData.email_notifications ?? true)
+            setDarkMode(settingsData.dark_mode ?? false)
+            setAutoSave(settingsData.auto_save ?? true)
           }
         } catch (error) {
           console.error('Error fetching user data:', error)
@@ -59,10 +60,9 @@ export default function SettingsPage() {
     fetchUserData()
   }, [user?.id])
 
-  const handleSaveTelegram = async () => {
+  const handleSaveSettings = async () => {
     if (!user?.id) return
 
-    setTelegramLoading(true)
     try {
       const supabase = getSupabaseClient()
 
@@ -71,55 +71,21 @@ export default function SettingsPage() {
         .from('user_settings')
         .upsert({
           user_id: user.id,
-          telegram_chat_id: tempTelegramChatId || null,
+          notifications_enabled: notificationsEnabled,
+          email_notifications: emailNotifications,
+          dark_mode: darkMode,
+          auto_save: autoSave,
           updated_at: new Date().toISOString()
         })
 
-        
       if (error) {
         throw error
       }
 
-      setTelegramChatId(tempTelegramChatId)
-      alert('Telegram settings saved successfully!')
+      toast.success('Settings saved successfully!')
     } catch (error) {
-      console.error('Error saving Telegram settings:', error)
-      alert('Failed to save Telegram settings. Please try again.')
-    } finally {
-      setTelegramLoading(false)
-    }
-  }
-
-  const handleTestTelegram = async () => {
-    if (!tempTelegramChatId.trim()) {
-      alert('Please enter your Telegram Chat ID first.')
-      return
-    }
-
-    setTelegramTesting(true)
-    try {
-      const response = await fetch('/api/telegram/test', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          chatId: tempTelegramChatId.trim()
-        }),
-      })
-
-      const result = await response.json()
-
-      if (response.ok && result.success) {
-        alert('Test message sent successfully! Check your Telegram.')
-      } else {
-        alert(`Failed to send test message: ${result.error || 'Unknown error'}`)
-      }
-    } catch (error) {
-      console.error('Error testing Telegram:', error)
-      alert('Failed to test Telegram connection. Please try again.')
-    } finally {
-      setTelegramTesting(false)
+      console.error('Error saving settings:', error)
+      toast.error('Failed to save settings. Please try again.')
     }
   }
 
@@ -195,68 +161,113 @@ export default function SettingsPage() {
         </Card>
       </div>
 
-      {/* Telegram Notifications */}
+      {/* Notification Settings */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <MessageCircle className="h-5 w-5" />
-            Telegram Notifications
+            <Bell className="h-5 w-5" />
+            Notification Preferences
           </CardTitle>
           <CardDescription>
-            Configure Telegram bot notifications for new orders from webhooks
+            Configure how you receive notifications and alerts
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="telegram-chat-id">Telegram Chat ID</Label>
-            <div className="flex gap-2">
-              <Input
-                id="telegram-chat-id"
-                placeholder="e.g., 123456789 or -987654321"
-                value={tempTelegramChatId}
-                onChange={(e) => setTempTelegramChatId(e.target.value)}
-                className="flex-1"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleTestTelegram}
-                disabled={telegramTesting || !tempTelegramChatId.trim()}
-              >
-                {telegramTesting ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <Send className="h-4 w-4 mr-2" />
-                )}
-                Test
-              </Button>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              To get your Chat ID: Message @userinfobot on Telegram, or start a chat with your bot and use @get_id_bot
-            </p>
-          </div>
-
-          <div className="flex items-center justify-between pt-4 border-t">
-            <div>
-              <p className="text-sm font-medium">
-                Current Status: {telegramChatId ? (
-                  <Badge variant="default">Configured</Badge>
-                ) : (
-                  <Badge variant="outline">Not Configured</Badge>
-                )}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {telegramChatId ? `Chat ID: ${telegramChatId}` : 'No Telegram notifications configured'}
-              </p>
+        <CardContent className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <div className="text-sm font-medium">Push Notifications</div>
+              <div className="text-sm text-muted-foreground">
+                Receive push notifications for important updates
+              </div>
             </div>
             <Button
-              onClick={handleSaveTelegram}
-              disabled={telegramLoading || tempTelegramChatId === telegramChatId}
+              variant={notificationsEnabled ? "default" : "outline"}
+              size="sm"
+              onClick={() => setNotificationsEnabled(!notificationsEnabled)}
             >
-              {telegramLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : null}
-              Save Settings
+              {notificationsEnabled ? "Enabled" : "Disabled"}
+            </Button>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <div className="text-sm font-medium">Email Notifications</div>
+              <div className="text-sm text-muted-foreground">
+                Receive email notifications for new orders and updates
+              </div>
+            </div>
+            <Button
+              variant={emailNotifications ? "default" : "outline"}
+              size="sm"
+              onClick={() => setEmailNotifications(!emailNotifications)}
+            >
+              {emailNotifications ? "Enabled" : "Disabled"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Appearance Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Palette className="h-5 w-5" />
+            Appearance
+          </CardTitle>
+          <CardDescription>
+            Customize the look and feel of your dashboard
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <div className="text-sm font-medium">Dark Mode</div>
+              <div className="text-sm text-muted-foreground">
+                Toggle between light and dark themes
+              </div>
+            </div>
+            <Button
+              variant={darkMode ? "default" : "outline"}
+              size="sm"
+              onClick={() => setDarkMode(!darkMode)}
+            >
+              {darkMode ? "Dark" : "Light"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* System Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Monitor className="h-5 w-5" />
+            System Preferences
+          </CardTitle>
+          <CardDescription>
+            Configure system behavior and performance settings
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <div className="text-sm font-medium">Auto-save</div>
+              <div className="text-sm text-muted-foreground">
+                Automatically save changes as you work
+              </div>
+            </div>
+            <Button
+              variant={autoSave ? "default" : "outline"}
+              size="sm"
+              onClick={() => setAutoSave(!autoSave)}
+            >
+              {autoSave ? "Enabled" : "Disabled"}
+            </Button>
+          </div>
+
+          <div className="flex justify-end pt-4 border-t">
+            <Button onClick={handleSaveSettings}>
+              Save All Settings
             </Button>
           </div>
         </CardContent>
@@ -273,17 +284,17 @@ export default function SettingsPage() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium">Settings module initialized</p>
+                  <p className="text-sm font-medium">Settings preferences loaded</p>
                   <p className="text-xs text-muted-foreground">Just now</p>
                 </div>
                 <Badge variant="outline">System</Badge>
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium">Page accessed</p>
-                  <p className="text-xs text-muted-foreground">Few seconds ago</p>
+                  <p className="text-sm font-medium">General settings updated</p>
+                  <p className="text-xs text-muted-foreground">Ready to save</p>
                 </div>
-                <Badge variant="outline">User</Badge>
+                <Badge variant="outline">Settings</Badge>
               </div>
             </div>
           </CardContent>
