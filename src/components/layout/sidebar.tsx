@@ -2,13 +2,12 @@
 
 import Link from "next/link"
 import Image from "next/image"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/contexts/AuthContext"
 import {
-  Home,
   Users,
   ShoppingCart,
   Package,
@@ -18,71 +17,50 @@ import {
   LogOut,
   Shield,
   UserCog,
-  Puzzle
+  Puzzle,
+  User
 } from "lucide-react"
 
 const navigation = [
-  { name: "Dashboard", href: "/dashboard", icon: BarChart3, adminOnly: false },
-  { name: "CRM", href: "/crm", icon: UserCheck, adminOnly: false },
-  { name: "Orders", href: "/orders", icon: ShoppingCart, adminOnly: false },
-  { name: "Clients", href: "/clients", icon: Users, adminOnly: false },
-  { name: "Inventory", href: "/inventory", icon: Package, adminOnly: false },
-  { name: "Integration", href: "/integration", icon: Puzzle, adminOnly: false },
-  { name: "User Management", href: "/admin/users", icon: UserCog, adminOnly: true },
-  { name: "Settings", href: "/settings", icon: Settings, adminOnly: false }
+  { name: "Dashboard", href: "/dashboard", icon: BarChart3, adminOnly: false, sellerOnly: false },
+  { name: "CRM", href: "/crm", icon: UserCheck, adminOnly: false, sellerOnly: false },
+  { name: "Customers", href: "/customers", icon: Users, adminOnly: false, sellerOnly: false },
+  { name: "Orders", href: "/orders", icon: ShoppingCart, adminOnly: false, sellerOnly: false },
+  { name: "Inventory", href: "/inventory", icon: Package, adminOnly: false, sellerOnly: false },
+  { name: "Integration", href: "/integration", icon: Puzzle, adminOnly: false, sellerOnly: false },
+  { name: "User Management", href: "/users", icon: UserCog, adminOnly: true, sellerOnly: false },
+  { name: "Profile", href: "/profile", icon: User, adminOnly: false, sellerOnly: true },
+  { name: "Settings", href: "/settings", icon: Settings, adminOnly: false, sellerOnly: false }
 ]
 
 export function Sidebar() {
   const pathname = usePathname()
-  const router = useRouter()
-  const { signOut, user } = useAuth()
+  const { logout: authLogout, user } = useAuth()
+  const userRole = user?.role || null
 
-  const handleLogout = async () => {
-    try {
-      // Reduced timeout and simplified logging for faster logout
-      const signOutPromise = signOut()
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('SignOut timeout')), 1500)
-      )
-
-      await Promise.race([signOutPromise, timeoutPromise])
-
-      // Additional cookie clearing to ensure session is completely removed
-      if (typeof window !== 'undefined') {
-        // Clear all cookies
-        document.cookie.split(";").forEach(cookie => {
-          const eqPos = cookie.indexOf("=");
-          const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
-          // Clear for current domain and path
-          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
-          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=${window.location.hostname}`;
-          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=.${window.location.hostname}`;
-        });
-      }
-
-      // Force a full page refresh to ensure middleware detects the logout
-      window.location.href = '/login'
-    } catch (error) {
-      // Simplified error handling - just cleanup and redirect
-      if (typeof window !== 'undefined') {
-        localStorage.clear()
-        sessionStorage.clear()
-        // Clear all cookies aggressively
-        document.cookie.split(";").forEach(cookie => {
-          const eqPos = cookie.indexOf("=");
-          const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
-          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
-          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=${window.location.hostname}`;
-        });
-      }
-
-      // Even if there's an error, try to redirect
-      window.location.href = '/login'
-    }
+  const handleLogout = () => {
+    authLogout()
   }
 
-  // For now, show all navigation items (we'll add user context later)
-  const filteredNavigation = navigation.filter(item => !item.adminOnly || true) // Show all for admin
+  // Filter navigation based on user role
+  const filteredNavigation = navigation.filter(item => {
+    // Show common items (neither adminOnly nor sellerOnly)
+    if (!item.adminOnly && !item.sellerOnly) {
+      return true
+    }
+
+    // Show admin-only items if user is admin
+    if (item.adminOnly && userRole === 'admin') {
+      return true
+    }
+
+    // Show seller-only items if user is seller (and hide for admin)
+    if (item.sellerOnly && userRole === 'seller') {
+      return true
+    }
+
+    return false
+  })
 
   return (
     <div className="flex h-screen w-64 flex-col bg-card borde-r border-accent">

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { getAuthenticatedClient, getSession } from '@/lib/auth'
+import { getAuthenticatedClient, getSession, isAdmin, inviteUser, resetUserPassword } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -18,10 +18,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Plus, Eye, Edit, Trash2, Search, ChevronLeft, ChevronRight, Package, AlertTriangle, TrendingDown, BarChart3, Download } from 'lucide-react'
-import { AddProductModal } from '@/components/inventory/add-product-modal'
-import { EditProductModal } from '@/components/inventory/edit-product-modal'
-import { ViewProductModal } from '@/components/inventory/view-product-modal'
+import { Plus, Eye, Edit, Trash2, Search, ChevronLeft, ChevronRight, Users, UserCheck, UserX, Shield, Download, Mail, RotateCcw } from 'lucide-react'
+import { AddUserModal } from '@/components/users/add-user-modal'
+import { EditUserModal } from '@/components/users/edit-user-modal'
+import { ViewUserModal } from '@/components/users/view-user-modal'
+import { InviteUserModal } from '@/components/users/invite-user-modal'
 
 // Animated counter component
 function AnimatedCounter({ value, duration = 1000 }: { value: number; duration?: number }) {
@@ -56,20 +57,21 @@ function AnimatedCounter({ value, duration = 1000 }: { value: number; duration?:
   return <span>{Math.round(count).toLocaleString()}</span>
 }
 
-export default function InventoryPage() {
-  const [products, setProducts] = useState<any[]>([])
+export default function UsersPage() {
+  const [users, setUsers] = useState<any[]>([])
   const [hasError, setHasError] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [viewModalOpen, setViewModalOpen] = useState(false)
-  const [editProductId, setEditProductId] = useState<string | null>(null)
-  const [viewProductId, setViewProductId] = useState<string | null>(null)
-  const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean; productId: string; productName: string }>({
+  const [inviteModalOpen, setInviteModalOpen] = useState(false)
+  const [editUserId, setEditUserId] = useState<string | null>(null)
+  const [viewUserId, setViewUserId] = useState<string | null>(null)
+  const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean; userId: string; userName: string }>({
     isOpen: false,
-    productId: '',
-    productName: ''
+    userId: '',
+    userName: ''
   })
   const [searchQuery, setSearchQuery] = useState('')
   const [searchInput, setSearchInput] = useState('')
@@ -77,40 +79,56 @@ export default function InventoryPage() {
   const [totalCount, setTotalCount] = useState(0)
   const [totalStats, setTotalStats] = useState({
     total: 0,
-    lowStock: 0,
-    outOfStock: 0,
-    totalValue: 0
+    active: 0,
+    inactive: 0,
+    admins: 0
   })
 
   const ITEMS_PER_PAGE = 10
-  const LOW_STOCK_THRESHOLD = 10
 
-  const loadProducts = async (page = 1, search = '') => {
+  // Check if user is admin on mount
+  useEffect(() => {
+    if (!isAdmin()) {
+      setHasError(true)
+      setErrorMessage('Access denied. Admin role required.')
+      setLoading(false)
+      return
+    }
+    loadUsers()
+  }, [])
+
+  const loadUsers = async (page = 1, search = '') => {
     try {
       setLoading(true)
-      console.log('[INVENTORY] Starting to load products...', { page, search })
+      console.log('[USERS] Starting to load users...', { page, search })
 
       const session = getSession()
       if (!session) {
-        console.error('[INVENTORY] No session found')
+        console.error('[USERS] No session found')
         setHasError(true)
-        setErrorMessage('You must be logged in to view inventory. Please log in first.')
+        setErrorMessage('You must be logged in to view users. Please log in first.')
+        setLoading(false)
+        return
+      }
+
+      if (!isAdmin()) {
+        setHasError(true)
+        setErrorMessage('Access denied. Admin role required.')
         setLoading(false)
         return
       }
 
       const supabase = getAuthenticatedClient()
-      console.log('[INVENTORY] Authenticated client retrieved')
+      console.log('[USERS] Authenticated client retrieved')
 
-      // Build search query - filter by current user's products only
+      // Build search query - admins can see all users
       let query = supabase
-        .from('products')
+        .from('users')
         .select('*', { count: 'exact' })
-        .eq('user_id', session.user.id)
 
       // Add search filters if search query exists and has 3+ characters
       if (search && search.length >= 3) {
-        query = query.or(`name.ilike.%${search}%,sku.ilike.%${search}%`)
+        query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%`)
       }
 
       // Add pagination
@@ -121,22 +139,22 @@ export default function InventoryPage() {
         .order('created_at', { ascending: false })
         .range(from, to)
 
-      console.log('[INVENTORY] Query result:', { data, error, productCount: data?.length, totalCount: count })
+      console.log('[USERS] Query result:', { data, error, userCount: data?.length, totalCount: count })
 
       if (error) {
-        console.error('[INVENTORY] Database error:', error)
+        console.error('[USERS] Database error:', error)
         throw new Error(`Database error: ${error.message}`)
       }
 
-      setProducts(data || [])
+      setUsers(data || [])
       setTotalCount(count || 0)
       setHasError(false)
-      console.log('[INVENTORY] Products loaded successfully:', data?.length || 0)
+      console.log('[USERS] Users loaded successfully:', data?.length || 0)
 
       // Load stats separately (without pagination or search filters)
       await loadStats()
     } catch (error: any) {
-      console.error('[INVENTORY] Database connection error:', error)
+      console.error('[USERS] Database connection error:', error)
       setHasError(true)
       if (error.message && error.message.includes('JWT')) {
         setErrorMessage('Authentication token expired. Please log in again.')
@@ -152,29 +170,28 @@ export default function InventoryPage() {
     try {
       const session = getSession()
       if (!session) {
-        console.error('[INVENTORY] No session found for stats')
+        console.error('[USERS] No session found for stats')
         return
       }
 
       const supabase = getAuthenticatedClient()
 
-      // Load stats for current user's products only
+      // Load stats for all users (admin can see all)
       const { data: statsData, error: statsError } = await supabase
-        .from('products')
-        .select('stock, price')
-        .eq('user_id', session.user.id)
+        .from('users')
+        .select('role')
 
       if (!statsError && statsData) {
         const stats = {
           total: statsData.length,
-          lowStock: statsData.filter(p => p.stock > 0 && p.stock <= LOW_STOCK_THRESHOLD).length,
-          outOfStock: statsData.filter(p => p.stock === 0).length,
-          totalValue: statsData.reduce((sum, p) => sum + (Number(p.price) * p.stock), 0)
+          active: statsData.length, // All users in DB are considered active
+          inactive: 0, // We don't have inactive status in current schema
+          admins: statsData.filter(u => u.role === 'admin').length
         }
         setTotalStats(stats)
       }
     } catch (error) {
-      console.error('[INVENTORY] Stats loading error:', error)
+      console.error('[USERS] Stats loading error:', error)
     }
   }
 
@@ -190,20 +207,17 @@ export default function InventoryPage() {
     return () => clearTimeout(timeoutId)
   }, [searchInput])
 
-  // Load products when search query or page changes
+  // Load users when search query or page changes
   useEffect(() => {
-    loadProducts(currentPage, searchQuery)
+    if (isAdmin()) {
+      loadUsers(currentPage, searchQuery)
+    }
   }, [searchQuery, currentPage])
 
-  // Initial load
-  useEffect(() => {
-    loadProducts()
-  }, [])
-
   // Optimistic updates - no server reload needed
-  const handleProductAdded = (newProduct: any) => {
-    // Add to current products list
-    setProducts(prev => [newProduct, ...prev])
+  const handleUserAdded = (newUser: any) => {
+    // Add to current users list
+    setUsers(prev => [newUser, ...prev])
 
     // Update total count
     setTotalCount(prev => prev + 1)
@@ -212,25 +226,24 @@ export default function InventoryPage() {
     setTotalStats(prev => ({
       ...prev,
       total: prev.total + 1,
-      lowStock: newProduct.stock > 0 && newProduct.stock <= LOW_STOCK_THRESHOLD ? prev.lowStock + 1 : prev.lowStock,
-      outOfStock: newProduct.stock === 0 ? prev.outOfStock + 1 : prev.outOfStock,
-      totalValue: prev.totalValue + (Number(newProduct.price) * newProduct.stock)
+      active: prev.active + 1,
+      admins: newUser.role === 'admin' ? prev.admins + 1 : prev.admins
     }))
   }
 
-  const handleProductUpdated = (updatedProduct: any) => {
-    // Update the specific product in the list
-    setProducts(prev => prev.map(product =>
-      product.id === updatedProduct.id ? { ...product, ...updatedProduct } : product
+  const handleUserUpdated = (updatedUser: any) => {
+    // Update the specific user in the list
+    setUsers(prev => prev.map(user =>
+      user.id === updatedUser.id ? { ...user, ...updatedUser } : user
     ))
 
     // Recalculate stats by re-fetching only stats (lightweight)
     loadStats()
   }
 
-  const handleProductDeleted = (productId: string) => {
-    // Remove from current products list
-    setProducts(prev => prev.filter(product => product.id !== productId))
+  const handleUserDeleted = (userId: string) => {
+    // Remove from current users list
+    setUsers(prev => prev.filter(user => user.id !== userId))
 
     // Update total count
     setTotalCount(prev => prev - 1)
@@ -239,59 +252,68 @@ export default function InventoryPage() {
     loadStats()
   }
 
-  const handleEditProduct = (productId: string) => {
-    setEditProductId(productId)
+  const handleEditUser = (userId: string) => {
+    setEditUserId(userId)
     setEditModalOpen(true)
   }
 
-  const handleViewProduct = (productId: string) => {
-    setViewProductId(productId)
+  const handleViewUser = (userId: string) => {
+    setViewUserId(userId)
     setViewModalOpen(true)
   }
 
   const handleEditClose = () => {
     setEditModalOpen(false)
-    setEditProductId(null)
+    setEditUserId(null)
   }
 
   const handleViewClose = () => {
     setViewModalOpen(false)
-    setViewProductId(null)
+    setViewUserId(null)
   }
 
-  const openDeleteDialog = (productId: string, productName: string) => {
-    setDeleteDialog({ isOpen: true, productId, productName })
+  const openDeleteDialog = (userId: string, userName: string) => {
+    setDeleteDialog({ isOpen: true, userId, userName })
   }
 
-  const handleDeleteProduct = async () => {
-    const { productId } = deleteDialog
+  const handleDeleteUser = async () => {
+    const { userId } = deleteDialog
 
     try {
       const session = getSession()
       if (!session) {
-        console.error('[INVENTORY] No session found for delete')
+        console.error('[USERS] No session found for delete')
         return
       }
 
       const supabase = getAuthenticatedClient()
 
       const { error } = await supabase
-        .from('products')
+        .from('users')
         .delete()
-        .eq('id', productId)
-        .eq('user_id', session.user.id)
+        .eq('id', userId)
 
       if (error) {
         throw new Error(error.message)
       }
 
-      handleProductDeleted(productId)
+      handleUserDeleted(userId)
       // Close dialog
-      setDeleteDialog({ isOpen: false, productId: '', productName: '' })
+      setDeleteDialog({ isOpen: false, userId: '', userName: '' })
     } catch (error) {
-      console.error('Error deleting product:', error)
-      alert('Failed to delete product. Please try again.')
-      setDeleteDialog({ isOpen: false, productId: '', productName: '' })
+      console.error('Error deleting user:', error)
+      alert('Failed to delete user. Please try again.')
+      setDeleteDialog({ isOpen: false, userId: '', userName: '' })
+    }
+  }
+
+  const handleResetPassword = async (email: string) => {
+    try {
+      await resetUserPassword(email)
+      alert(`Password reset link sent to ${email}`)
+    } catch (error: any) {
+      console.error('Error resetting password:', error)
+      alert(`Failed to send reset email: ${error.message}`)
     }
   }
 
@@ -305,9 +327,8 @@ export default function InventoryPage() {
 
       const supabase = getAuthenticatedClient()
       const { data, error } = await supabase
-        .from('products')
-        .select('name, sku, price, stock')
-        .eq('user_id', session.user.id)
+        .from('users')
+        .select('name, email, role')
         .order('name')
 
       if (error) {
@@ -315,14 +336,14 @@ export default function InventoryPage() {
       }
 
       // Create CSV content
-      const headers = ['Name', 'SKU', 'Price', 'Stock']
+      const headers = ['Name', 'Email', 'Role', 'Status']
       const csvContent = [
         headers.join(','),
-        ...data.map(product => [
-          `"${product.name}"`,
-          `"${product.sku}"`,
-          Number(product.price).toFixed(2),
-          product.stock
+        ...data.map(user => [
+          `"${user.name}"`,
+          `"${user.email}"`,
+          user.role,
+          'Active' // All users in DB are active
         ].join(','))
       ].join('\n')
 
@@ -331,7 +352,7 @@ export default function InventoryPage() {
       const link = document.createElement('a')
       const url = URL.createObjectURL(blob)
       link.setAttribute('href', url)
-      link.setAttribute('download', `inventory-${new Date().toISOString().split('T')[0]}.csv`)
+      link.setAttribute('download', `users-${new Date().toISOString().split('T')[0]}.csv`)
       link.style.visibility = 'hidden'
       document.body.appendChild(link)
       link.click()
@@ -347,15 +368,15 @@ export default function InventoryPage() {
   const startItem = (currentPage - 1) * ITEMS_PER_PAGE + 1
   const endItem = Math.min(currentPage * ITEMS_PER_PAGE, totalCount)
 
-  // Show error state if database connection failed
+  // Show error state if access denied or database connection failed
   if (hasError) {
     return (
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Inventory Management</h1>
+            <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
             <p className="text-muted-foreground">
-              Manage your product inventory and stock levels
+              Manage users, roles, and permissions
             </p>
           </div>
         </div>
@@ -365,18 +386,24 @@ export default function InventoryPage() {
             <div className="text-center py-12">
               <div className="text-destructive mb-4">
                 <h3 className="text-lg font-medium">
-                  {errorMessage.includes('logged in') ? 'Authentication Required' : 'Connection Error'}
+                  {errorMessage.includes('Access denied') ? 'Access Denied' :
+                   errorMessage.includes('logged in') ? 'Authentication Required' : 'Connection Error'}
                 </h3>
                 <p className="text-sm text-muted-foreground mt-2">{errorMessage}</p>
               </div>
-              {errorMessage.includes('logged in') ? (
+              {errorMessage.includes('Access denied') ? (
                 <div className="text-sm text-muted-foreground">
-                  <p>Please log in to access the Inventory module.</p>
+                  <p>This page is only accessible to Admin users.</p>
+                  <p className="mt-2">If you are a Seller, you can access your profile page instead.</p>
+                </div>
+              ) : errorMessage.includes('logged in') ? (
+                <div className="text-sm text-muted-foreground">
+                  <p>Please log in to access the Users module.</p>
                 </div>
               ) : (
                 <div className="text-sm text-muted-foreground">
                   <p>This is likely a database configuration issue.</p>
-                  <p className="mt-2">The Inventory module is fully implemented and ready to use once the connection is resolved.</p>
+                  <p className="mt-2">The Users module is fully implemented and ready to use once the connection is resolved.</p>
                 </div>
               )}
             </div>
@@ -391,9 +418,9 @@ export default function InventoryPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Inventory Management</h1>
+          <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
           <p className="text-muted-foreground">
-            Manage your product inventory and stock levels
+            Manage users, roles, and permissions
           </p>
         </div>
         <div className="flex gap-3">
@@ -401,9 +428,13 @@ export default function InventoryPage() {
             <Download className="h-4 w-4 mr-2" />
             Export CSV
           </Button>
+          <Button onClick={() => setInviteModalOpen(true)} variant="outline">
+            <Mail className="h-4 w-4 mr-2" />
+            Invite User
+          </Button>
           <Button onClick={() => setAddModalOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            Add Product
+            Add User
           </Button>
         </div>
       </div>
@@ -412,75 +443,75 @@ export default function InventoryPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Products</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
               <AnimatedCounter value={totalStats.total} duration={1200} />
             </div>
             <p className="text-xs text-muted-foreground">
-              In inventory
+              All registered users
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Low Stock</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Active</CardTitle>
+            <UserCheck className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              <AnimatedCounter value={totalStats.lowStock} duration={1000} />
+              <AnimatedCounter value={totalStats.active} duration={1000} />
             </div>
             <p className="text-xs text-muted-foreground">
-              Items need restocking
+              Active users
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Out of Stock</CardTitle>
-            <TrendingDown className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Inactive</CardTitle>
+            <UserX className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              <AnimatedCounter value={totalStats.outOfStock} duration={1100} />
+              <AnimatedCounter value={totalStats.inactive} duration={1100} />
             </div>
             <p className="text-xs text-muted-foreground">
-              Items unavailable
+              Inactive users
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Value</CardTitle>
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Admins</CardTitle>
+            <Shield className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              €<AnimatedCounter value={totalStats.totalValue} duration={1300} />
+              <AnimatedCounter value={totalStats.admins} duration={1300} />
             </div>
             <p className="text-xs text-muted-foreground">
-              Inventory value
+              Administrator users
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Products Table */}
+      {/* Users Table */}
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <CardTitle>Product Management</CardTitle>
+            <CardTitle>User Management</CardTitle>
             <div className="flex items-center space-x-2">
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search products (min 3 chars)..."
+                  placeholder="Search users (min 3 chars)..."
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   className="pl-10 w-80"
@@ -497,9 +528,8 @@ export default function InventoryPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
-                    <TableHead>SKU</TableHead>
-                    <TableHead>Price</TableHead>
-                    <TableHead>Stock</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Role</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
@@ -508,12 +538,12 @@ export default function InventoryPage() {
                   {Array.from({ length: ITEMS_PER_PAGE }).map((_, index) => (
                     <TableRow key={index}>
                       <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-48" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                      <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
                       <TableCell>
                         <div className="flex gap-2">
+                          <Skeleton className="h-8 w-8 rounded" />
                           <Skeleton className="h-8 w-8 rounded" />
                           <Skeleton className="h-8 w-8 rounded" />
                           <Skeleton className="h-8 w-8 rounded" />
@@ -524,14 +554,14 @@ export default function InventoryPage() {
                 </TableBody>
               </Table>
             </div>
-          ) : products.length === 0 ? (
+          ) : users.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-muted-foreground mb-4">
-                {searchQuery ? 'No products found matching your search.' : 'No products available. Add your first product!'}
+                {searchQuery ? 'No users found matching your search.' : 'No users available. Add your first user!'}
               </div>
               <Button onClick={() => setAddModalOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
-                Add First Product
+                Add First User
               </Button>
             </div>
           ) : (
@@ -541,68 +571,65 @@ export default function InventoryPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Name</TableHead>
-                      <TableHead>SKU</TableHead>
-                      <TableHead>Price</TableHead>
-                      <TableHead>Stock</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Role</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {products.map((product) => {
-                      const stockStatus = product.stock === 0 ? 'out' : product.stock <= LOW_STOCK_THRESHOLD ? 'low' : 'good'
-                      return (
-                        <TableRow key={product.id}>
-                          <TableCell>
-                            <div>
-                              <div className="font-medium">{product.name}</div>
-                              <div className="text-xs text-muted-foreground">ID: {product.id}</div>
-                            </div>
-                          </TableCell>
+                    {users.map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{user.name}</div>
+                            <div className="text-xs text-muted-foreground">ID: {user.id}</div>
+                          </div>
+                        </TableCell>
 
-                          <TableCell>
-                            <div className="font-mono text-sm">{product.sku}</div>
-                          </TableCell>
+                        <TableCell>
+                          <div className="text-sm">{user.email}</div>
+                        </TableCell>
 
-                          <TableCell>
-                            <div className="font-medium">€{Number(product.price).toFixed(2)}</div>
-                          </TableCell>
+                        <TableCell>
+                          <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="capitalize">
+                            {user.role === 'admin' && <Shield className="h-3 w-3 mr-1" />}
+                            {user.role}
+                          </Badge>
+                        </TableCell>
 
-                          <TableCell>
-                            <div className="font-medium">{product.stock}</div>
-                          </TableCell>
+                        <TableCell>
+                          <Badge variant="default">Active</Badge>
+                        </TableCell>
 
-                          <TableCell>
-                            {stockStatus === 'out' ? (
-                              <Badge variant="destructive">Out of Stock</Badge>
-                            ) : stockStatus === 'low' ? (
-                              <Badge variant="secondary">Low Stock</Badge>
-                            ) : (
-                              <Badge variant="default">In Stock</Badge>
-                            )}
-                          </TableCell>
-
-                          <TableCell>
-                            <div className="flex gap-1">
-                              <Button variant="ghost" size="sm" onClick={() => handleViewProduct(product.id)}>
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="sm" onClick={() => handleEditProduct(product.id)}>
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openDeleteDialog(product.id, product.name)}
-                                className="text-destructive hover:text-destructive"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => handleViewUser(user.id)}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleEditUser(user.id)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleResetPassword(user.email)}
+                              title="Send password reset"
+                            >
+                              <RotateCcw className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openDeleteDialog(user.id, user.name)}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
               </div>
@@ -667,26 +694,33 @@ export default function InventoryPage() {
         </CardContent>
       </Card>
 
-      {/* Add Product Modal */}
-      <AddProductModal
+      {/* Add User Modal */}
+      <AddUserModal
         isOpen={addModalOpen}
         onClose={() => setAddModalOpen(false)}
-        onSuccess={handleProductAdded}
+        onSuccess={handleUserAdded}
       />
 
-      {/* Edit Product Modal */}
-      <EditProductModal
+      {/* Edit User Modal */}
+      <EditUserModal
         isOpen={editModalOpen}
         onClose={handleEditClose}
-        onSuccess={handleProductUpdated}
-        productId={editProductId}
+        onSuccess={handleUserUpdated}
+        userId={editUserId}
       />
 
-      {/* View Product Modal */}
-      <ViewProductModal
+      {/* View User Modal */}
+      <ViewUserModal
         isOpen={viewModalOpen}
         onClose={handleViewClose}
-        productId={viewProductId}
+        userId={viewUserId}
+      />
+
+      {/* Invite User Modal */}
+      <InviteUserModal
+        isOpen={inviteModalOpen}
+        onClose={() => setInviteModalOpen(false)}
+        onSuccess={handleUserAdded}
       />
 
       {/* Delete Confirmation Dialog */}
@@ -694,21 +728,21 @@ export default function InventoryPage() {
         open={deleteDialog.isOpen}
         onOpenChange={(open) => {
           if (!open) {
-            setDeleteDialog({ isOpen: false, productId: '', productName: '' })
+            setDeleteDialog({ isOpen: false, userId: '', userName: '' })
           }
         }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Product</AlertDialogTitle>
+            <AlertDialogTitle>Delete User</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete product "{deleteDialog.productName}"? This action cannot be undone.
+              Are you sure you want to delete user "{deleteDialog.userName}"? This action cannot be undone and will also delete all associated data.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeleteProduct}
+              onClick={handleDeleteUser}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete

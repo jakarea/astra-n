@@ -68,13 +68,22 @@ export default function CRMViewPage() {
         .from('crm_leads')
         .select(`
           *,
+          user:users(name),
+          tags:crm_lead_tags(
+            tag:crm_tags(id, name, color)
+          ),
+          events:crm_lead_events(
+            id,
+            type,
+            details,
+            created_at,
+            user:users(name)
+          ),
           order:orders(
             id,
             external_order_id,
-            total_amount,
-            customer:customers(name, email)
-          ),
-          user:users(name)
+            total_amount
+          )
         `)
         .eq('id', leadId)
         .eq('user_id', session.user.id)
@@ -309,27 +318,14 @@ export default function CRMViewPage() {
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Order ID</label>
                   <div className="flex items-center gap-2">
-                    <p className="font-mono">{lead.order.externalOrderId}</p>
-                    <CopyButton text={lead.order.externalOrderId} />
+                    <p className="font-mono">{lead.order.external_order_id}</p>
+                    <CopyButton text={lead.order.external_order_id} />
                   </div>
                 </div>
 
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Total Amount</label>
-                  <p className="text-lg font-bold">€{Number(lead.order.totalAmount).toFixed(2)}</p>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Customer</label>
-                  <p className="font-medium">{lead.order.customer.name}</p>
-                  {lead.order.customer.email && (
-                    <p className="text-sm text-muted-foreground">{lead.order.customer.email}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Items</label>
-                  <p className="text-sm">{lead.order.items.length} item(s)</p>
+                  <p className="text-lg font-bold">€{Number(lead.order.total_amount).toFixed(2)}</p>
                 </div>
               </>
             ) : (

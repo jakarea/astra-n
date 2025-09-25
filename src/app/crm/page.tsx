@@ -9,7 +9,6 @@ import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { CopyButton } from '@/components/crm/copy-button'
 import { AddLeadModal } from '@/components/crm/add-lead-modal'
 import { EditLeadModal } from '@/components/crm/edit-lead-modal'
 import {
@@ -124,7 +123,7 @@ export default function CRMPage() {
 
   const ITEMS_PER_PAGE = 10
 
-  const loadLeads = async (page = 1, search = '') => {
+  const loadLeads = useCallback(async (page = 1, search = '') => {
     try {
       setLoading(true)
       console.log('[CRM] Starting to load leads...', { page, search })
@@ -143,12 +142,6 @@ export default function CRMPage() {
         .from('crm_leads')
         .select(`
           *,
-          order:orders(
-            id,
-            external_order_id,
-            total_amount,
-            customer:customers(name, email)
-          ),
           user:users(name),
           tags:crm_lead_tags(
             tag:crm_tags(id, name, color)
@@ -173,6 +166,7 @@ export default function CRMPage() {
 
       if (error) {
         console.error('[CRM] Database error:', error)
+        console.error('[CRM] Full error object:', JSON.stringify(error, null, 2))
         throw new Error(`Database error: ${error.message}`)
       }
 
@@ -190,7 +184,7 @@ export default function CRMPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   const loadStats = async () => {
     try {
@@ -206,19 +200,16 @@ export default function CRMPage() {
       const { data: statsData, error: statsError } = await supabase
         .from('crm_leads')
         .select(`
-          cod_status,
-          order:orders(total_amount)
+          cod_status
         `)
         .eq('user_id', session.user.id)
 
       if (!statsError && statsData) {
         const stats = {
           total: statsData.length,
-          pending: statsData.filter(l => l.cod_status === 'pending').length,
-          confirmed: statsData.filter(l => l.cod_status === 'confirmed').length,
-          revenue: statsData
-            .filter(l => l.order)
-            .reduce((sum, l) => sum + Number(l.order?.total_amount || 0), 0)
+          pending: statsData.filter((l: any) => l.cod_status === 'pending').length,
+          confirmed: statsData.filter((l: any) => l.cod_status === 'confirmed').length,
+          revenue: 0 // CRM leads are independent, no revenue tracking
         }
         setTotalStats(stats)
       }
@@ -240,14 +231,22 @@ export default function CRMPage() {
   }, [searchInput])
 
   // Load leads when search query or page changes
-  useEffect(() => {
+  const loadLeadsCallback = useCallback(() => {
     loadLeads(currentPage, searchQuery)
-  }, [searchQuery, currentPage])
+  }, [currentPage, searchQuery])
+
+  useEffect(() => {
+    loadLeadsCallback()
+  }, [loadLeadsCallback])
 
   // Initial load
-  useEffect(() => {
+  const initialLoad = useCallback(() => {
     loadLeads()
-  }, [])
+  }, [loadLeads])
+
+  useEffect(() => {
+    initialLoad()
+  }, [initialLoad])
 
   // Optimistic updates - no server reload needed
   const handleLeadAdded = (newLead: any) => {
@@ -302,7 +301,7 @@ export default function CRMPage() {
   }
 
   const handleDeleteLead = async () => {
-    const { leadId, leadName } = deleteDialog
+    const { leadId } = deleteDialog
     // This function is now called after confirmation dialog
 
     try {
@@ -360,7 +359,7 @@ export default function CRMPage() {
                 <p className="text-sm text-muted-foreground mt-2">{errorMessage}</p>
               </div>
               <div className="text-sm text-muted-foreground">
-                <p>This is likely because the database tables haven't been created yet.</p>
+                <p>This is likely because the database tables haven&apos;t been created yet.</p>
                 <p className="mt-2">The CRM module is fully implemented and ready to use once the database is properly configured.</p>
               </div>
             </div>
@@ -574,14 +573,8 @@ export default function CRMPage() {
                       </TableCell>
 
                       <TableCell>
-                        {lead.order ? (
-                          <div className="flex items-center gap-2">
-                            <div>
-                              <div className="font-mono text-sm">{lead.order.external_order_id}</div>
-                              <div className="text-xs text-muted-foreground">€{Number(lead.order.total_amount).toFixed(2)}</div>
-                            </div>
-                            <CopyButton text={lead.order.external_order_id} />
-                          </div>
+                        {lead.order_id ? (
+                          <div className="font-mono text-sm">{lead.order_id}</div>
                         ) : (
                           <span className="text-muted-foreground">-</span>
                         )}
@@ -628,7 +621,7 @@ export default function CRMPage() {
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
                           {lead.tags && lead.tags.length > 0 ? (
-                            lead.tags.map((tagRelation) => (
+                            lead.tags.map((tagRelation: any) => (
                               <Badge
                                 key={tagRelation.tag.id}
                                 variant="outline"
@@ -765,7 +758,7 @@ export default function CRMPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Lead</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete lead "{deleteDialog.leadName}"? This action cannot be undone.
+              Are you sure you want to delete lead &quot;{deleteDialog.leadName}&quot;? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

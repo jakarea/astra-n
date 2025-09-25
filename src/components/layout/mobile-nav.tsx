@@ -8,9 +8,9 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/contexts/AuthContext"
 import {
   Menu,
-  Home,
   Users,
   ShoppingCart,
   Package,
@@ -19,22 +19,29 @@ import {
   BarChart3,
   LogOut,
   Shield,
-  UserCog
+  UserCog,
+  Puzzle,
+  User
 } from "lucide-react"
 
 const navigation = [
-  { name: "Dashboard", href: "/dashboard", icon: BarChart3, adminOnly: false },
-  { name: "CRM", href: "/crm", icon: UserCheck, adminOnly: false },
-  { name: "Orders", href: "/orders", icon: ShoppingCart, adminOnly: false },
-  { name: "Clients", href: "/clients", icon: Users, adminOnly: false },
-  { name: "Inventory", href: "/inventory", icon: Package, adminOnly: false },
-  { name: "User Management", href: "/admin/users", icon: UserCog, adminOnly: true },
-  { name: "Settings", href: "/settings", icon: Settings, adminOnly: false }
+  { name: "Dashboard", href: "/dashboard", icon: BarChart3, adminOnly: false, sellerOnly: false },
+  { name: "CRM", href: "/crm", icon: UserCheck, adminOnly: false, sellerOnly: false },
+  { name: "Orders", href: "/orders", icon: ShoppingCart, adminOnly: false, sellerOnly: false },
+  { name: "Clients", href: "/clients", icon: Users, adminOnly: false, sellerOnly: false },
+  { name: "Inventory", href: "/inventory", icon: Package, adminOnly: false, sellerOnly: false },
+  { name: "Integration", href: "/integration", icon: Puzzle, adminOnly: false, sellerOnly: false },
+  { name: "User Management", href: "/users", icon: UserCog, adminOnly: true, sellerOnly: false },
+  { name: "Profile", href: "/profile", icon: User, adminOnly: false, sellerOnly: true },
+  { name: "Settings", href: "/settings", icon: Settings, adminOnly: false, sellerOnly: false }
 ]
 
 export function MobileNav() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
+  const { user } = useAuth()
+  const userRole = user?.role || null
+  const userName = user?.name || user?.email?.split('@')[0] || 'User'
 
   const handleLogout = async () => {
     try {
@@ -61,8 +68,25 @@ export function MobileNav() {
     }
   }
 
-  // For now, show all navigation items (we'll add user context later)
-  const filteredNavigation = navigation.filter(item => !item.adminOnly || true) // Show all for admin
+  // Filter navigation based on user role
+  const filteredNavigation = navigation.filter(item => {
+    // Show common items (neither adminOnly nor sellerOnly)
+    if (!item.adminOnly && !item.sellerOnly) {
+      return true
+    }
+
+    // Show admin-only items if user is admin
+    if (item.adminOnly && userRole === 'admin') {
+      return true
+    }
+
+    // Show seller-only items if user is seller (and hide for admin)
+    if (item.sellerOnly && userRole === 'seller') {
+      return true
+    }
+
+    return false
+  })
 
   return (
     <div className="md:hidden">
@@ -105,16 +129,28 @@ export function MobileNav() {
                 {/* User Info */}
                 <div className="px-2 mb-6">
                   <div className="flex items-center space-x-3 p-3 rounded-lg bg-gray-100">
-                    <div className="h-10 w-10 rounded-full flex items-center justify-center bg-green-500">
-                      <Shield className="h-5 w-5 text-white" />
+                    <div className={cn(
+                      "h-10 w-10 rounded-full flex items-center justify-center",
+                      userRole === 'admin' ? "bg-green-500" : "bg-blue-500"
+                    )}>
+                      {userRole === 'admin' ? (
+                        <Shield className="h-5 w-5 text-white" />
+                      ) : (
+                        <User className="h-5 w-5 text-white" />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate text-gray-900">
-                        Admin User
+                        {userName}
                       </p>
                       <div className="flex items-center mt-1">
-                        <Badge className="text-xs bg-green-500 text-white">
-                          Admin
+                        <Badge
+                          className={cn(
+                            "text-xs text-white capitalize",
+                            userRole === 'admin' ? "bg-green-500" : "bg-blue-500"
+                          )}
+                        >
+                          {userRole || 'User'}
                         </Badge>
                       </div>
                     </div>
