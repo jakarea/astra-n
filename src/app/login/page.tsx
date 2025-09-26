@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image';
 import Link from 'next/link'
-import { login, isAuthenticated, setSession } from '@/lib/auth'
+import { login, isAuthenticated } from '@/lib/auth'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -65,7 +65,7 @@ export default function LoginPage() {
     setError('')
 
     try {
-      const user = await login(formData.email, formData.password)
+      const _user = await login(formData.email, formData.password)
 
       // Set auth cookie for middleware
       const session = JSON.parse(localStorage.getItem('auth_session') || '{}')

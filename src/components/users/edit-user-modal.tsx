@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { getAuthenticatedClient, getSession, UserRole } from '@/lib/auth'
+import { getSession, UserRole } from '@/lib/auth'
 import {
   Dialog,
   DialogContent,
@@ -67,22 +67,31 @@ export function EditUserModal({ isOpen, onClose, onSuccess, userId }: EditUserMo
         throw new Error('User not authenticated')
       }
 
-      const supabase = getAuthenticatedClient()
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single()
+      console.log('[EDIT_USER] Loading user via admin API:', userId)
 
-      if (error) {
-        throw new Error(error.message)
+      // Make API call with authentication
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.token}`
+        }
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `HTTP ${response.status}`)
       }
 
-      if (data) {
+      const result = await response.json()
+      console.log('[EDIT_USER] User loaded successfully')
+
+      if (result.user) {
         setFormData({
-          name: data.name,
-          email: data.email,
-          role: data.role
+          name: result.user.name,
+          email: result.user.email,
+          role: result.user.role
         })
       }
     } catch (error: any) {
@@ -125,23 +134,29 @@ export function EditUserModal({ isOpen, onClose, onSuccess, userId }: EditUserMo
 
       console.log('[EDIT_USER] Updating user with data:', userData)
 
-      const supabase = getAuthenticatedClient()
-      const { data, error } = await supabase
-        .from('users')
-        .update(userData)
-        .eq('id', userId)
-        .select()
-        .single()
+      // Make API call with authentication
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.token}`
+        },
+        body: JSON.stringify(userData)
+      })
 
-      console.log('[EDIT_USER] Update result:', { data, error })
-
-      if (error) {
-        console.error('[EDIT_USER] Update error:', error)
-        if (error.code === '23505') {
+      if (!response.ok) {
+        const errorData = await response.json()
+        if (response.status === 500 && errorData.error?.includes('duplicate key')) {
           throw new Error('A user with this email already exists.')
         }
-        throw new Error(error.message)
+        throw new Error(errorData.error || `HTTP ${response.status}`)
       }
+
+      const result = await response.json()
+      console.log('[EDIT_USER] User updated successfully')
+
+      const data = result.user
 
       // Pass the updated user data to parent
       onSuccess(data)

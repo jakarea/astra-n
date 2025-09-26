@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { getAuthenticatedClient, getSession, isAdmin, inviteUser, resetUserPassword } from '@/lib/auth'
+import { useState, useEffect, useRef, lazy, Suspense } from 'react'
+import { getAuthenticatedClient, getSession, isAdmin, resetUserPassword } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -18,11 +18,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Plus, Eye, Edit, Trash2, Search, ChevronLeft, ChevronRight, Users, UserCheck, UserX, Shield, Download, Mail, RotateCcw } from 'lucide-react'
-import { AddUserModal } from '@/components/users/add-user-modal'
-import { EditUserModal } from '@/components/users/edit-user-modal'
-import { ViewUserModal } from '@/components/users/view-user-modal'
-import { InviteUserModal } from '@/components/users/invite-user-modal'
+import { Plus, Eye, Edit, Trash2, Search, ChevronLeft, ChevronRight, Users, UserCheck, UserX, Shield, Download, RotateCcw } from 'lucide-react'
+import { toast } from 'sonner'
+
+// Lazy load heavy modals
+const EditUserModal = lazy(() => import('@/components/users/edit-user-modal').then(module => ({ default: module.EditUserModal })))
+const ViewUserModal = lazy(() => import('@/components/users/view-user-modal').then(module => ({ default: module.ViewUserModal })))
+const InviteUserModal = lazy(() => import('@/components/users/invite-user-modal').then(module => ({ default: module.InviteUserModal })))
 
 // Animated counter component
 function AnimatedCounter({ value, duration = 1000 }: { value: number; duration?: number }) {
@@ -62,7 +64,6 @@ export default function UsersPage() {
   const [hasError, setHasError] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [loading, setLoading] = useState(true)
-  const [addModalOpen, setAddModalOpen] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [viewModalOpen, setViewModalOpen] = useState(false)
   const [inviteModalOpen, setInviteModalOpen] = useState(false)
@@ -100,7 +101,7 @@ export default function UsersPage() {
   const loadUsers = async (page = 1, search = '') => {
     try {
       setLoading(true)
-      console.log('[USERS] Starting to load users...', { page, search })
+      console.log('[USERS] Starting to load users via API...', { page, search })
 
       const session = getSession()
       if (!session) {
@@ -118,48 +119,56 @@ export default function UsersPage() {
         return
       }
 
-      const supabase = getAuthenticatedClient()
-      console.log('[USERS] Authenticated client retrieved')
+      console.log('[USERS] Fetching users via admin API')
 
-      // Build search query - admins can see all users
-      let query = supabase
-        .from('users')
-        .select('*', { count: 'exact' })
+      // Build query parameters
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: ITEMS_PER_PAGE.toString()
+      })
 
-      // Add search filters if search query exists and has 3+ characters
       if (search && search.length >= 3) {
-        query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%`)
+        params.set('search', search)
       }
 
-      // Add pagination
-      const from = (page - 1) * ITEMS_PER_PAGE
-      const to = from + ITEMS_PER_PAGE - 1
+      // Make API call with authentication
+      const response = await fetch(`/api/admin/users?${params}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.token}`
+        }
+      })
 
-      const { data, error, count } = await query
-        .order('created_at', { ascending: false })
-        .range(from, to)
-
-      console.log('[USERS] Query result:', { data, error, userCount: data?.length, totalCount: count })
-
-      if (error) {
-        console.error('[USERS] Database error:', error)
-        throw new Error(`Database error: ${error.message}`)
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `HTTP ${response.status}`)
       }
 
-      setUsers(data || [])
-      setTotalCount(count || 0)
+      const result = await response.json()
+      console.log('[USERS] API result:', {
+        userCount: result.users?.length || 0,
+        totalCount: result.totalCount || 0,
+        method: result.method
+      })
+
+      setUsers(result.users || [])
+      setTotalCount(result.totalCount || 0)
       setHasError(false)
-      console.log('[USERS] Users loaded successfully:', data?.length || 0)
+      console.log('[USERS] Users loaded successfully via', result.method, ':', result.users?.length || 0)
 
-      // Load stats separately (without pagination or search filters)
+      // Load stats separately
       await loadStats()
     } catch (error: any) {
-      console.error('[USERS] Database connection error:', error)
+      console.error('[USERS] API error:', error)
       setHasError(true)
-      if (error.message && error.message.includes('JWT')) {
+      if (error.message && error.message.includes('Authentication')) {
         setErrorMessage('Authentication token expired. Please log in again.')
+      } else if (error.message && error.message.includes('Admin')) {
+        setErrorMessage('Access denied. Admin role required.')
       } else {
-        setErrorMessage(`Database error: ${error.message}`)
+        setErrorMessage(`Failed to load users: ${error.message}`)
       }
     } finally {
       setLoading(false)
@@ -174,21 +183,24 @@ export default function UsersPage() {
         return
       }
 
-      const supabase = getAuthenticatedClient()
+      console.log('[USERS] Loading stats via admin API')
 
-      // Load stats for all users (admin can see all)
-      const { data: statsData, error: statsError } = await supabase
-        .from('users')
-        .select('role')
-
-      if (!statsError && statsData) {
-        const stats = {
-          total: statsData.length,
-          active: statsData.length, // All users in DB are considered active
-          inactive: 0, // We don't have inactive status in current schema
-          admins: statsData.filter(u => u.role === 'admin').length
+      // Make API call for stats
+      const response = await fetch('/api/admin/users/stats', {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.token}`
         }
-        setTotalStats(stats)
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        console.log('[USERS] Stats loaded successfully:', result.stats)
+        setTotalStats(result.stats)
+      } else {
+        console.error('[USERS] Stats API error:', response.status)
       }
     } catch (error) {
       console.error('[USERS] Stats loading error:', error)
@@ -258,8 +270,7 @@ export default function UsersPage() {
   }
 
   const handleViewUser = (userId: string) => {
-    setViewUserId(userId)
-    setViewModalOpen(true)
+    window.location.href = `/users/${userId}`
   }
 
   const handleEditClose = () => {
@@ -302,7 +313,9 @@ export default function UsersPage() {
       setDeleteDialog({ isOpen: false, userId: '', userName: '' })
     } catch (error) {
       console.error('Error deleting user:', error)
-      alert('Failed to delete user. Please try again.')
+      toast.error('Failed to delete user', {
+        description: 'Please try again.'
+      })
       setDeleteDialog({ isOpen: false, userId: '', userName: '' })
     }
   }
@@ -310,10 +323,14 @@ export default function UsersPage() {
   const handleResetPassword = async (email: string) => {
     try {
       await resetUserPassword(email)
-      alert(`Password reset link sent to ${email}`)
+      toast.success(`Password reset link sent to ${email}`, {
+        description: 'The user will receive an email with instructions to reset their password.'
+      })
     } catch (error: any) {
       console.error('Error resetting password:', error)
-      alert(`Failed to send reset email: ${error.message}`)
+      toast.error('Failed to send reset email', {
+        description: error.message
+      })
     }
   }
 
@@ -321,7 +338,9 @@ export default function UsersPage() {
     try {
       const session = getSession()
       if (!session) {
-        alert('You must be logged in to export data.')
+        toast.error('Authentication required', {
+          description: 'You must be logged in to export data.'
+        })
         return
       }
 
@@ -357,9 +376,15 @@ export default function UsersPage() {
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
+
+      toast.success('CSV export completed', {
+        description: `Downloaded ${data.length} user records successfully.`
+      })
     } catch (error) {
       console.error('Error exporting CSV:', error)
-      alert('Failed to export CSV. Please try again.')
+      toast.error('Failed to export CSV', {
+        description: 'Please try again.'
+      })
     }
   }
 
@@ -428,13 +453,9 @@ export default function UsersPage() {
             <Download className="h-4 w-4 mr-2" />
             Export CSV
           </Button>
-          <Button onClick={() => setInviteModalOpen(true)} variant="outline">
-            <Mail className="h-4 w-4 mr-2" />
-            Invite User
-          </Button>
-          <Button onClick={() => setAddModalOpen(true)}>
+          <Button onClick={() => setInviteModalOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            Add User
+            Invite User
           </Button>
         </div>
       </div>
@@ -559,9 +580,9 @@ export default function UsersPage() {
               <div className="text-muted-foreground mb-4">
                 {searchQuery ? 'No users found matching your search.' : 'No users available. Add your first user!'}
               </div>
-              <Button onClick={() => setAddModalOpen(true)}>
+              <Button onClick={() => setInviteModalOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
-                Add First User
+                Invite First User
               </Button>
             </div>
           ) : (
@@ -694,34 +715,40 @@ export default function UsersPage() {
         </CardContent>
       </Card>
 
-      {/* Add User Modal */}
-      <AddUserModal
-        isOpen={addModalOpen}
-        onClose={() => setAddModalOpen(false)}
-        onSuccess={handleUserAdded}
-      />
 
       {/* Edit User Modal */}
-      <EditUserModal
-        isOpen={editModalOpen}
-        onClose={handleEditClose}
-        onSuccess={handleUserUpdated}
-        userId={editUserId}
-      />
+      {editModalOpen && (
+        <Suspense fallback={null}>
+          <EditUserModal
+            isOpen={editModalOpen}
+            onClose={handleEditClose}
+            onSuccess={handleUserUpdated}
+            userId={editUserId}
+          />
+        </Suspense>
+      )}
 
       {/* View User Modal */}
-      <ViewUserModal
-        isOpen={viewModalOpen}
-        onClose={handleViewClose}
-        userId={viewUserId}
-      />
+      {viewModalOpen && (
+        <Suspense fallback={null}>
+          <ViewUserModal
+            isOpen={viewModalOpen}
+            onClose={handleViewClose}
+            userId={viewUserId}
+          />
+        </Suspense>
+      )}
 
       {/* Invite User Modal */}
-      <InviteUserModal
-        isOpen={inviteModalOpen}
-        onClose={() => setInviteModalOpen(false)}
-        onSuccess={handleUserAdded}
-      />
+      {inviteModalOpen && (
+        <Suspense fallback={null}>
+          <InviteUserModal
+            isOpen={inviteModalOpen}
+            onClose={() => setInviteModalOpen(false)}
+            onSuccess={handleUserAdded}
+          />
+        </Suspense>
+      )}
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog

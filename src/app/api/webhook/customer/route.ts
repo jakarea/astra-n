@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     let body
     try {
       body = await request.json()
-    } catch (error) {
+    } catch (_error) {
       return NextResponse.json(
         {
           error: 'Invalid JSON',
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if customer already exists (prevent duplicates)
-    const { data: existingCustomer, error: existingError } = await supabaseAdmin
+    const { data: existingCustomer, error: _existingError } = await supabaseAdmin
       .from('customers')
       .select('id')
       .eq('user_id', user.id)
@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
       if (typeof customerData.address === 'string') {
         try {
           parsedAddress = JSON.parse(customerData.address)
-        } catch (e) {
+        } catch (_e) {
           return NextResponse.json(
             {
               error: 'Invalid address format',

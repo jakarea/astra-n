@@ -11,7 +11,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { CopyButton } from '@/components/crm/copy-button'
 import { EditCustomerModal } from '@/components/customers/edit-customer-modal'
 import { ArrowLeft, Edit, Mail, Phone, MapPin, Calendar, Package, DollarSign } from 'lucide-react'
-import Link from 'next/link'
 
 export default function CustomerDetailPage() {
   const params = useParams()

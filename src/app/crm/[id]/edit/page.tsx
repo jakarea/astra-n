@@ -18,7 +18,6 @@ import {
 } from '@/components/ui/select'
 import { LoadingSpinner } from '@/components/ui/loading'
 import {
-  ArrowLeft,
   Save,
   User,
   Mail,
@@ -210,13 +209,7 @@ export default function EditLeadPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" asChild>
-          <Link href={`/crm/${lead.id}`}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Lead
-          </Link>
-        </Button>
+      <div>
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Edit Lead</h1>
           <p className="text-muted-foreground">Lead ID: {lead.id}</p>

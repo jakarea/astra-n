@@ -1,7 +1,7 @@
 'use client'
 
 import { useAuth } from '@/contexts/AuthContext'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createBrowserClient } from '@supabase/ssr'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 
@@ -11,7 +11,10 @@ export default function AuthStatusPage() {
 
   useEffect(() => {
     async function checkSession() {
-      const supabase = createClientComponentClient()
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
       const { data, error } = await supabase.auth.getSession()
       setSessionCheck({ data, error })
       console.log('[AUTH_STATUS] Direct session check:', { data, error })

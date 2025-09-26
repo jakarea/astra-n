@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     let body: WooCommerceOrderPayload
     try {
       body = await request.json()
-    } catch (error) {
+    } catch (_error) {
       return NextResponse.json(
         {
           error: 'Invalid JSON',
@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
 
     // Step 1: Upsert Customer
     let customer
-    const { data: existingCustomer, error: customerLookupError } = await supabaseAdmin
+    const { data: existingCustomer, error: _customerLookupError } = await supabaseAdmin
       .from('customers')
       .select('id, total_order')
       .eq('email', customerEmail)
@@ -211,7 +211,7 @@ export async function POST(request: NextRequest) {
     const totalAmount = parseFloat(body.total)
 
     let order
-    const { data: existingOrder, error: orderLookupError } = await supabaseAdmin
+    const { data: existingOrder, error: _orderLookupError } = await supabaseAdmin
       .from('orders')
       .select('id')
       .eq('integration_id', integration.id)

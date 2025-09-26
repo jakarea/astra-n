@@ -101,7 +101,7 @@ export async function login(email: string, password: string): Promise<AuthUser> 
     }
   })
 
-  const { data: userData, error: userError } = await tempClient
+  const { data: userData, error: _userError } = await tempClient
     .from('users')
     .select('name, role')
     .eq('id', data.user.id)
@@ -215,7 +215,7 @@ export async function loginWithRole(email: string, password: string): Promise<Au
     }
   })
 
-  const { data: userData, error: userError } = await tempClient
+  const { data: userData, error: _userError } = await tempClient
     .from('users')
     .select('name, role')
     .eq('id', data.user.id)
@@ -234,122 +234,33 @@ export async function loginWithRole(email: string, password: string): Promise<Au
   return user
 }
 
-// Supabase invite user function
+// Invite user using API endpoint
 export async function inviteUser(email: string, role: UserRole = 'seller'): Promise<void> {
   try {
-    const supabase = getAuthenticatedClient()
-    const currentUserRole = getUserRole()
     const session = getSession()
+    if (!session) {
+      throw new Error('Not authenticated')
+    }
 
-    console.log('[INVITE_USER] Debug info:', {
-      currentUserRole,
-      sessionUser: session?.user,
-      requestedRole: role
+    console.log('[INVITE_USER] Inviting user:', { email, role, invitedBy: session.user.id })
+
+    // Call the invitation API
+    const response = await fetch('/api/users/invite', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.token}`
+      },
+      body: JSON.stringify({ email, role })
     })
 
-    // Check if user already exists
-    const { data: existingUser } = await supabase
-      .from('users')
-      .select('id')
-      .eq('email', email)
-      .single()
+    const data = await response.json()
 
-    if (existingUser) {
-      throw new Error('User already exists')
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to send invitation')
     }
 
-    // Only admins can use the admin invite function
-    if (currentUserRole === 'admin') {
-      console.log('[INVITE_USER] Admin invitation flow')
-      // Admin can invite via Supabase Auth admin function
-      const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
-        data: {
-          role: role
-        }
-      })
-
-      if (error) throw new Error(error.message)
-
-      // Create user record in our database
-      const { error: dbError } = await supabase
-        .from('users')
-        .insert([{
-          id: data.user?.id,
-          email: email,
-          name: email.split('@')[0], // Default name from email
-          role: role
-        }])
-
-      if (dbError) {
-        console.error('Database insert error:', dbError)
-        // Don't throw here as user invitation was successful
-      }
-    } else {
-      console.log('[INVITE_USER] Seller invitation flow')
-      // Sellers use a different approach - create temp user and send signup email
-
-      // Force role to seller for non-admin users
-      const finalRole = 'seller'
-      console.log(`[INVITE_USER] Seller invitation: ${email} with role ${finalRole} (original: ${role})`)
-
-      // Step 1: Create a temporary user record in our database
-      const tempUserId = crypto.randomUUID()
-      const { error: dbError } = await supabase
-        .from('users')
-        .insert([{
-          id: tempUserId,
-          email: email,
-          name: email.split('@')[0], // Default name from email
-          role: finalRole
-        }])
-
-      if (dbError) {
-        if (dbError.code === '23505') {
-          throw new Error('User with this email already exists')
-        }
-        console.error('Database insert error:', dbError)
-        throw new Error('Failed to create user invitation')
-      }
-
-      // Step 2: Send a signup/password reset email (this works without admin privileges)
-      // This will send an email that allows the user to set up their account
-      try {
-        const { error: emailError } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/auth/callback?type=signup&email=${encodeURIComponent(email)}&userId=${tempUserId}`
-        })
-
-        if (emailError) {
-          // If password reset fails (user doesn't exist in auth yet), that's actually expected
-          // We'll create a different approach - use signUp but handle the case where user already exists
-          console.log('[INVITE_USER] Password reset failed, trying signup approach:', emailError.message)
-
-          // Try to trigger a signup flow instead
-          const { error: signupError } = await supabase.auth.signUp({
-            email: email,
-            password: 'temp-password-will-be-reset', // Temporary password
-            options: {
-              emailRedirectTo: `${window.location.origin}/auth/callback?type=invite&userId=${tempUserId}`,
-              data: {
-                invited: true,
-                role: finalRole,
-                invitedBy: session?.user?.id
-              }
-            }
-          })
-
-          if (signupError && !signupError.message.includes('already registered')) {
-            throw new Error(`Failed to send invitation: ${signupError.message}`)
-          }
-        }
-
-        console.log(`[INVITE_USER] Invitation email sent to ${email}`)
-      } catch (emailError: any) {
-        console.error('Email sending error:', emailError)
-        // Clean up the user record if email failed
-        await supabase.from('users').delete().eq('id', tempUserId)
-        throw new Error(`Failed to send invitation email: ${emailError.message}`)
-      }
-    }
+    console.log(`[INVITE_USER] Invitation sent successfully to ${email}`)
 
   } catch (error: any) {
     console.error('Error inviting user:', error)
@@ -357,14 +268,27 @@ export async function inviteUser(email: string, role: UserRole = 'seller'): Prom
   }
 }
 
-// Reset password for user
+// Reset password for user using API endpoint
 export async function resetUserPassword(email: string): Promise<void> {
   try {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`
+    console.log('[RESET_PASSWORD] Requesting password reset for:', email)
+
+    // Call the password reset API
+    const response = await fetch('/api/users/reset-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email })
     })
 
-    if (error) throw new Error(error.message)
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to send password reset email')
+    }
+
+    console.log('[RESET_PASSWORD] Password reset request processed successfully')
   } catch (error: any) {
     console.error('Error resetting password:', error)
     throw error

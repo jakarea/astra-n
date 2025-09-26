@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { getAuthenticatedClient, getSession } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
@@ -22,28 +22,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Plus, Eye, Edit, Trash2, Mail, Phone, Users, UserCheck, TrendingUp, DollarSign, Search, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Eye, Edit, Trash2, Mail, Phone, Users, UserCheck, TrendingUp, Search, ChevronLeft, ChevronRight } from 'lucide-react'
 
-function getStatusBadge(status: string | null) {
-  if (!status) return <Badge variant="outline">-</Badge>
-
-  const variants = {
-    active: { variant: "default" as const, label: "Active" },
-    inactive: { variant: "outline" as const, label: "Inactive" },
-    blocked: { variant: "destructive" as const, label: "Blocked" }
-  }
-
-  const config = variants[status as keyof typeof variants]
-  return config ? (
-    <Badge variant={config.variant}>
-      {config.label}
-    </Badge>
-  ) : (
-    <Badge variant="outline" className="capitalize">
-      {status}
-    </Badge>
-  )
-}
 
 function formatAddress(address: any) {
   if (!address) return '-'
@@ -275,7 +255,7 @@ export default function CustomersPage() {
   }
 
   const handleDeleteCustomer = async () => {
-    const { customerId, customerName } = deleteDialog
+    const { customerId } = deleteDialog
 
     try {
       const session = getSession()
