@@ -7,7 +7,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ArrowLeft, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
+
+export const dynamic = 'force-dynamic'
 
 // Server action to create lead
 async function createLead(formData: FormData) {

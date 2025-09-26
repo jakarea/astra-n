@@ -18,7 +18,6 @@ import {
 } from '@/components/ui/select'
 import { LoadingSpinner } from '@/components/ui/loading'
 import {
-  ArrowLeft,
   Save,
   User,
   Mail,

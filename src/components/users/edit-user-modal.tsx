@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { getAuthenticatedClient, getSession, UserRole } from '@/lib/auth'
+import { getSession, UserRole } from '@/lib/auth'
 import {
   Dialog,
   DialogContent,

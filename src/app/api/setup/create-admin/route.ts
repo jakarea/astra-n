@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
 
     // Create Supabase clients
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    const _supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
     if (!supabaseServiceKey) {
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
 
     // Step 2: Create user in database
     console.log('[CREATE_ADMIN] Creating database user record')
-    const { data: dbUser, error: dbError } = await supabaseAdmin
+    const { data: _dbUser, error: dbError } = await supabaseAdmin
       .from('users')
       .insert([{
         id: authData.user.id,

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Settings, User, Shield, Bell, Palette, Monitor, Moon, Sun } from "lucide-react"
+import { Settings, User, Shield, Bell, Palette, Monitor } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { getSupabaseClient } from "@/lib/supabase"
 import { toast } from 'sonner'

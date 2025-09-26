@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import Link from 'next/link'
 import { getAuthenticatedClient, getSession } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
@@ -10,8 +10,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { CopyButton } from '@/components/crm/copy-button'
-import { EditOrderModal } from '@/components/orders/edit-order-modal'
-import { DateRangePicker, DateRange } from '@/components/ui/date-range-picker'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,7 +20,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Plus, Eye, Edit, Trash2, ShoppingCart, Users, DollarSign, TrendingUp, Search, ChevronLeft, ChevronRight, Calendar, Filter } from 'lucide-react'
+
+import { Eye, Edit, Trash2, ShoppingCart, Users, DollarSign, TrendingUp, Search, ChevronLeft, ChevronRight } from 'lucide-react'
+
+// Lazy load heavy components
+const EditOrderModal = lazy(() => import('@/components/orders/edit-order-modal').then(module => ({ default: module.EditOrderModal })))
+const DateRangePicker = lazy(() => import('@/components/ui/date-range-picker').then(module => ({ default: module.DateRangePicker })))
+
+// Add DateRange type for lazy loaded component
+type DateRange = {
+  from?: Date | undefined
+  to?: Date | undefined
+}
 
 function getStatusBadge(status: string | null) {
   if (!status) return <Badge variant="outline">-</Badge>
@@ -141,10 +150,20 @@ export default function OrdersPage() {
         query = query.or(`external_order_id.ilike.%${search}%,status.ilike.%${search}%,customer.name.ilike.%${search}%,customer.email.ilike.%${search}%`)
       }
 
-      if (dateFilter?.from && dateFilter?.to) {
-        const fromDate = dateFilter.from.toISOString().split('T')[0]
-        const toDate = dateFilter.to.toISOString().split('T')[0]
-        query = query.gte('order_created_at', fromDate).lte('order_created_at', toDate)
+      if (dateFilter?.from) {
+        // Set start date to beginning of day (00:00:00)
+        const fromDate = new Date(dateFilter.from)
+        fromDate.setHours(0, 0, 0, 0)
+
+        query = query.gte('order_created_at', fromDate.toISOString())
+
+        if (dateFilter?.to) {
+          // Set end date to end of day (23:59:59.999)
+          const toDate = new Date(dateFilter.to)
+          toDate.setHours(23, 59, 59, 999)
+
+          query = query.lte('order_created_at', toDate.toISOString())
+        }
       }
 
       if (sort === 'date') {
@@ -279,7 +298,7 @@ export default function OrdersPage() {
   }
 
   const handleDeleteOrder = async () => {
-    const { orderId, orderNumber } = deleteDialog
+    const { orderId } = deleteDialog
 
     try {
       const session = getSession()
@@ -453,11 +472,13 @@ export default function OrdersPage() {
                 </div>
               </div>
               <div className="flex items-center space-x-2">
-                <DateRangePicker
-                  date={dateRange}
-                  onDateChange={handleDateRangeChange}
-                  placeholder="Select date range"
-                />
+                <Suspense fallback={<Skeleton className="h-9 w-48" />}>
+                  <DateRangePicker
+                    date={dateRange}
+                    onDateChange={handleDateRangeChange}
+                    placeholder="Select date range"
+                  />
+                </Suspense>
                 {dateRange && (
                   <Button variant="outline" size="sm" onClick={clearDateRange}>
                     Clear
@@ -698,12 +719,16 @@ export default function OrdersPage() {
       </AlertDialog>
 
       {/* Edit Modal */}
-      <EditOrderModal
-        isOpen={editModalOpen}
-        onClose={() => setEditModalOpen(false)}
-        onSuccess={handleOrderUpdated}
-        orderId={editOrderId}
-      />
+      {editModalOpen && (
+        <Suspense fallback={null}>
+          <EditOrderModal
+            isOpen={editModalOpen}
+            onClose={() => setEditModalOpen(false)}
+            onSuccess={handleOrderUpdated}
+            orderId={editOrderId}
+          />
+        </Suspense>
+      )}
     </div>
   )
 }

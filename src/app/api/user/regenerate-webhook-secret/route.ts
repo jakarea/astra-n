@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { assignWebhookSecretToUser } from '@/lib/webhook-utils'
 import { getSession } from '@/lib/auth'
 
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   try {
     // Get current user session
     const session = getSession()

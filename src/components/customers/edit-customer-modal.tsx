@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { getAuthenticatedClient, getSession } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import {
@@ -11,15 +11,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Loader2 } from 'lucide-react'
 
 interface EditCustomerModalProps {
@@ -62,13 +54,7 @@ export function EditCustomerModal({ isOpen, onClose, onSuccess, customerId }: Ed
     shippingSameAsBilling: false
   })
 
-  useEffect(() => {
-    if (isOpen && customerId) {
-      loadCustomer()
-    }
-  }, [isOpen, customerId])
-
-  const loadCustomer = async () => {
+  const loadCustomer = useCallback(async () => {
     if (!customerId) return
 
     setInitialLoading(true)
@@ -135,7 +121,13 @@ export function EditCustomerModal({ isOpen, onClose, onSuccess, customerId }: Ed
     } finally {
       setInitialLoading(false)
     }
-  }
+  }, [customerId])
+
+  useEffect(() => {
+    if (isOpen && customerId) {
+      loadCustomer()
+    }
+  }, [isOpen, customerId, loadCustomer])
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))

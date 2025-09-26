@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getAuthenticatedClient } from '@/lib/auth'
 
 // Server-side function to get session from request headers
 function getSessionFromRequest(request: NextRequest) {
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
-    const { token, supabase } = sessionInfo
+    const { token: _token, supabase } = sessionInfo
 
     // Get current user info
     const { data: { user }, error: userError } = await supabase.auth.getUser()

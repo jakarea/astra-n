@@ -101,7 +101,7 @@ export async function login(email: string, password: string): Promise<AuthUser> 
     }
   })
 
-  const { data: userData, error: userError } = await tempClient
+  const { data: userData, error: _userError } = await tempClient
     .from('users')
     .select('name, role')
     .eq('id', data.user.id)
@@ -215,7 +215,7 @@ export async function loginWithRole(email: string, password: string): Promise<Au
     }
   })
 
-  const { data: userData, error: userError } = await tempClient
+  const { data: userData, error: _userError } = await tempClient
     .from('users')
     .select('name, role')
     .eq('id', data.user.id)

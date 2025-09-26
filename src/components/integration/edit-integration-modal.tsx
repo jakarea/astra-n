@@ -117,7 +117,7 @@ export function EditIntegrationModal({ isOpen, onClose, onSuccess, integrationId
     }
 
     loadIntegration()
-  }, [integrationId, isOpen])
+  }, [integrationId, isOpen, onClose])
 
   const handleShopTypeChange = (type: string) => {
     setFormData(prev => ({ ...prev, type }))

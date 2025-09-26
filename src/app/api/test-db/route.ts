@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -45,7 +45,7 @@ export async function GET() {
     }
 
     // Test 3: Check table schema
-    const { data: schemaData, error: schemaError } = await supabaseAdmin
+    const { data: schemaData, error: _schemaError } = await supabaseAdmin
       .from('customers')
       .select('*')
       .limit(1)

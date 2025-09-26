@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedClient, getSession } from '@/lib/auth'
 import { createClient } from '@supabase/supabase-js'
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     console.log('[USER_ACCESS] Testing user access levels')
 

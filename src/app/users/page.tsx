@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { getAuthenticatedClient, getSession, isAdmin, inviteUser, resetUserPassword } from '@/lib/auth'
+import { useState, useEffect, useRef, lazy, Suspense } from 'react'
+import { getAuthenticatedClient, getSession, isAdmin, resetUserPassword } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -18,11 +18,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Plus, Eye, Edit, Trash2, Search, ChevronLeft, ChevronRight, Users, UserCheck, UserX, Shield, Download, Mail, RotateCcw } from 'lucide-react'
-import { EditUserModal } from '@/components/users/edit-user-modal'
-import { ViewUserModal } from '@/components/users/view-user-modal'
-import { InviteUserModal } from '@/components/users/invite-user-modal'
+import { Plus, Eye, Edit, Trash2, Search, ChevronLeft, ChevronRight, Users, UserCheck, UserX, Shield, Download, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
+
+// Lazy load heavy modals
+const EditUserModal = lazy(() => import('@/components/users/edit-user-modal').then(module => ({ default: module.EditUserModal })))
+const ViewUserModal = lazy(() => import('@/components/users/view-user-modal').then(module => ({ default: module.ViewUserModal })))
+const InviteUserModal = lazy(() => import('@/components/users/invite-user-modal').then(module => ({ default: module.InviteUserModal })))
 
 // Animated counter component
 function AnimatedCounter({ value, duration = 1000 }: { value: number; duration?: number }) {
@@ -715,26 +717,38 @@ export default function UsersPage() {
 
 
       {/* Edit User Modal */}
-      <EditUserModal
-        isOpen={editModalOpen}
-        onClose={handleEditClose}
-        onSuccess={handleUserUpdated}
-        userId={editUserId}
-      />
+      {editModalOpen && (
+        <Suspense fallback={null}>
+          <EditUserModal
+            isOpen={editModalOpen}
+            onClose={handleEditClose}
+            onSuccess={handleUserUpdated}
+            userId={editUserId}
+          />
+        </Suspense>
+      )}
 
       {/* View User Modal */}
-      <ViewUserModal
-        isOpen={viewModalOpen}
-        onClose={handleViewClose}
-        userId={viewUserId}
-      />
+      {viewModalOpen && (
+        <Suspense fallback={null}>
+          <ViewUserModal
+            isOpen={viewModalOpen}
+            onClose={handleViewClose}
+            userId={viewUserId}
+          />
+        </Suspense>
+      )}
 
       {/* Invite User Modal */}
-      <InviteUserModal
-        isOpen={inviteModalOpen}
-        onClose={() => setInviteModalOpen(false)}
-        onSuccess={handleUserAdded}
-      />
+      {inviteModalOpen && (
+        <Suspense fallback={null}>
+          <InviteUserModal
+            isOpen={inviteModalOpen}
+            onClose={() => setInviteModalOpen(false)}
+            onSuccess={handleUserAdded}
+          />
+        </Suspense>
+      )}
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog

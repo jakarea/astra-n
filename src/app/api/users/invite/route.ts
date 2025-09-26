@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { resetUserPassword } from '@/lib/auth'
 
 function getSessionFromRequest(request: NextRequest) {
   try {

@@ -92,7 +92,7 @@ const copyToClipboard = async (text: string, label: string = 'Text') => {
   try {
     await navigator.clipboard.writeText(text)
     toast.success(`${label} copied to clipboard`)
-  } catch (err) {
+  } catch (_err) {
     toast.error(`Failed to copy ${label.toLowerCase()}`)
   }
 }
