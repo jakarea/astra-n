@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { getAuthenticatedClient, getSession } from '@/lib/auth'
+import { getAuthenticatedClient, getSession, isAdmin } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -118,7 +118,21 @@ export default function CustomersPage() {
       let query = supabase
         .from('customers')
         .select('id, name, email, phone, address, source, total_order, created_at, updated_at', { count: 'exact' })
-        .eq('user_id', session.user.id)
+
+      // Admin sees all customers, seller sees only their own
+      const adminStatus = isAdmin()
+      console.log('[CUSTOMERS] User role check:', {
+        userId: session.user.id,
+        userRole: session.user.role,
+        isAdmin: adminStatus
+      })
+
+      if (!adminStatus) {
+        console.log('[CUSTOMERS] Filtering by user_id:', session.user.id)
+        query = query.eq('user_id', session.user.id)
+      } else {
+        console.log('[CUSTOMERS] Admin access - showing all data')
+      }
 
       if (search && search.length >= 3) {
         query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`)
@@ -178,10 +192,16 @@ export default function CustomersPage() {
 
       const supabase = getAuthenticatedClient()
 
-      const { data: statsData, error: statsError } = await supabase
+      let statsQuery = supabase
         .from('customers')
         .select('id, total_order')
-        .eq('user_id', session.user.id)
+
+      // Admin sees all customers stats, seller sees only their own
+      if (!isAdmin()) {
+        statsQuery = statsQuery.eq('user_id', session.user.id)
+      }
+
+      const { data: statsData, error: statsError } = await statsQuery
 
       if (statsError) {
         console.error('[Customers] Stats query error:', statsError)
@@ -266,11 +286,17 @@ export default function CustomersPage() {
 
       const supabase = getAuthenticatedClient()
 
-      const { error } = await supabase
+      let deleteQuery = supabase
         .from('customers')
         .delete()
         .eq('id', customerId)
-        .eq('user_id', session.user.id)
+
+      // For sellers, also check user_id; admin can delete any customer
+      if (!isAdmin()) {
+        deleteQuery = deleteQuery.eq('user_id', session.user.id)
+      }
+
+      const { error } = await deleteQuery
 
       if (error) {
         throw new Error(error.message)

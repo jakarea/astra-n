@@ -52,15 +52,21 @@ export async function POST(request: NextRequest) {
 
     const customerData = body
 
-    // Find user by webhook secret
-    const { data: user, error: userError } = await supabaseAdmin
-      .from('users')
-      .select('id')
+    // Find integration by webhook secret (and get user info)
+    const { data: integration, error: integrationError } = await supabaseAdmin
+      .from('integrations')
+      .select(`
+        id,
+        user_id,
+        name,
+        type,
+        users!integrations_user_id_fkey(id, name, email)
+      `)
       .eq('webhook_secret', webhookSecret)
       .single()
 
-    if (userError || !user) {
-      console.error('[WEBHOOK] User lookup error:', userError)
+    if (integrationError || !integration) {
+      console.error('[WEBHOOKS] Integration lookup error:', integrationError)
       return NextResponse.json(
         {
           error: 'Invalid webhook secret',
@@ -69,6 +75,13 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       )
     }
+
+    console.log('[WEBHOOKS] Request authenticated for integration:', {
+      id: integration.id,
+      name: integration.name,
+      type: integration.type,
+      userId: integration.user_id
+    })
 
     // Validate required customer fields
     const { name, email } = customerData
@@ -135,7 +148,7 @@ export async function POST(request: NextRequest) {
     const { data: existingCustomer, error: _existingError } = await supabaseAdmin
       .from('customers')
       .select('id')
-      .eq('user_id', user.id)
+      .eq('user_id', integration.user_id)
       .eq('email', email)
       .single()
 
@@ -194,16 +207,16 @@ export async function POST(request: NextRequest) {
 
     // Prepare customer data for insertion
     const customerInsertData = {
-      user_id: user.id,
+      user_id: integration.user_id,
       order_id: customerData.order_id || null,
       name: name.trim(),
       email: email.trim().toLowerCase(),
       phone: customerData.phone?.trim() || null,
       address: parsedAddress,
-      source: customerData.source || 'webhook'
+      source: customerData.source || `${integration.type}_webhook`
     }
 
-    console.log('[WEBHOOK] Creating customer with data:', customerInsertData)
+    console.log('[WEBHOOKS] Creating customer with data:', customerInsertData)
 
     // Insert customer into database
     const { data: createdCustomer, error: insertError } = await supabaseAdmin
@@ -213,7 +226,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (insertError) {
-      console.error('[WEBHOOK] Insert error:', insertError)
+      console.error('[WEBHOOKS] Insert error:', insertError)
 
       // Check if it's a unique constraint violation
       if (insertError.code === '23505') {
@@ -235,23 +248,28 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('[WEBHOOK] Customer created successfully:', createdCustomer)
+    console.log('[WEBHOOKS] Customer created successfully:', createdCustomer)
 
     // Send Telegram notification (non-blocking)
-    sendWebhookChangeNotification(user.id, {
+    sendWebhookChangeNotification(integration.user_id, {
       type: 'New Customer Created',
-      details: `New customer "${createdCustomer.name}" (${createdCustomer.email}) has been added to your system`,
-      integration: 'Customer Webhook'
+      details: `New customer "${createdCustomer.name}" (${createdCustomer.email}) has been added via ${integration.name} webhook`,
+      integration: integration.name
     }).then((result) => {
-      console.log('[WEBHOOK] Telegram notification result:', result)
+      console.log('[WEBHOOKS] Telegram notification result:', result)
     }).catch((error) => {
-      console.error('[WEBHOOK] Telegram notification error:', error)
+      console.error('[WEBHOOKS] Telegram notification error:', error)
     })
 
     return NextResponse.json(
       {
         success: true,
         message: 'Customer created successfully',
+        integration: {
+          id: integration.id,
+          name: integration.name,
+          type: integration.type
+        },
         data: {
           id: createdCustomer.id,
           name: createdCustomer.name,
@@ -267,7 +285,7 @@ export async function POST(request: NextRequest) {
     )
 
   } catch (error) {
-    console.error('[WEBHOOK] Unexpected error:', error)
+    console.error('[WEBHOOKS] Unexpected error:', error)
     return NextResponse.json(
       {
         error: 'Internal server error',

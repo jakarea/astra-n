@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { getAuthenticatedClient, getSession } from '@/lib/auth'
+import { createClient } from '@supabase/supabase-js'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -126,18 +127,54 @@ export default function CRMPage() {
   const loadLeads = useCallback(async (page = 1, search = '') => {
     try {
       setLoading(true)
-      console.log('[CRM] Starting to load leads...', { page, search })
-
       const session = getSession()
       if (!session) {
-        console.error('[CRM] No session found')
         return
       }
 
-      const supabase = getAuthenticatedClient()
-      console.log('[CRM] Authenticated client retrieved')
+      const isAdmin = session.user.role === 'admin'
 
-      // Build search query - filter by current user's leads only
+      // For admin users, use API endpoint to bypass RLS
+      if (isAdmin) {
+        try {
+          const response = await fetch('/api/debug/crm-leads')
+          const apiData = await response.json()
+
+          if (apiData.success) {
+            const leads = apiData.leads || []
+
+            // Apply search filter if needed
+            let filteredLeads = leads
+            if (search && search.length >= 3) {
+              filteredLeads = leads.filter((lead: any) =>
+                lead.name?.toLowerCase().includes(search.toLowerCase()) ||
+                lead.email?.toLowerCase().includes(search.toLowerCase()) ||
+                lead.phone?.toLowerCase().includes(search.toLowerCase())
+              )
+            }
+
+            // Apply pagination
+            const from = (page - 1) * ITEMS_PER_PAGE
+            const paginatedLeads = filteredLeads.slice(from, from + ITEMS_PER_PAGE)
+
+            setLeads(paginatedLeads)
+            setTotalCount(filteredLeads.length)
+            setHasError(false)
+
+            await loadStats()
+            return
+          } else {
+            throw new Error(apiData.error || 'API request failed')
+          }
+        } catch (error) {
+          // Fall back to regular query
+        }
+      }
+
+      // Regular user or admin fallback - use Supabase client
+      const supabase = getAuthenticatedClient()
+
+      // Build base query
       let query = supabase
         .from('crm_leads')
         .select(`
@@ -147,7 +184,11 @@ export default function CRMPage() {
             tag:crm_tags(id, name, color)
           )
         `, { count: 'exact' })
-        .eq('user_id', session.user.id)
+
+      // Apply role-based filtering for non-admin users
+      if (!isAdmin) {
+        query = query.eq('user_id', session.user.id)
+      }
 
       // Add search filters if search query exists and has 3+ characters
       if (search && search.length >= 3) {
@@ -162,23 +203,16 @@ export default function CRMPage() {
         .order('created_at', { ascending: false })
         .range(from, to)
 
-      console.log('[CRM] Query result:', { data, error, leadCount: data?.length, totalCount: count })
-
       if (error) {
-        console.error('[CRM] Database error:', error)
-        console.error('[CRM] Full error object:', JSON.stringify(error, null, 2))
         throw new Error(`Database error: ${error.message}`)
       }
 
       setLeads(data || [])
       setTotalCount(count || 0)
       setHasError(false)
-      console.log('[CRM] Leads loaded successfully:', data?.length || 0)
 
-      // Load stats separately (without pagination or search filters)
       await loadStats()
     } catch (error) {
-      console.error('[CRM] Database connection error:', error)
       setHasError(true)
       setErrorMessage('Unable to connect to database. Please check your configuration.')
     } finally {
@@ -190,31 +224,58 @@ export default function CRMPage() {
     try {
       const session = getSession()
       if (!session) {
-        console.error('[CRM] No session found for stats')
         return
       }
 
-      const supabase = getAuthenticatedClient()
+      const isAdmin = session.user.role === 'admin'
 
-      // Load stats for current user's leads only
-      const { data: statsData, error: statsError } = await supabase
+      // For admin users, use API endpoint to get correct total count
+      if (isAdmin) {
+        try {
+          const response = await fetch('/api/debug/crm-leads')
+          const apiData = await response.json()
+
+          if (apiData.success) {
+            const allLeads = apiData.leads || []
+            const stats = {
+              total: allLeads.length,
+              pending: allLeads.filter((l: any) => l.cod_status === 'pending').length,
+              confirmed: allLeads.filter((l: any) => l.cod_status === 'confirmed').length,
+              revenue: 0
+            }
+            setTotalStats(stats)
+            return
+          }
+        } catch (error) {
+          // Fall back to regular query
+        }
+      }
+
+      // Regular user or admin fallback
+      const supabase = getAuthenticatedClient()
+      let statsQuery = supabase
         .from('crm_leads')
         .select(`
           cod_status
         `)
-        .eq('user_id', session.user.id)
+
+      if (!isAdmin) {
+        statsQuery = statsQuery.eq('user_id', session.user.id)
+      }
+
+      const { data: statsData, error: statsError } = await statsQuery
 
       if (!statsError && statsData) {
         const stats = {
           total: statsData.length,
           pending: statsData.filter((l: any) => l.cod_status === 'pending').length,
           confirmed: statsData.filter((l: any) => l.cod_status === 'confirmed').length,
-          revenue: 0 // CRM leads are independent, no revenue tracking
+          revenue: 0
         }
         setTotalStats(stats)
       }
     } catch (error) {
-      console.error('[CRM] Stats loading error:', error)
+      // Stats loading failed silently
     }
   }
 
@@ -307,17 +368,22 @@ export default function CRMPage() {
     try {
       const session = getSession()
       if (!session) {
-        console.error('[CRM] No session found for delete')
         return
       }
 
       const supabase = getAuthenticatedClient()
+      const isAdmin = session.user.role === 'admin'
 
-      const { error } = await supabase
+      let deleteQuery = supabase
         .from('crm_leads')
         .delete()
         .eq('id', leadId)
-        .eq('user_id', session.user.id)
+
+      if (!isAdmin) {
+        deleteQuery = deleteQuery.eq('user_id', session.user.id)
+      }
+
+      const { error } = await deleteQuery
 
       if (error) {
         throw new Error(error.message)
@@ -327,7 +393,6 @@ export default function CRMPage() {
       // Close dialog
       setDeleteDialog({ isOpen: false, leadId: '', leadName: '' })
     } catch (error) {
-      console.error('Error deleting lead:', error)
       alert('Failed to delete lead. Please try again.')
       setDeleteDialog({ isOpen: false, leadId: '', leadName: '' })
     }
@@ -386,7 +451,6 @@ export default function CRMPage() {
           </Button>
         </div>
       </div>
-
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

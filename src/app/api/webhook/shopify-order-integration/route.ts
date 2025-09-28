@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { TelegramService, OrderNotification } from '@/lib/telegram'
+import { sendOrderNotification } from '@/lib/telegram'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -72,8 +72,12 @@ interface ShopifyOrderPayload {
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('[SHOPIFY_WEBHOOK] Received webhook request')
+    console.log('[SHOPIFY_WEBHOOK] Headers:', Object.fromEntries(request.headers.entries()))
+
     const contentType = request.headers.get('content-type')
     if (!contentType || !contentType.includes('application/json')) {
+      console.error('[SHOPIFY_WEBHOOK] Invalid content type:', contentType)
       return NextResponse.json(
         {
           error: 'Invalid content type',
@@ -98,7 +102,10 @@ export async function POST(request: NextRequest) {
 
     // Validate webhook secret from header
     const webhookSecret = request.headers.get('x-webhook-secret')
+    console.log('[SHOPIFY_WEBHOOK] Webhook secret received:', webhookSecret ? 'present' : 'missing')
+
     if (!webhookSecret || typeof webhookSecret !== 'string') {
+      console.log('[SHOPIFY_WEBHOOK] Missing webhook secret header')
       return NextResponse.json(
         {
           error: 'Missing webhook secret',
@@ -109,15 +116,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Find integration by webhook secret
+    console.log('[SHOPIFY_WEBHOOK] Looking up integration with webhook secret')
     const { data: integration, error: integrationError } = await supabaseAdmin
       .from('integrations')
-      .select('id, user_id')
+      .select('id, user_id, name, status, is_active')
       .eq('webhook_secret', webhookSecret)
       .eq('type', 'shopify')
       .single()
 
     if (integrationError || !integration) {
       console.error('[SHOPIFY_WEBHOOK] Integration lookup error:', integrationError)
+      console.log('[SHOPIFY_WEBHOOK] No integration found with provided webhook secret')
       return NextResponse.json(
         {
           error: 'Invalid webhook secret',
@@ -126,6 +135,28 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       )
     }
+
+    console.log('[SHOPIFY_WEBHOOK] Integration found:', {
+      id: integration.id,
+      userId: integration.user_id,
+      name: integration.name,
+      status: integration.status,
+      isActive: integration.is_active
+    })
+
+    // Validate that we have a valid user_id from webhook secret
+    if (!integration.user_id) {
+      console.error('[SHOPIFY_WEBHOOK] No user_id found for integration')
+      return NextResponse.json(
+        {
+          error: 'Invalid integration',
+          message: 'Integration does not have a valid user_id'
+        },
+        { status: 400 }
+      )
+    }
+
+    console.log('[SHOPIFY_WEBHOOK] User identified from webhook secret:', integration.user_id)
 
     // Extract customer data
     const customerName = `${body.customer.first_name} ${body.customer.last_name}`.trim()
@@ -155,8 +186,19 @@ export async function POST(request: NextRequest) {
       customer_default: body.customer.default_address
     }
 
-    // Step 1: Upsert Customer
+    // Step 1: Check if order already exists first
+    const externalOrderId = body.id.toString()
+    const { data: existingOrder, error: _orderLookupError } = await supabaseAdmin
+      .from('orders')
+      .select('id, customer_id')
+      .eq('integration_id', integration.id)
+      .eq('external_order_id', externalOrderId)
+      .single()
+
     let customer
+    let isNewOrder = !existingOrder
+
+    // Step 2: Handle Customer (only increment total_order for new orders)
     const { data: existingCustomer, error: _customerLookupError } = await supabaseAdmin
       .from('customers')
       .select('id, total_order')
@@ -165,14 +207,14 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (existingCustomer) {
-      // Update existing customer and increment totalOrder
+      // Update existing customer, increment total_order only for new orders
       const { data: updatedCustomer, error: updateError } = await supabaseAdmin
         .from('customers')
         .update({
           name: customerName,
           phone: customerPhone || null,
           address: customerAddress,
-          total_order: existingCustomer.total_order + 1,
+          total_order: isNewOrder ? existingCustomer.total_order + 1 : existingCustomer.total_order,
           updated_at: new Date().toISOString()
         })
         .eq('id', existingCustomer.id)
@@ -191,7 +233,7 @@ export async function POST(request: NextRequest) {
       }
       customer = updatedCustomer
     } else {
-      // Create new customer
+      // Create new customer (new customers always start with total_order: 1)
       const { data: newCustomer, error: insertError } = await supabaseAdmin
         .from('customers')
         .insert([{
@@ -219,24 +261,17 @@ export async function POST(request: NextRequest) {
       customer = newCustomer
     }
 
-    // Step 2: Upsert Order
-    const externalOrderId = body.id.toString()
+    // Step 3: Upsert Order
     const orderCreatedAt = new Date(body.created_at).toISOString()
     const totalAmount = parseFloat(body.total_price)
 
     let order
-    const { data: existingOrder, error: _orderLookupError } = await supabaseAdmin
-      .from('orders')
-      .select('id')
-      .eq('integration_id', integration.id)
-      .eq('external_order_id', externalOrderId)
-      .single()
-
     if (existingOrder) {
       // Update existing order
       const { data: updatedOrder, error: updateError } = await supabaseAdmin
         .from('orders')
         .update({
+          user_id: integration.user_id,
           customer_id: customer.id,
           status: body.financial_status,
           total_amount: totalAmount,
@@ -263,6 +298,7 @@ export async function POST(request: NextRequest) {
       const { data: newOrder, error: insertError } = await supabaseAdmin
         .from('orders')
         .insert([{
+          user_id: integration.user_id,
           integration_id: integration.id,
           customer_id: customer.id,
           external_order_id: externalOrderId,
@@ -286,7 +322,7 @@ export async function POST(request: NextRequest) {
       order = newOrder
     }
 
-    // Step 3: Handle Order Items
+    // Step 4: Handle Order Items
     if (existingOrder) {
       // Delete existing order items for updates
       const { error: deleteError } = await supabaseAdmin
@@ -332,44 +368,43 @@ export async function POST(request: NextRequest) {
       itemsCount: orderItems.length
     })
 
-    // Step 4: Send Telegram Notification (only for new orders)
-    if (!existingOrder) {
-      try {
-        // Get user's Telegram chat ID from user settings
-        const { data: userSettings } = await supabaseAdmin
-          .from('user_settings')
-          .select('telegram_chat_id')
-          .eq('user_id', integration.user_id)
-          .single()
+    // Step 5: Send Telegram Notification (for both create and update)
+    try {
+      // User identified from webhook secret -> integration lookup
+      const notificationUserId = integration.user_id
+      console.log('[SHOPIFY_WEBHOOK] Telegram notification target user (from webhook secret):', notificationUserId)
 
-        if (userSettings?.telegram_chat_id) {
-          const telegramService = new TelegramService()
-
-          const orderNotification: OrderNotification = {
-            orderNumber: externalOrderId,
-            customerName,
-            customerEmail,
-            total: body.total_price,
-            currency: 'USD', // Shopify typically uses the store's currency
-            status: body.financial_status,
-            integration: 'Shopify',
-            items: body.line_items.map(item => ({
-              name: item.name,
-              quantity: item.quantity,
-              price: item.price
-            }))
-          }
-
-          const telegramResult = await telegramService.sendOrderNotification(userSettings.telegram_chat_id, orderNotification)
-
-          if (!telegramResult.success) {
-            console.error('[SHOPIFY_WEBHOOK] Telegram notification failed:', telegramResult.error)
-          }
-        }
-      } catch (telegramError) {
-        console.error('[SHOPIFY_WEBHOOK] Telegram notification error:', telegramError)
-        // Don't fail the webhook if Telegram notification fails
+      // Send Telegram notification (non-blocking)
+      const orderData = {
+        externalOrderId,
+        customer: {
+          name: customerName,
+          email: customerEmail
+        },
+        totalAmount: body.total_price,
+        status: body.financial_status,
+        orderCreatedAt: body.created_at,
+        items: body.line_items.map(item => ({
+          productName: item.title,
+          quantity: item.quantity,
+          pricePerUnit: item.price
+        })),
+        isUpdate: !isNewOrder
       }
+
+      console.log('[SHOPIFY_WEBHOOK] Order data for notification:', JSON.stringify(orderData, null, 2))
+
+      sendOrderNotification(notificationUserId, orderData).then((result) => {
+        console.log('[SHOPIFY_WEBHOOK] Telegram notification result:', result)
+        if (!result.success) {
+          console.error('[SHOPIFY_WEBHOOK] Telegram notification failed:', result.error)
+        }
+      }).catch((error) => {
+        console.error('[SHOPIFY_WEBHOOK] Telegram notification error:', error)
+      })
+    } catch (telegramError) {
+      console.error('[SHOPIFY_WEBHOOK] Telegram notification error:', telegramError)
+      // Don't fail the webhook if Telegram notification fails
     }
 
     return NextResponse.json(

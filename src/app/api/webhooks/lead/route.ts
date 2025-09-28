@@ -52,15 +52,21 @@ export async function POST(request: NextRequest) {
 
     const leadData = body
 
-    // Find user by webhook secret
-    const { data: user, error: userError } = await supabaseAdmin
-      .from('users')
-      .select('id')
+    // Find integration by webhook secret (and get user info)
+    const { data: integration, error: integrationError } = await supabaseAdmin
+      .from('integrations')
+      .select(`
+        id,
+        user_id,
+        name,
+        type,
+        users!integrations_user_id_fkey(id, name, email)
+      `)
       .eq('webhook_secret', webhookSecret)
       .single()
 
-    if (userError || !user) {
-      console.error('[WEBHOOK] User lookup error:', userError)
+    if (integrationError || !integration) {
+      console.error('[WEBHOOKS] Integration lookup error:', integrationError)
       return NextResponse.json(
         {
           error: 'Invalid webhook secret',
@@ -69,6 +75,13 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       )
     }
+
+    console.log('[WEBHOOKS] Request authenticated for integration:', {
+      id: integration.id,
+      name: integration.name,
+      type: integration.type,
+      userId: integration.user_id
+    })
 
     // Validate required lead fields
     const { source } = leadData
@@ -160,18 +173,18 @@ export async function POST(request: NextRequest) {
 
     // Prepare lead data for insertion
     const leadInsertData = {
-      user_id: user.id,
+      user_id: integration.user_id,
       name: leadData.name || null,
       email: leadData.email || null,
       phone: leadData.phone || null,
-      source: leadData.source,
+      source: `${integration.type}_${leadData.source}`,
       logistic_status: leadData.logistic_status || null,
       cod_status: leadData.cod_status || null,
       kpi_status: leadData.kpi_status || null,
       notes: leadData.notes || null
     }
 
-    console.log('[WEBHOOK] Creating lead with data:', leadInsertData)
+    console.log('[WEBHOOKS] Creating lead with data:', leadInsertData)
 
     // Insert lead into database
     const { data: createdLead, error: insertError } = await supabaseAdmin
@@ -181,7 +194,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (insertError) {
-      console.error('[WEBHOOK] Insert error:', insertError)
+      console.error('[WEBHOOKS] Insert error:', insertError)
       return NextResponse.json(
         {
           error: 'Database error',
@@ -191,19 +204,24 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('[WEBHOOK] Lead created successfully:', createdLead)
+    console.log('[WEBHOOKS] Lead created successfully:', createdLead)
 
     // Send Telegram notification (non-blocking)
-    sendLeadNotification(user.id, createdLead).then((result) => {
-      console.log('[WEBHOOK] Telegram notification result:', result)
+    sendLeadNotification(integration.user_id, createdLead).then((result) => {
+      console.log('[WEBHOOKS] Telegram notification result:', result)
     }).catch((error) => {
-      console.error('[WEBHOOK] Telegram notification error:', error)
+      console.error('[WEBHOOKS] Telegram notification error:', error)
     })
 
     return NextResponse.json(
       {
         success: true,
         message: 'Lead created successfully',
+        integration: {
+          id: integration.id,
+          name: integration.name,
+          type: integration.type
+        },
         data: {
           id: createdLead.id,
           name: createdLead.name,
@@ -221,7 +239,7 @@ export async function POST(request: NextRequest) {
     )
 
   } catch (error) {
-    console.error('[WEBHOOK] Unexpected error:', error)
+    console.error('[WEBHOOKS] Unexpected error:', error)
     return NextResponse.json(
       {
         error: 'Internal server error',

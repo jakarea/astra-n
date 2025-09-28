@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { getAuthenticatedClient, getSession } from '@/lib/auth'
+import { getAuthenticatedClient, getSession, isAdmin } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -102,11 +102,15 @@ export default function InventoryPage() {
       const supabase = getAuthenticatedClient()
       console.log('[INVENTORY] Authenticated client retrieved')
 
-      // Build search query - filter by current user's products only
+      // Build search query
       let query = supabase
         .from('products')
         .select('*', { count: 'exact' })
-        .eq('user_id', session.user.id)
+
+      // Admin sees all products, seller sees only their own
+      if (!isAdmin()) {
+        query = query.eq('user_id', session.user.id)
+      }
 
       // Add search filters if search query exists and has 3+ characters
       if (search && search.length >= 3) {
@@ -158,11 +162,17 @@ export default function InventoryPage() {
 
       const supabase = getAuthenticatedClient()
 
-      // Load stats for current user's products only
-      const { data: statsData, error: statsError } = await supabase
+      // Load stats
+      let statsQuery = supabase
         .from('products')
         .select('stock, price')
-        .eq('user_id', session.user.id)
+
+      // Admin sees all products stats, seller sees only their own
+      if (!isAdmin()) {
+        statsQuery = statsQuery.eq('user_id', session.user.id)
+      }
+
+      const { data: statsData, error: statsError } = await statsQuery
 
       if (!statsError && statsData) {
         const stats = {
@@ -275,11 +285,17 @@ export default function InventoryPage() {
 
       const supabase = getAuthenticatedClient()
 
-      const { error } = await supabase
+      let deleteQuery = supabase
         .from('products')
         .delete()
         .eq('id', productId)
-        .eq('user_id', session.user.id)
+
+      // For sellers, also check user_id; admin can delete any product
+      if (!isAdmin()) {
+        deleteQuery = deleteQuery.eq('user_id', session.user.id)
+      }
+
+      const { error } = await deleteQuery
 
       if (error) {
         throw new Error(error.message)
@@ -304,11 +320,17 @@ export default function InventoryPage() {
       }
 
       const supabase = getAuthenticatedClient()
-      const { data, error } = await supabase
+
+      let exportQuery = supabase
         .from('products')
         .select('name, sku, price, stock')
-        .eq('user_id', session.user.id)
-        .order('name')
+
+      // Admin exports all products, seller exports only their own
+      if (!isAdmin()) {
+        exportQuery = exportQuery.eq('user_id', session.user.id)
+      }
+
+      const { data, error } = await exportQuery.order('name')
 
       if (error) {
         throw new Error(error.message)

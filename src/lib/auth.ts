@@ -294,3 +294,68 @@ export async function resetUserPassword(email: string): Promise<void> {
     throw error
   }
 }
+
+// Server-side function to get user from Authorization header (for API routes)
+export async function getSessionUser(request?: Request): Promise<AuthUser | null> {
+  try {
+    let authorization: string | null = null
+
+    if (request) {
+      // If request is provided, get from request headers
+      authorization = request.headers.get('authorization')
+    } else {
+      // Try to get from Next.js headers (server component context)
+      try {
+        const { headers } = await import('next/headers')
+        const headersList = await headers()
+        authorization = headersList.get('authorization')
+      } catch {
+        // If we can't access headers, return null
+        return null
+      }
+    }
+
+    if (!authorization || !authorization.startsWith('Bearer ')) {
+      return null
+    }
+
+    const token = authorization.substring(7) // Remove 'Bearer ' prefix
+
+    // Create a Supabase client with the token
+    const supabaseWithAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    })
+
+    // Get the user from the token
+    const { data: { user }, error } = await supabaseWithAuth.auth.getUser(token)
+
+    if (error || !user) {
+      return null
+    }
+
+    // Fetch user role from database
+    const { data: userData, error: userError } = await supabaseWithAuth
+      .from('users')
+      .select('name, role')
+      .eq('id', user.id)
+      .single()
+
+    if (userError) {
+      console.warn('Could not fetch user role:', userError)
+    }
+
+    return {
+      id: user.id,
+      email: user.email!,
+      name: userData?.name || user.user_metadata?.name || user.email?.split('@')[0],
+      role: userData?.role || 'seller'
+    }
+  } catch (error) {
+    console.error('Error getting session user:', error)
+    return null
+  }
+}
