@@ -80,16 +80,37 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate webhook secret from header
-    const webhookSecret = request.headers.get('x-webhook-secret')
-    console.log('[WOOCOMMERCE_WEBHOOK] Webhook secret received:', webhookSecret ? 'present' : 'missing')
+    // Validate webhook secret from multiple sources
+    const url = new URL(request.url)
+    let webhookSecret =
+      request.headers.get('x-webhook-secret') || // Custom header (if supported)
+      request.headers.get('x-wc-webhook-signature') || // WooCommerce signature header
+      url.searchParams.get('webhook_secret') || // Query parameter
+      url.searchParams.get('secret') || // Alternative query parameter
+      body?.webhook_secret // In request body
+
+    console.log('[WOOCOMMERCE_WEBHOOK] Webhook secret received from:', {
+      header: !!request.headers.get('x-webhook-secret'),
+      wcSignature: !!request.headers.get('x-wc-webhook-signature'),
+      queryParam: !!url.searchParams.get('webhook_secret'),
+      querySecret: !!url.searchParams.get('secret'),
+      bodySecret: !!body?.webhook_secret,
+      finalSecret: webhookSecret ? 'present' : 'missing'
+    })
+
+    // If we have WooCommerce signature, extract the secret from it
+    if (request.headers.get('x-wc-webhook-signature') && !webhookSecret) {
+      // WooCommerce sends signature as base64(hash_hmac('sha256', payload, secret))
+      // We'll need to validate against known secrets in the database
+      console.log('[WOOCOMMERCE_WEBHOOK] WooCommerce signature detected, will validate against database')
+    }
 
     if (!webhookSecret || typeof webhookSecret !== 'string') {
-      console.log('[WOOCOMMERCE_WEBHOOK] Missing webhook secret header')
+      console.log('[WOOCOMMERCE_WEBHOOK] Missing webhook secret in all sources')
       return NextResponse.json(
         {
           error: 'Missing webhook secret',
-          message: 'x-webhook-secret header is required'
+          message: 'Webhook secret is required. Please provide it via x-webhook-secret header, webhook_secret query parameter, or in request body'
         },
         { status: 401 }
       )
@@ -97,20 +118,64 @@ export async function POST(request: NextRequest) {
 
     // Find integration by webhook secret
     console.log('[WOOCOMMERCE_WEBHOOK] Looking up integration with webhook secret')
-    const { data: integration, error: integrationError } = await supabaseAdmin
+    let integration
+    let integrationError
+
+    // Try to find integration with exact webhook secret match
+    const integrationResult = await supabaseAdmin
       .from('integrations')
-      .select('id, user_id, name, status, is_active')
+      .select('id, user_id, name, status, is_active, webhook_secret')
       .eq('webhook_secret', webhookSecret)
       .eq('type', 'woocommerce')
       .single()
 
+    integration = integrationResult.data
+    integrationError = integrationResult.error
+
+    // If no exact match and we have a WooCommerce signature, validate against all WooCommerce integrations
+    if (!integration && request.headers.get('x-wc-webhook-signature')) {
+      console.log('[WOOCOMMERCE_WEBHOOK] No exact match found, trying WooCommerce signature validation')
+
+      const { data: allIntegrations } = await supabaseAdmin
+        .from('integrations')
+        .select('id, user_id, name, status, is_active, webhook_secret')
+        .eq('type', 'woocommerce')
+        .eq('is_active', true)
+
+      if (allIntegrations) {
+        const signature = request.headers.get('x-wc-webhook-signature')
+        const rawBody = JSON.stringify(body)
+
+        // Try to validate signature against each integration's secret
+        for (const testIntegration of allIntegrations) {
+          if (testIntegration.webhook_secret) {
+            try {
+              const crypto = require('crypto')
+              const expectedSignature = crypto
+                .createHmac('sha256', testIntegration.webhook_secret)
+                .update(rawBody, 'utf8')
+                .digest('base64')
+
+              if (signature === expectedSignature) {
+                console.log('[WOOCOMMERCE_WEBHOOK] Valid WooCommerce signature found for integration:', testIntegration.id)
+                integration = testIntegration
+                break
+              }
+            } catch (error) {
+              console.error('[WOOCOMMERCE_WEBHOOK] Error validating signature:', error)
+            }
+          }
+        }
+      }
+    }
+
     if (integrationError || !integration) {
       console.error('[WOOCOMMERCE_WEBHOOK] Integration lookup error:', integrationError)
-      console.log('[WOOCOMMERCE_WEBHOOK] No integration found with provided webhook secret')
+      console.log('[WOOCOMMERCE_WEBHOOK] No integration found with provided webhook secret or valid signature')
       return NextResponse.json(
         {
           error: 'Invalid webhook secret',
-          message: 'The provided webhook secret is not valid or does not exist'
+          message: 'The provided webhook secret is not valid, does not exist, or signature validation failed'
         },
         { status: 401 }
       )
