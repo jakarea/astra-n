@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import Link from 'next/link'
-import { getAuthenticatedClient, getSession } from '@/lib/auth'
+import { getAuthenticatedClient, getSession, isAdmin } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -144,7 +144,11 @@ export default function OrdersPage() {
           integration:integrations!inner(name, type, user_id),
           items:order_items(*)
         `, { count: 'exact' })
-        .eq('integration.user_id', session.user.id)
+
+      // Admin sees all orders, seller sees only their own
+      if (!isAdmin()) {
+        query = query.eq('integration.user_id', session.user.id)
+      }
 
       if (search && search.length >= 3) {
         query = query.or(`external_order_id.ilike.%${search}%,status.ilike.%${search}%,customer.name.ilike.%${search}%,customer.email.ilike.%${search}%`)
@@ -209,7 +213,7 @@ export default function OrdersPage() {
 
       const supabase = getAuthenticatedClient()
 
-      const { data: statsData, error: statsError } = await supabase
+      let statsQuery = supabase
         .from('orders')
         .select(`
           total_amount,
@@ -217,7 +221,13 @@ export default function OrdersPage() {
           order_created_at,
           integration:integrations!inner(user_id)
         `)
-        .eq('integration.user_id', session.user.id)
+
+      // Admin sees all orders stats, seller sees only their own
+      if (!isAdmin()) {
+        statsQuery = statsQuery.eq('integration.user_id', session.user.id)
+      }
+
+      const { data: statsData, error: statsError } = await statsQuery
 
       if (statsError) {
         console.error('[Orders] Stats query error:', statsError)

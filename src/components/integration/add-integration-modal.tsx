@@ -81,38 +81,9 @@ export function AddIntegrationModal({ isOpen, onClose, onSuccess }: AddIntegrati
         throw new Error('User not authenticated')
       }
 
-      // Get user's webhook secret from database
+      // Generate unique webhook secret for this integration
       const supabase = getAuthenticatedClient()
-
-      const { data: userData } = await supabase
-        .from('users')
-        .select('webhook_secret')
-        .eq('id', session.user.id)
-        .single()
-
-      let userWebhookSecret = userData?.webhook_secret
-
-      // If user doesn't have webhook secret, generate one using the API
-      if (!userWebhookSecret) {
-        console.log('[ADD_INTEGRATION] User has no webhook secret, generating one...')
-
-        const response = await fetch('/api/user/regenerate-webhook-secret', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          console.error('[ADD_INTEGRATION] Webhook secret API error:', errorData)
-          throw new Error(`Failed to generate webhook secret: ${errorData.message || 'API request failed'}`)
-        }
-
-        const result = await response.json()
-        userWebhookSecret = result.webhookSecret
-        console.log('[ADD_INTEGRATION] Webhook secret generated successfully')
-      }
+      console.log('[ADD_INTEGRATION] Generating unique webhook secret for new integration...')
 
       const integrationData = {
         name: formData.name,
@@ -120,7 +91,6 @@ export function AddIntegrationModal({ isOpen, onClose, onSuccess }: AddIntegrati
         domain: formData.domain,
         base_url: formData.baseUrl || null,
         admin_access_token: formData.adminAccessToken || null,
-        webhook_secret: userWebhookSecret,
         user_id: session.user.id,
         status: 'active',
         is_active: true
@@ -139,6 +109,35 @@ export function AddIntegrationModal({ isOpen, onClose, onSuccess }: AddIntegrati
       if (error) {
         console.error('[ADD_INTEGRATION] Insert error:', error)
         throw new Error(error.message)
+      }
+
+      // Generate unique webhook secret for the newly created integration
+      console.log('[ADD_INTEGRATION] Generating webhook secret for integration:', data.id)
+
+      if (!session?.token) {
+        console.error('[ADD_INTEGRATION] No session token available for webhook secret generation')
+        throw new Error('Authentication required')
+      }
+
+      const webhookResponse = await fetch(`/api/integrations/${data.id}/generate-webhook-secret`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.token}`,
+        },
+      })
+
+      if (!webhookResponse.ok) {
+        const webhookError = await webhookResponse.json()
+        console.error('[ADD_INTEGRATION] Webhook secret generation failed:', webhookError)
+        // Don't fail the integration creation, just log the error
+        console.warn('[ADD_INTEGRATION] Integration created but webhook secret generation failed')
+      } else {
+        const webhookResult = await webhookResponse.json()
+        console.log('[ADD_INTEGRATION] Webhook secret generated successfully:', webhookResult.data?.webhook_secret ? 'SET' : 'NOT_SET')
+
+        // Update the local data with the generated webhook secret
+        data.webhook_secret = webhookResult.data?.webhook_secret
       }
 
       // Reset form
@@ -176,11 +175,11 @@ export function AddIntegrationModal({ isOpen, onClose, onSuccess }: AddIntegrati
     if (formData.type && supportedActions.length > 0) {
       const primaryAction = supportedActions[0] // Use first action as primary
       const actionType = primaryAction.split(':')[0] // Extract action type (order, webhook, data)
-      return `${baseUrl}/api/webhooks/${formData.type}-${actionType}-integration`
+      return `${baseUrl}/api/webhook/${formData.type}-${actionType}-integration`
     }
 
     // Fallback to generic URL
-    return `${baseUrl}/api/webhooks/integration`
+    return `${baseUrl}/api/webhook/integration`
   }
 
   return (

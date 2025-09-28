@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { getAuthenticatedClient, getSession } from '@/lib/auth'
+import { getAuthenticatedClient, getSession, isAdmin } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -19,9 +19,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Plus, Edit, Trash2, Link, ShoppingCart, DollarSign, Search, ChevronLeft, ChevronRight, Webhook, Copy } from 'lucide-react'
+import { Plus, Edit, Trash2, Link, ShoppingCart, DollarSign, Search, ChevronLeft, ChevronRight, Webhook, Copy, Key } from 'lucide-react'
 import { AddIntegrationModal } from '@/components/integration/add-integration-modal'
 import { EditIntegrationModal } from '@/components/integration/edit-integration-modal'
+import { useSessionExpired } from '@/components/ui/session-expired-modal'
 
 // Status badge helper
 function getStatusBadge(status: string | null) {
@@ -122,6 +123,10 @@ export default function IntegrationPage() {
   const [hasError, setHasError] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [loading, setLoading] = useState(true)
+  const [debugQuery, setDebugQuery] = useState<string>('')
+
+  // Session expired modal hook
+  const { triggerSessionExpired, SessionExpiredComponent } = useSessionExpired()
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [editIntegrationId, setEditIntegrationId] = useState<string | null>(null)
@@ -151,9 +156,12 @@ export default function IntegrationPage() {
       const session = getSession()
       if (!session) {
         console.error('[INTEGRATION] No session found')
-        setHasError(true)
-        setErrorMessage('You must be logged in to view integrations. Please log in first.')
         setLoading(false)
+        triggerSessionExpired({
+          title: "Authentication Required",
+          message: "You must be logged in to view integrations. Please log in first.",
+          showRetry: true
+        })
         return
       }
 
@@ -170,7 +178,11 @@ export default function IntegrationPage() {
             total_amount
           )
         `, { count: 'exact' })
-        .eq('user_id', session.user.id)
+
+      // Admin sees all integrations, seller sees only their own
+      if (!isAdmin()) {
+        query = query.eq('user_id', session.user.id)
+      }
 
       // Add search filters if search query exists and has 3+ characters
       if (search && search.length >= 3) {
@@ -181,11 +193,63 @@ export default function IntegrationPage() {
       const from = (page - 1) * ITEMS_PER_PAGE
       const to = from + ITEMS_PER_PAGE - 1
 
+      // Build exact SQL query string for copying
+      let sqlQuery = `SELECT *, (SELECT json_agg(row_to_json(orders_sub)) FROM (SELECT id, total_amount FROM orders WHERE orders.integration_id = integrations.id) orders_sub) as orders FROM integrations`
+
+      const whereConditions = []
+
+      if (!isAdmin()) {
+        whereConditions.push(`user_id = '${session.user.id}'`)
+      }
+
+      if (search && search.length >= 3) {
+        whereConditions.push(`(name ILIKE '%${search}%' OR domain ILIKE '%${search}%' OR type ILIKE '%${search}%')`)
+      }
+
+      if (whereConditions.length > 0) {
+        sqlQuery += ` WHERE ` + whereConditions.join(' AND ')
+      }
+
+      sqlQuery += ` ORDER BY created_at DESC LIMIT ${ITEMS_PER_PAGE} OFFSET ${from};`
+
+      // Also build readable debug info
+      let debugQueryString = `🔍 EXACT SQL QUERY (copy this):
+${sqlQuery}
+
+📋 READABLE FORMAT:
+FROM: integrations
+SELECT: *, orders(id, total_amount)
+FILTERS:`
+
+      if (!isAdmin()) {
+        debugQueryString += `\n  - user_id = '${session.user.id}' (seller filter)`
+      } else {
+        debugQueryString += `\n  - (admin - no user filter)`
+      }
+
+      if (search && search.length >= 3) {
+        debugQueryString += `\n  - search: name/domain/type ILIKE '%${search}%'`
+      }
+
+      debugQueryString += `\nORDER BY: created_at DESC
+PAGINATION: LIMIT ${ITEMS_PER_PAGE} OFFSET ${from} (page ${page})`
+
+      setDebugQuery(debugQueryString)
+
+      console.log('[INTEGRATION_PAGE] Executing query:', debugQueryString)
+      console.log('[INTEGRATION_PAGE] EXACT SQL QUERY:', sqlQuery)
+
       const { data, error, count } = await query
         .order('created_at', { ascending: false })
         .range(from, to)
 
       console.log('[INTEGRATION] Query result:', { data, error, integrationCount: data?.length, totalCount: count })
+      console.log('[INTEGRATION] Raw integration data:', data?.map(d => ({
+        id: d.id,
+        name: d.name,
+        webhook_secret: d.webhook_secret ? 'SET' : 'NOT_SET',
+        user_id: d.user_id
+      })))
 
       if (error) {
         console.error('[INTEGRATION] Database error:', error)
@@ -203,7 +267,13 @@ export default function IntegrationPage() {
       console.error('[INTEGRATION] Database connection error:', error)
       setHasError(true)
       if (error.message && error.message.includes('JWT')) {
-        setErrorMessage('Authentication token expired. Please log in again.')
+        setLoading(false)
+        triggerSessionExpired({
+          title: "Session Expired",
+          message: "Your authentication token has expired for security reasons. Please log in again to continue.",
+          showRetry: false
+        })
+        return
       } else {
         setErrorMessage(`Database error: ${error.message}`)
       }
@@ -222,14 +292,20 @@ export default function IntegrationPage() {
 
       const supabase = getAuthenticatedClient()
 
-      // Load stats for current user's integrations only
-      const { data: statsData, error: statsError } = await supabase
+      // Load stats
+      let statsQuery = supabase
         .from('integrations')
         .select(`
           status,
           orders:orders(total_amount)
         `)
-        .eq('user_id', session.user.id)
+
+      // Admin sees all integrations stats, seller sees only their own
+      if (!isAdmin()) {
+        statsQuery = statsQuery.eq('user_id', session.user.id)
+      }
+
+      const { data: statsData, error: statsError } = await statsQuery
 
       if (!statsError && statsData) {
         const stats = {
@@ -320,6 +396,43 @@ export default function IntegrationPage() {
     setEditIntegrationId(null)
   }
 
+  const handleGenerateWebhookSecret = async (integrationId: string) => {
+    try {
+      const response = await fetch(`/api/integrations/${integrationId}/generate-webhook-secret`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to generate webhook secret')
+      }
+
+      const result = await response.json()
+
+      if (result.success) {
+        toast.success('Webhook secret generated successfully!')
+
+        // Update the integration in the local state
+        setIntegrations(prev => prev.map(integration =>
+          integration.id === parseInt(integrationId)
+            ? { ...integration, webhook_secret: result.data.webhook_secret }
+            : integration
+        ))
+
+        // Copy the new secret to clipboard
+        await copyToClipboard(result.data.webhook_secret, 'Webhook secret')
+      } else {
+        throw new Error(result.error || 'Unknown error occurred')
+      }
+    } catch (error: any) {
+      console.error('Error generating webhook secret:', error)
+      toast.error(`Failed to generate webhook secret: ${error.message}`)
+    }
+  }
+
   const openDeleteDialog = (integrationId: string, integrationName: string) => {
     setDeleteDialog({ isOpen: true, integrationId, integrationName })
   }
@@ -336,11 +449,17 @@ export default function IntegrationPage() {
 
       const supabase = getAuthenticatedClient()
 
-      const { error } = await supabase
+      let deleteQuery = supabase
         .from('integrations')
         .delete()
         .eq('id', integrationId)
-        .eq('user_id', session.user.id)
+
+      // For sellers, also check user_id; admin can delete any integration
+      if (!isAdmin()) {
+        deleteQuery = deleteQuery.eq('user_id', session.user.id)
+      }
+
+      const { error } = await deleteQuery
 
       if (error) {
         throw new Error(error.message)
@@ -362,7 +481,7 @@ export default function IntegrationPage() {
   const endItem = Math.min(currentPage * ITEMS_PER_PAGE, totalCount)
 
   // Show error state if database connection failed
-  if (hasError) {
+  if (hasError && !errorMessage.includes('logged in') && !errorMessage.includes('JWT')) {
     return (
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -378,26 +497,13 @@ export default function IntegrationPage() {
           <CardContent className="pt-6">
             <div className="text-center py-12">
               <div className="text-destructive mb-4">
-                <h3 className="text-lg font-medium">
-                  {errorMessage.includes('logged in') ? 'Authentication Required' : 'Connection Error'}
-                </h3>
+                <h3 className="text-lg font-medium">Connection Error</h3>
                 <p className="text-sm text-muted-foreground mt-2">{errorMessage}</p>
               </div>
-              {errorMessage.includes('logged in') ? (
-                <div className="text-sm text-muted-foreground">
-                  <p>Please log in to access the Integration module.</p>
-                  <p className="mt-2">
-                    <Link href="/login" className="text-blue-600 hover:underline">
-                      Go to Login Page
-                    </Link>
-                  </p>
-                </div>
-              ) : (
-                <div className="text-sm text-muted-foreground">
-                  <p>This is likely a database configuration issue.</p>
-                  <p className="mt-2">The Integration module is fully implemented and ready to use once the connection is resolved.</p>
-                </div>
-              )}
+              <div className="text-sm text-muted-foreground">
+                <p>This is likely a database configuration issue.</p>
+                <p className="mt-2">The Integration module is fully implemented and ready to use once the connection is resolved.</p>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -422,6 +528,22 @@ export default function IntegrationPage() {
           </Button>
         </div>
       </div>
+
+      {/* Debug Query Display */}
+      {debugQuery && (
+        <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-blue-800 dark:text-blue-200">
+              🔍 Database Query Debug (Integrations Table Only)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <pre className="text-xs font-mono text-blue-700 dark:text-blue-300 whitespace-pre-wrap overflow-x-auto">
+              {debugQuery}
+            </pre>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -658,10 +780,20 @@ export default function IntegrationPage() {
                                   size="sm"
                                   onClick={() => copyToClipboard(integration.webhook_secret, 'Webhook secret')}
                                   className="h-6 w-6 p-0"
+                                  title="Copy webhook secret"
                                 >
                                   <Copy className="h-3 w-3" />
                                 </Button>
                               )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleGenerateWebhookSecret(integration.id.toString())}
+                                className="h-6 w-6 p-0"
+                                title={integration.webhook_secret ? "Regenerate webhook secret" : "Generate webhook secret"}
+                              >
+                                <Key className="h-3 w-3" />
+                              </Button>
                             </div>
                           </TableCell>
 
@@ -793,6 +925,9 @@ export default function IntegrationPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Session Expired Modal */}
+      <SessionExpiredComponent />
     </div>
   )
 }

@@ -14,19 +14,19 @@ datasource db {
 // Core Tables: Users & Integrations
 
 model User {
-  id            String   @id @db.Uuid
-  name          String
-  email         String?  @unique
-  role          String   @default("seller") // 'admin' or 'seller'
-  webhookSecret String?  @unique @map("webhook_secret")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id        String   @id @db.Uuid
+  name      String
+  email     String?  @unique
+  role      String   @default("seller") // 'admin' or 'seller'
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
   settings     UserSettings?
   integrations Integration[]
   products     Product[]
   customers    Customer[]
+  orders       Order[]
   crmLeads     CrmLead[]
   leadEvents   CrmLeadEvent[]
 
@@ -34,9 +34,10 @@ model User {
 }
 
 model UserSettings {
-  userId         String   @id @map("user_id") @db.Uuid
-  telegramChatId String?  @map("telegram_chat_id")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  userId           String   @id @map("user_id") @db.Uuid
+  telegramBotToken String?  @map("telegram_bot_token")
+  telegramChatId   String?  @map("telegram_chat_id")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -95,7 +96,7 @@ model Customer {
   totalOrder Int      @default(0) @map("total_order")
   userId     String   @map("user_id") @db.Uuid
   name      String
-  email     String   @unique
+  email     String
   phone     String?
   address   Json?
   source    String   @default("manual")
@@ -106,6 +107,7 @@ model Customer {
   user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   orders Order[]
 
+  @@unique([userId, email])
   @@index([email])
   @@index([totalOrder])
   @@map("customers")
@@ -113,6 +115,7 @@ model Customer {
 
 model Order {
   id              Int      @id @default(autoincrement())
+  userId          String   @map("user_id") @db.Uuid
   integrationId   Int      @map("integration_id")
   customerId      Int      @map("customer_id")
   externalOrderId String   @map("external_order_id")
@@ -123,12 +126,14 @@ model Order {
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   // Relations
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   integration Integration  @relation(fields: [integrationId], references: [id], onDelete: Cascade)
   customer    Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
   items       OrderItem[]
   crmLead     CrmLead?
 
   @@unique([integrationId, externalOrderId])
+  @@index([userId])
   @@index([integrationId])
   @@index([customerId])
   @@index([status])

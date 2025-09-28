@@ -84,32 +84,43 @@ export function EditIntegrationModal({ isOpen, onClose, onSuccess, integrationId
         }
 
         const supabase = getAuthenticatedClient()
+
+        // Convert integrationId to number since DB expects integer
+        const integrationIdNum = parseInt(integrationId, 10)
+        if (isNaN(integrationIdNum)) {
+          throw new Error(`Invalid integration ID: ${integrationId}`)
+        }
+
         const { data, error } = await supabase
           .from('integrations')
           .select('*')
-          .eq('id', integrationId)
+          .eq('id', integrationIdNum)
           .eq('user_id', session.user.id)
-          .single()
 
         if (error) {
-          throw new Error(error.message)
+          throw new Error(`Database error: ${error.message}`)
         }
 
+        if (!data || data.length === 0) {
+          throw new Error('Integration not found or access denied')
+        }
+
+        const integration = data[0]
+
         setFormData({
-          name: data.name || '',
-          type: data.type || '',
-          domain: data.domain || '',
-          baseUrl: data.base_url || '',
-          adminAccessToken: data.admin_access_token || '',
-          status: data.status || 'active'
+          name: integration.name || '',
+          type: integration.type || '',
+          domain: integration.domain || '',
+          baseUrl: integration.base_url || '',
+          adminAccessToken: integration.admin_access_token || '',
+          status: integration.status || 'active'
         })
 
         // Set supported actions based on type
-        const shopType = SHOP_TYPES.find(t => t.value === data.type)
+        const shopType = SHOP_TYPES.find(t => t.value === integration.type)
         setSupportedActions(shopType?.actions || [])
       } catch (error) {
-        console.error('Error loading integration:', error)
-        alert('Failed to load integration data.')
+        alert(`Failed to load integration data. Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
         onClose()
       } finally {
         setLoadingData(false)
@@ -146,8 +157,6 @@ export function EditIntegrationModal({ isOpen, onClose, onSuccess, integrationId
         updated_at: new Date().toISOString()
       }
 
-      console.log('[EDIT_INTEGRATION] Updating integration with data:', integrationData)
-
       const supabase = getAuthenticatedClient()
       const { data, error } = await supabase
         .from('integrations')
@@ -157,18 +166,14 @@ export function EditIntegrationModal({ isOpen, onClose, onSuccess, integrationId
         .select()
         .single()
 
-      console.log('[EDIT_INTEGRATION] Update result:', { data, error })
-
       if (error) {
-        console.error('[EDIT_INTEGRATION] Update error:', error)
         throw new Error(error.message)
       }
 
       // Pass the updated integration data to parent
       onSuccess(data)
       onClose()
-    } catch (error) {
-      console.error('Error updating integration:', error)
+    } catch (_error) {
       alert('Failed to update integration. Please try again.')
     } finally {
       setLoading(false)
@@ -188,11 +193,11 @@ export function EditIntegrationModal({ isOpen, onClose, onSuccess, integrationId
     if (formData.type && supportedActions.length > 0) {
       const primaryAction = supportedActions[0] // Use first action as primary
       const actionType = primaryAction.split(':')[0] // Extract action type (order, webhook, data)
-      return `${baseUrl}/api/webhooks/${formData.type}-${actionType}-integration`
+      return `${baseUrl}/api/webhook/${formData.type}-${actionType}-integration`
     }
 
     // Fallback to generic URL
-    return `${baseUrl}/api/webhooks/integration`
+    return `${baseUrl}/api/webhook/integration`
   }
 
   return (
