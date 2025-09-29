@@ -112,23 +112,31 @@ export async function POST(request: NextRequest) {
       query
     })
 
-    const contentType = request.headers.get('content-type')
-    if (!contentType || !contentType.includes('application/json')) {
+    const contentType = request.headers.get('content-type') || ''
+
+    // Be more flexible with content types - WooCommerce can send various formats
+    const isValidContentType =
+      contentType.includes('application/json') ||
+      contentType.includes('application/x-www-form-urlencoded') ||
+      contentType === '' || // Some webhooks don't set content-type
+      contentType.includes('text/plain') // WooCommerce sometimes uses this
+
+    if (!isValidContentType) {
       const processingTime = Date.now() - startTime
       webhookLogger.logWebhookError(requestId, {
-        message: `Invalid content type: ${contentType}`,
+        message: `Unsupported content type: ${contentType}`,
         status: 400,
         processingTime
       })
 
       return NextResponse.json(
         {
-          error: 'Invalid content type',
-          message: 'Content-Type must be application/json',
+          error: 'Unsupported content type',
+          message: 'Content-Type must be application/json, application/x-www-form-urlencoded, text/plain, or empty',
           debug: {
             requestId,
             received_content_type: contentType,
-            expected: 'application/json'
+            supported_types: ['application/json', 'application/x-www-form-urlencoded', 'text/plain', '(empty)']
           }
         },
         { status: 400 }
@@ -136,7 +144,9 @@ export async function POST(request: NextRequest) {
     }
 
     webhookLogger.logWebhookProcessing(requestId, {
-      processing: 'Content type validation passed, extracting webhook secret'
+      processing: 'Content type validation passed, extracting webhook secret',
+      contentType,
+      isValidContentType
     })
 
     // Validate webhook secret from multiple sources
