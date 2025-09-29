@@ -70,31 +70,51 @@ export async function POST(request: NextRequest) {
 
     try {
       bodyText = await request.text()
-      body = bodyText ? JSON.parse(bodyText) : {}
-    } catch (jsonError) {
-      // Log the raw request even if JSON parsing fails
+
+      if (!bodyText) {
+        body = {}
+      } else {
+        // Try multiple parsing methods
+        try {
+          // Try JSON first
+          body = JSON.parse(bodyText)
+        } catch (jsonError) {
+          // Try URL-encoded form data
+          try {
+            const urlParams = new URLSearchParams(bodyText)
+            body = Object.fromEntries(urlParams.entries())
+            console.log('[WEBHOOK] Parsed as URL-encoded form data')
+          } catch (formError) {
+            // Try to handle other formats or plain text
+            console.log('[WEBHOOK] Could not parse body, treating as plain text')
+            body = { raw_body: bodyText, parse_error: jsonError.message }
+          }
+        }
+      }
+    } catch (bodyError) {
+      // Log the raw request even if body reading fails
       requestId = webhookLogger.logWebhookRequest({
         method: request.method,
         url: request.url,
         headers,
-        body: { raw_body: bodyText, json_parse_error: jsonError.message },
+        body: { body_read_error: bodyError.message },
         query
       })
 
       const processingTime = Date.now() - startTime
       webhookLogger.logWebhookError(requestId, {
-        message: 'Invalid JSON in request body',
+        message: 'Could not read request body',
         status: 400,
         processingTime
       })
 
       return NextResponse.json(
         {
-          error: 'Invalid JSON',
-          message: 'Request body must be valid JSON',
+          error: 'Body read error',
+          message: 'Could not read request body',
           debug: {
             requestId,
-            raw_body_preview: bodyText.substring(0, 500),
+            error: bodyError.message,
             content_type: headers['content-type'],
             content_length: headers['content-length']
           }
@@ -114,13 +134,8 @@ export async function POST(request: NextRequest) {
 
     const contentType = request.headers.get('content-type') || ''
 
-    // Be more flexible with content types - WooCommerce can send various formats
-    const isValidContentType =
-      contentType.includes('application/json') ||
-      contentType.includes('application/x-www-form-urlencoded') ||
-      contentType === '' || // Some webhooks don't set content-type
-      contentType.includes('text/plain') || // WooCommerce sometimes uses this
-      contentType.includes('multipart/form-data') // Additional format support
+    // Be very flexible with content types - accept almost anything
+    const isValidContentType = true // Temporarily accept all content types for debugging
 
     if (!isValidContentType) {
       const processingTime = Date.now() - startTime
