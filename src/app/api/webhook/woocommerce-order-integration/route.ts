@@ -198,7 +198,29 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Check if this might be a WooCommerce validation request
+    const isValidationRequest =
+      headers['user-agent']?.includes('WordPress') ||
+      headers['user-agent']?.includes('WooCommerce') ||
+      body?.webhook_id ||
+      query.test === '1' ||
+      !body?.id // No order ID suggests validation
+
     if (!webhookSecret || typeof webhookSecret !== 'string') {
+      // If this looks like a validation request, be more permissive
+      if (isValidationRequest) {
+        webhookLogger.logWebhookProcessing(requestId, {
+          processing: 'Detected WooCommerce validation request - allowing without secret'
+        })
+
+        return NextResponse.json({
+          success: true,
+          message: 'WooCommerce webhook validation successful',
+          validation: true,
+          timestamp: new Date().toISOString()
+        }, { status: 200 })
+      }
+
       const processingTime = Date.now() - startTime
       webhookLogger.logWebhookError(requestId, {
         message: 'Missing webhook secret in all sources',
@@ -216,7 +238,9 @@ export async function POST(request: NextRequest) {
             secretSources,
             available_headers: Object.keys(headers),
             available_query_params: Object.keys(query),
-            body_keys: Object.keys(body || {})
+            body_keys: Object.keys(body || {}),
+            user_agent: headers['user-agent'],
+            is_validation: isValidationRequest
           }
         },
         { status: 401 }
@@ -338,6 +362,25 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('[WOOCOMMERCE_WEBHOOK] User identified from webhook secret:', integration.user_id)
+
+    // Check if this is a validation request (has integration but no real order data)
+    if (isValidationRequest || !body?.id || !body?.billing?.email) {
+      webhookLogger.logWebhookProcessing(requestId, {
+        processing: 'Detected WooCommerce validation request with valid integration'
+      })
+
+      return NextResponse.json({
+        success: true,
+        message: 'WooCommerce webhook validation successful',
+        validation: true,
+        integration: {
+          id: integration.id,
+          name: integration.name,
+          status: integration.status
+        },
+        timestamp: new Date().toISOString()
+      }, { status: 200 })
+    }
 
     // Extract customer data
     const customerName = `${body.billing.first_name} ${body.billing.last_name}`.trim()
