@@ -27,13 +27,20 @@ class WebhookLogger {
   private logFile: string
 
   constructor() {
-    // Use a temp directory that works both locally and in production
-    this.logDir = process.env.NODE_ENV === 'production'
-      ? '/tmp/webhook-logs'
-      : path.join(process.cwd(), 'logs')
+    try {
+      // Use a temp directory that works both locally and in production
+      this.logDir = process.env.NODE_ENV === 'production'
+        ? '/tmp/webhook-logs'
+        : path.join(process.cwd(), 'logs')
 
-    this.logFile = path.join(this.logDir, `webhook-debug-${new Date().toISOString().split('T')[0]}.log`)
-    this.ensureLogDirectory()
+      this.logFile = path.join(this.logDir, `webhook-debug-${new Date().toISOString().split('T')[0]}.log`)
+      this.ensureLogDirectory()
+    } catch (error) {
+      console.error('[WEBHOOK_LOGGER] Failed to initialize logger:', error)
+      // Fallback to console-only logging
+      this.logDir = ''
+      this.logFile = ''
+    }
   }
 
   private ensureLogDirectory() {
@@ -148,12 +155,18 @@ class WebhookLogger {
     try {
       const logLine = `${prefix}\n${JSON.stringify(data, null, 2)}\n${'='.repeat(80)}\n`
 
-      // Write to file
-      fs.appendFileSync(this.logFile, logLine, 'utf8')
-
-      // Also console log for immediate debugging
+      // Always console log for immediate debugging
       console.log(`[WEBHOOK_DEBUG] ${prefix}`)
       console.log(JSON.stringify(data, null, 2))
+
+      // Try to write to file if possible
+      if (this.logFile) {
+        try {
+          fs.appendFileSync(this.logFile, logLine, 'utf8')
+        } catch (fileError) {
+          console.warn('[WEBHOOK_LOGGER] File write failed, using console-only logging:', fileError.message)
+        }
+      }
 
     } catch (error) {
       console.error('[WEBHOOK_LOGGER] Failed to write log:', error)

@@ -119,7 +119,8 @@ export async function POST(request: NextRequest) {
       contentType.includes('application/json') ||
       contentType.includes('application/x-www-form-urlencoded') ||
       contentType === '' || // Some webhooks don't set content-type
-      contentType.includes('text/plain') // WooCommerce sometimes uses this
+      contentType.includes('text/plain') || // WooCommerce sometimes uses this
+      contentType.includes('multipart/form-data') // Additional format support
 
     if (!isValidContentType) {
       const processingTime = Date.now() - startTime
@@ -132,11 +133,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'Unsupported content type',
-          message: 'Content-Type must be application/json, application/x-www-form-urlencoded, text/plain, or empty',
+          message: 'Content-Type must be application/json, application/x-www-form-urlencoded, text/plain, multipart/form-data, or empty',
           debug: {
             requestId,
             received_content_type: contentType,
-            supported_types: ['application/json', 'application/x-www-form-urlencoded', 'text/plain', '(empty)']
+            supported_types: ['application/json', 'application/x-www-form-urlencoded', 'text/plain', 'multipart/form-data', '(empty)']
           }
         },
         { status: 400 }
