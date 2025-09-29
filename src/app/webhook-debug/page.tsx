@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { RefreshCw, Trash2, Download, AlertCircle, CheckCircle, Clock, Zap } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -228,7 +227,7 @@ export default function WebhookDebugPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="h-[600px]">
+          <div className="max-h-[600px] overflow-y-auto">
             {logs.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <Zap className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -276,7 +275,7 @@ export default function WebhookDebugPage() {
                 ))}
               </div>
             )}
-          </ScrollArea>
+          </div>
         </CardContent>
       </Card>
 
