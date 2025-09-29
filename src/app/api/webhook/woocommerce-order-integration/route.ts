@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendOrderNotification } from '@/lib/telegram'
+import { webhookLogger } from '@/lib/webhook-logger'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -55,66 +56,151 @@ interface WooCommerceOrderPayload {
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    const contentType = request.headers.get('content-type')
-    if (!contentType || !contentType.includes('application/json')) {
-      return NextResponse.json(
-        {
-          error: 'Invalid content type',
-          message: 'Content-Type must be application/json'
-        },
-        { status: 400 }
-      )
-    }
+  const startTime = Date.now()
+  let requestId: string
 
-    let body: WooCommerceOrderPayload
+  try {
+    // First, capture all raw request data for logging
+    const url = new URL(request.url)
+    const headers = Object.fromEntries(request.headers.entries())
+    const query = Object.fromEntries(url.searchParams.entries())
+
+    let body: any
+    let bodyText = ''
+
     try {
-      body = await request.json()
-    } catch (_error) {
+      bodyText = await request.text()
+      body = bodyText ? JSON.parse(bodyText) : {}
+    } catch (jsonError) {
+      // Log the raw request even if JSON parsing fails
+      requestId = webhookLogger.logWebhookRequest({
+        method: request.method,
+        url: request.url,
+        headers,
+        body: { raw_body: bodyText, json_parse_error: jsonError.message },
+        query
+      })
+
+      const processingTime = Date.now() - startTime
+      webhookLogger.logWebhookError(requestId, {
+        message: 'Invalid JSON in request body',
+        status: 400,
+        processingTime
+      })
+
       return NextResponse.json(
         {
           error: 'Invalid JSON',
-          message: 'Request body must be valid JSON'
+          message: 'Request body must be valid JSON',
+          debug: {
+            requestId,
+            raw_body_preview: bodyText.substring(0, 500),
+            content_type: headers['content-type'],
+            content_length: headers['content-length']
+          }
         },
         { status: 400 }
       )
     }
 
+    // Log the complete request
+    requestId = webhookLogger.logWebhookRequest({
+      method: request.method,
+      url: request.url,
+      headers,
+      body,
+      query
+    })
+
+    const contentType = request.headers.get('content-type')
+    if (!contentType || !contentType.includes('application/json')) {
+      const processingTime = Date.now() - startTime
+      webhookLogger.logWebhookError(requestId, {
+        message: `Invalid content type: ${contentType}`,
+        status: 400,
+        processingTime
+      })
+
+      return NextResponse.json(
+        {
+          error: 'Invalid content type',
+          message: 'Content-Type must be application/json',
+          debug: {
+            requestId,
+            received_content_type: contentType,
+            expected: 'application/json'
+          }
+        },
+        { status: 400 }
+      )
+    }
+
+    webhookLogger.logWebhookProcessing(requestId, {
+      processing: 'Content type validation passed, extracting webhook secret'
+    })
+
     // Validate webhook secret from multiple sources
-    const url = new URL(request.url)
     let webhookSecret =
       request.headers.get('x-webhook-secret') || // Custom header (if supported)
       request.headers.get('x-wc-webhook-signature') || // WooCommerce signature header
-      url.searchParams.get('webhook_secret') || // Query parameter
-      url.searchParams.get('secret') || // Alternative query parameter
+      query.webhook_secret || // Query parameter
+      query.secret || // Alternative query parameter
       body?.webhook_secret // In request body
 
-    console.log('[WOOCOMMERCE_WEBHOOK] Webhook secret received from:', {
-      header: !!request.headers.get('x-webhook-secret'),
-      wcSignature: !!request.headers.get('x-wc-webhook-signature'),
-      queryParam: !!url.searchParams.get('webhook_secret'),
-      querySecret: !!url.searchParams.get('secret'),
-      bodySecret: !!body?.webhook_secret,
-      finalSecret: webhookSecret ? 'present' : 'missing'
+    const secretSources = {
+      header_x_webhook_secret: !!request.headers.get('x-webhook-secret'),
+      header_x_wc_webhook_signature: !!request.headers.get('x-wc-webhook-signature'),
+      query_webhook_secret: !!query.webhook_secret,
+      query_secret: !!query.secret,
+      body_webhook_secret: !!body?.webhook_secret,
+      final_secret_found: !!webhookSecret,
+      webhook_secret_type: webhookSecret ? typeof webhookSecret : 'undefined',
+      webhook_secret_length: webhookSecret ? webhookSecret.length : 0
+    }
+
+    webhookLogger.logWebhookProcessing(requestId, {
+      processing: 'Webhook secret extraction completed',
+      secretSources,
+      all_headers: Object.keys(headers),
+      all_query_params: Object.keys(query)
     })
 
     // If we have WooCommerce signature, extract the secret from it
     if (request.headers.get('x-wc-webhook-signature') && !webhookSecret) {
-      // WooCommerce sends signature as base64(hash_hmac('sha256', payload, secret))
-      // We'll need to validate against known secrets in the database
-      console.log('[WOOCOMMERCE_WEBHOOK] WooCommerce signature detected, will validate against database')
+      webhookLogger.logWebhookProcessing(requestId, {
+        processing: 'WooCommerce signature detected, will validate against database'
+      })
     }
 
     if (!webhookSecret || typeof webhookSecret !== 'string') {
-      console.log('[WOOCOMMERCE_WEBHOOK] Missing webhook secret in all sources')
+      const processingTime = Date.now() - startTime
+      webhookLogger.logWebhookError(requestId, {
+        message: 'Missing webhook secret in all sources',
+        status: 401,
+        processingTime,
+        secretSources
+      })
+
       return NextResponse.json(
         {
           error: 'Missing webhook secret',
-          message: 'Webhook secret is required. Please provide it via x-webhook-secret header, webhook_secret query parameter, or in request body'
+          message: 'Webhook secret is required. Please provide it via x-webhook-secret header, webhook_secret query parameter, or in request body',
+          debug: {
+            requestId,
+            secretSources,
+            available_headers: Object.keys(headers),
+            available_query_params: Object.keys(query),
+            body_keys: Object.keys(body || {})
+          }
         },
         { status: 401 }
       )
     }
+
+    webhookLogger.logWebhookProcessing(requestId, {
+      processing: 'Webhook secret validation passed, looking up integration',
+      webhookSecret
+    })
 
     // Find integration by webhook secret
     console.log('[WOOCOMMERCE_WEBHOOK] Looking up integration with webhook secret')
@@ -170,16 +256,40 @@ export async function POST(request: NextRequest) {
     }
 
     if (integrationError || !integration) {
-      console.error('[WOOCOMMERCE_WEBHOOK] Integration lookup error:', integrationError)
-      console.log('[WOOCOMMERCE_WEBHOOK] No integration found with provided webhook secret or valid signature')
+      const processingTime = Date.now() - startTime
+      webhookLogger.logWebhookError(requestId, {
+        message: 'Integration lookup failed',
+        status: 401,
+        processingTime,
+        integrationError: integrationError?.message || 'No integration found',
+        webhookSecret
+      })
+
       return NextResponse.json(
         {
           error: 'Invalid webhook secret',
-          message: 'The provided webhook secret is not valid, does not exist, or signature validation failed'
+          message: 'The provided webhook secret is not valid, does not exist, or signature validation failed',
+          debug: {
+            requestId,
+            integration_error: integrationError?.message,
+            webhook_secret_length: webhookSecret.length,
+            webhook_secret_prefix: webhookSecret.substring(0, 8) + '...'
+          }
         },
         { status: 401 }
       )
     }
+
+    webhookLogger.logWebhookProcessing(requestId, {
+      processing: 'Integration found successfully',
+      integration: {
+        id: integration.id,
+        userId: integration.user_id,
+        name: integration.name,
+        status: integration.status,
+        isActive: integration.is_active
+      }
+    })
 
     console.log('[WOOCOMMERCE_WEBHOOK] Integration found:', {
       id: integration.id,
@@ -454,28 +564,48 @@ export async function POST(request: NextRequest) {
       // Don't fail the webhook if Telegram notification fails
     }
 
-    return NextResponse.json(
-      {
-        success: true,
-        message: 'WooCommerce order processed successfully',
-        data: {
-          orderId: order.id,
-          customerId: customer.id,
-          externalOrderId,
-          status: body.status,
-          totalAmount,
-          itemsCount: orderItems.length
-        }
-      },
-      { status: 200 }
-    )
+    const processingTime = Date.now() - startTime
+    const responseData = {
+      success: true,
+      message: 'WooCommerce order processed successfully',
+      data: {
+        orderId: order.id,
+        customerId: customer.id,
+        externalOrderId,
+        status: body.status,
+        totalAmount,
+        itemsCount: orderItems.length
+      }
+    }
 
-  } catch (error) {
-    console.error('[WOOCOMMERCE_WEBHOOK] Unexpected error:', error)
+    webhookLogger.logWebhookResponse(requestId, {
+      status: 200,
+      message: 'Order processed successfully',
+      data: responseData.data,
+      processingTime
+    })
+
+    return NextResponse.json(responseData, { status: 200 })
+
+  } catch (error: any) {
+    const processingTime = Date.now() - startTime
+
+    webhookLogger.logWebhookError(requestId || 'unknown', {
+      message: `Unexpected error: ${error.message}`,
+      stack: error.stack,
+      status: 500,
+      processingTime
+    })
+
     return NextResponse.json(
       {
         error: 'Internal server error',
-        message: 'An unexpected error occurred while processing the webhook'
+        message: 'An unexpected error occurred while processing the webhook',
+        debug: {
+          requestId: requestId || 'unknown',
+          error_message: error.message,
+          processing_time: processingTime
+        }
       },
       { status: 500 }
     )

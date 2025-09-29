@@ -1,0 +1,391 @@
+{
+  "woocommerce_test_payloads": {
+    "new_order": {
+      "description": "Test payload for a new WooCommerce order",
+      "payload": {
+        "id": 12345,
+        "status": "processing",
+        "currency": "USD",
+        "date_created": "2024-01-15T10:30:00",
+        "total": "159.99",
+        "customer_id": 67890,
+        "billing": {
+          "first_name": "John",
+          "last_name": "Doe",
+          "email": "john.doe.test@example.com",
+          "phone": "+1234567890",
+          "address_1": "123 Test Street",
+          "address_2": "Apt 4B",
+          "city": "Test City",
+          "state": "CA",
+          "postcode": "90210",
+          "country": "US",
+          "company": "Test Company LLC"
+        },
+        "shipping": {
+          "first_name": "John",
+          "last_name": "Doe",
+          "address_1": "123 Test Street",
+          "address_2": "Apt 4B",
+          "city": "Test City",
+          "state": "CA",
+          "postcode": "90210",
+          "country": "US",
+          "company": "Test Company LLC"
+        },
+        "line_items": [
+          {
+            "id": 1,
+            "name": "Premium Test Product",
+            "product_id": 100,
+            "quantity": 2,
+            "sku": "TEST-PROD-001",
+            "price": 79.99,
+            "total": "159.98"
+          },
+          {
+            "id": 2,
+            "name": "Test Shipping Fee",
+            "product_id": 0,
+            "quantity": 1,
+            "sku": "",
+            "price": 0.01,
+            "total": "0.01"
+          }
+        ]
+      }
+    },
+
+    "order_completed": {
+      "description": "Test payload for an order status update to completed",
+      "payload": {
+        "id": 12345,
+        "status": "completed",
+        "currency": "USD",
+        "date_created": "2024-01-15T10:30:00",
+        "total": "159.99",
+        "customer_id": 67890,
+        "billing": {
+          "first_name": "John",
+          "last_name": "Doe",
+          "email": "john.doe.test@example.com",
+          "phone": "+1234567890",
+          "address_1": "123 Test Street",
+          "address_2": "Apt 4B",
+          "city": "Test City",
+          "state": "CA",
+          "postcode": "90210",
+          "country": "US",
+          "company": "Test Company LLC"
+        },
+        "shipping": {
+          "first_name": "John",
+          "last_name": "Doe",
+          "address_1": "123 Test Street",
+          "address_2": "Apt 4B",
+          "city": "Test City",
+          "state": "CA",
+          "postcode": "90210",
+          "country": "US",
+          "company": "Test Company LLC"
+        },
+        "line_items": [
+          {
+            "id": 1,
+            "name": "Premium Test Product",
+            "product_id": 100,
+            "quantity": 2,
+            "sku": "TEST-PROD-001",
+            "price": 79.99,
+            "total": "159.98"
+          },
+          {
+            "id": 2,
+            "name": "Test Shipping Fee",
+            "product_id": 0,
+            "quantity": 1,
+            "sku": "",
+            "price": 0.01,
+            "total": "0.01"
+          }
+        ]
+      }
+    },
+
+    "high_value_order": {
+      "description": "Test payload for a high-value order with multiple items",
+      "payload": {
+        "id": 12346,
+        "status": "processing",
+        "currency": "USD",
+        "date_created": "2024-01-15T14:45:00",
+        "total": "899.97",
+        "customer_id": 67891,
+        "billing": {
+          "first_name": "Sarah",
+          "last_name": "Wilson",
+          "email": "sarah.wilson.test@example.com",
+          "phone": "+1987654321",
+          "address_1": "456 Business Ave",
+          "address_2": "Suite 200",
+          "city": "Enterprise City",
+          "state": "NY",
+          "postcode": "10001",
+          "country": "US",
+          "company": "Wilson Enterprises"
+        },
+        "shipping": {
+          "first_name": "Sarah",
+          "last_name": "Wilson",
+          "address_1": "456 Business Ave",
+          "address_2": "Suite 200",
+          "city": "Enterprise City",
+          "state": "NY",
+          "postcode": "10001",
+          "country": "US",
+          "company": "Wilson Enterprises"
+        },
+        "line_items": [
+          {
+            "id": 1,
+            "name": "Professional Package A",
+            "product_id": 200,
+            "quantity": 1,
+            "sku": "PRO-PKG-A",
+            "price": 299.99,
+            "total": "299.99"
+          },
+          {
+            "id": 2,
+            "name": "Professional Package B",
+            "product_id": 201,
+            "quantity": 1,
+            "sku": "PRO-PKG-B",
+            "price": 399.99,
+            "total": "399.99"
+          },
+          {
+            "id": 3,
+            "name": "Add-on Service",
+            "product_id": 300,
+            "quantity": 2,
+            "sku": "ADDON-SVC",
+            "price": 99.99,
+            "total": "199.98"
+          }
+        ]
+      }
+    },
+
+    "international_order": {
+      "description": "Test payload for an international order",
+      "payload": {
+        "id": 12347,
+        "status": "processing",
+        "currency": "EUR",
+        "date_created": "2024-01-15T16:20:00",
+        "total": "245.50",
+        "customer_id": 67892,
+        "billing": {
+          "first_name": "Hans",
+          "last_name": "Mueller",
+          "email": "hans.mueller.test@example.com",
+          "phone": "+49123456789",
+          "address_1": "Hauptstraße 123",
+          "address_2": "",
+          "city": "Berlin",
+          "state": "",
+          "postcode": "10117",
+          "country": "DE",
+          "company": ""
+        },
+        "shipping": {
+          "first_name": "Hans",
+          "last_name": "Mueller",
+          "address_1": "Hauptstraße 123",
+          "address_2": "",
+          "city": "Berlin",
+          "state": "",
+          "postcode": "10117",
+          "country": "DE",
+          "company": ""
+        },
+        "line_items": [
+          {
+            "id": 1,
+            "name": "European Special Edition",
+            "product_id": 400,
+            "quantity": 1,
+            "sku": "EU-SPECIAL-001",
+            "price": 195.00,
+            "total": "195.00"
+          },
+          {
+            "id": 2,
+            "name": "International Shipping",
+            "product_id": 0,
+            "quantity": 1,
+            "sku": "",
+            "price": 50.50,
+            "total": "50.50"
+          }
+        ]
+      }
+    },
+
+    "order_cancelled": {
+      "description": "Test payload for a cancelled order",
+      "payload": {
+        "id": 12345,
+        "status": "cancelled",
+        "currency": "USD",
+        "date_created": "2024-01-15T10:30:00",
+        "total": "159.99",
+        "customer_id": 67890,
+        "billing": {
+          "first_name": "John",
+          "last_name": "Doe",
+          "email": "john.doe.test@example.com",
+          "phone": "+1234567890",
+          "address_1": "123 Test Street",
+          "address_2": "Apt 4B",
+          "city": "Test City",
+          "state": "CA",
+          "postcode": "90210",
+          "country": "US",
+          "company": "Test Company LLC"
+        },
+        "shipping": {
+          "first_name": "John",
+          "last_name": "Doe",
+          "address_1": "123 Test Street",
+          "address_2": "Apt 4B",
+          "city": "Test City",
+          "state": "CA",
+          "postcode": "90210",
+          "country": "US",
+          "company": "Test Company LLC"
+        },
+        "line_items": [
+          {
+            "id": 1,
+            "name": "Premium Test Product",
+            "product_id": 100,
+            "quantity": 2,
+            "sku": "TEST-PROD-001",
+            "price": 79.99,
+            "total": "159.98"
+          },
+          {
+            "id": 2,
+            "name": "Test Shipping Fee",
+            "product_id": 0,
+            "quantity": 1,
+            "sku": "",
+            "price": 0.01,
+            "total": "0.01"
+          }
+        ]
+      }
+    }
+  },
+
+  "curl_examples": {
+    "description": "cURL commands for testing webhooks manually",
+    "examples": {
+      "header_auth": {
+        "description": "Test with webhook secret in header",
+        "command": "curl -X POST https://astra-n.vercel.app/api/webhook/woocommerce-order-integration \\\n  -H \"Content-Type: application/json\" \\\n  -H \"x-webhook-secret: YOUR_WEBHOOK_SECRET_HERE\" \\\n  -d @webhook-test-payloads.json#.woocommerce_test_payloads.new_order.payload"
+      },
+      "query_auth": {
+        "description": "Test with webhook secret as query parameter",
+        "command": "curl -X POST \"https://astra-n.vercel.app/api/webhook/woocommerce-order-integration?webhook_secret=YOUR_WEBHOOK_SECRET_HERE\" \\\n  -H \"Content-Type: application/json\" \\\n  -d @webhook-test-payloads.json#.woocommerce_test_payloads.new_order.payload"
+      },
+      "woocommerce_signature": {
+        "description": "Test with WooCommerce HMAC signature",
+        "note": "You need to generate the HMAC signature using your webhook secret",
+        "command": "# First generate signature (example in Node.js):\n# const crypto = require('crypto')\n# const signature = crypto.createHmac('sha256', 'YOUR_SECRET').update(JSON.stringify(payload)).digest('base64')\n\ncurl -X POST https://astra-n.vercel.app/api/webhook/woocommerce-order-integration \\\n  -H \"Content-Type: application/json\" \\\n  -H \"x-wc-webhook-signature: GENERATED_SIGNATURE_HERE\" \\\n  -d @webhook-test-payloads.json#.woocommerce_test_payloads.new_order.payload"
+      }
+    }
+  },
+
+  "postman_collection": {
+    "description": "Import this into Postman for GUI testing",
+    "info": {
+      "name": "WooCommerce Webhook Tests",
+      "description": "Test collection for WooCommerce webhook integration"
+    },
+    "item": [
+      {
+        "name": "New Order - Header Auth",
+        "request": {
+          "method": "POST",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "x-webhook-secret",
+              "value": "{{webhook_secret}}",
+              "description": "Set this in Postman environment variables"
+            }
+          ],
+          "body": {
+            "mode": "raw",
+            "raw": "{{new_order_payload}}"
+          },
+          "url": {
+            "raw": "https://astra-n.vercel.app/api/webhook/woocommerce-order-integration",
+            "protocol": "https",
+            "host": ["astra-n", "vercel", "app"],
+            "path": ["api", "webhook", "woocommerce-order-integration"]
+          }
+        }
+      },
+      {
+        "name": "Order Update - Query Auth",
+        "request": {
+          "method": "POST",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": {
+            "mode": "raw",
+            "raw": "{{order_completed_payload}}"
+          },
+          "url": {
+            "raw": "https://astra-n.vercel.app/api/webhook/woocommerce-order-integration?webhook_secret={{webhook_secret}}",
+            "protocol": "https",
+            "host": ["astra-n", "vercel", "app"],
+            "path": ["api", "webhook", "woocommerce-order-integration"],
+            "query": [
+              {
+                "key": "webhook_secret",
+                "value": "{{webhook_secret}}"
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "variable": [
+      {
+        "key": "webhook_secret",
+        "value": "your-webhook-secret-here",
+        "description": "Your actual webhook secret from the integration dashboard"
+      },
+      {
+        "key": "new_order_payload",
+        "value": "See woocommerce_test_payloads.new_order.payload above"
+      },
+      {
+        "key": "order_completed_payload",
+        "value": "See woocommerce_test_payloads.order_completed.payload above"
+      }
+    ]
+  }
+}

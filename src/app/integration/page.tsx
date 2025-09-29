@@ -123,7 +123,6 @@ export default function IntegrationPage() {
   const [hasError, setHasError] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [loading, setLoading] = useState(true)
-  const [debugQuery, setDebugQuery] = useState<string>('')
 
   // Session expired modal hook
   const { triggerSessionExpired, SessionExpiredComponent } = useSessionExpired()
@@ -193,51 +192,6 @@ export default function IntegrationPage() {
       const from = (page - 1) * ITEMS_PER_PAGE
       const to = from + ITEMS_PER_PAGE - 1
 
-      // Build exact SQL query string for copying
-      let sqlQuery = `SELECT *, (SELECT json_agg(row_to_json(orders_sub)) FROM (SELECT id, total_amount FROM orders WHERE orders.integration_id = integrations.id) orders_sub) as orders FROM integrations`
-
-      const whereConditions = []
-
-      if (!isAdmin()) {
-        whereConditions.push(`user_id = '${session.user.id}'`)
-      }
-
-      if (search && search.length >= 3) {
-        whereConditions.push(`(name ILIKE '%${search}%' OR domain ILIKE '%${search}%' OR type ILIKE '%${search}%')`)
-      }
-
-      if (whereConditions.length > 0) {
-        sqlQuery += ` WHERE ` + whereConditions.join(' AND ')
-      }
-
-      sqlQuery += ` ORDER BY created_at DESC LIMIT ${ITEMS_PER_PAGE} OFFSET ${from};`
-
-      // Also build readable debug info
-      let debugQueryString = `🔍 EXACT SQL QUERY (copy this):
-${sqlQuery}
-
-📋 READABLE FORMAT:
-FROM: integrations
-SELECT: *, orders(id, total_amount)
-FILTERS:`
-
-      if (!isAdmin()) {
-        debugQueryString += `\n  - user_id = '${session.user.id}' (seller filter)`
-      } else {
-        debugQueryString += `\n  - (admin - no user filter)`
-      }
-
-      if (search && search.length >= 3) {
-        debugQueryString += `\n  - search: name/domain/type ILIKE '%${search}%'`
-      }
-
-      debugQueryString += `\nORDER BY: created_at DESC
-PAGINATION: LIMIT ${ITEMS_PER_PAGE} OFFSET ${from} (page ${page})`
-
-      setDebugQuery(debugQueryString)
-
-      console.log('[INTEGRATION_PAGE] Executing query:', debugQueryString)
-      console.log('[INTEGRATION_PAGE] EXACT SQL QUERY:', sqlQuery)
 
       const { data, error, count } = await query
         .order('created_at', { ascending: false })
@@ -529,21 +483,6 @@ PAGINATION: LIMIT ${ITEMS_PER_PAGE} OFFSET ${from} (page ${page})`
         </div>
       </div>
 
-      {/* Debug Query Display */}
-      {debugQuery && (
-        <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-blue-800 dark:text-blue-200">
-              🔍 Database Query Debug (Integrations Table Only)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <pre className="text-xs font-mono text-blue-700 dark:text-blue-300 whitespace-pre-wrap overflow-x-auto">
-              {debugQuery}
-            </pre>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
