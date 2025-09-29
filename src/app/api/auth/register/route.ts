@@ -27,15 +27,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Get the current origin for email confirmation redirect
+    const origin = request.nextUrl.origin
+    const redirectUrl = `${origin}/auth/callback`
+
+    console.log('[REGISTRATION] Setting emailRedirectTo:', redirectUrl)
+
+    // Create a client-side Supabase client for this request with proper redirect URL
+    const supabaseWithRedirect = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        auth: {
+          redirectTo: redirectUrl
+        }
+      }
+    )
+
     // Sign up with Supabase Auth
-    const { data, error: signUpError } = await supabase.auth.signUp({
+    const { data, error: signUpError } = await supabaseWithRedirect.auth.signUp({
       email,
       password,
       options: {
         data: {
           name,
           role: 'seller' // Default role for CRM users
-        }
+        },
+        emailRedirectTo: redirectUrl
       }
     })
 

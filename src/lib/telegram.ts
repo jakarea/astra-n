@@ -68,13 +68,34 @@ export async function sendTelegramNotification(
     // Get user's telegram settings
     const settings = await getUserTelegramSettings(userId)
 
-    if (!settings || !settings.telegramBotToken || !settings.telegramChatId) {
-      console.log('[TELEGRAM] User has no telegram configuration:', userId)
-      return { success: false, error: 'User has no telegram configuration' }
+    // Use user settings if available, otherwise fallback to environment variables
+    let botToken = settings?.telegramBotToken
+    let chatId = settings?.telegramChatId
+
+    // Fallback to environment variables if user doesn't have individual settings
+    if (!botToken) {
+      botToken = process.env.TELEGRAM_BOT_TOKEN
+      console.log('[TELEGRAM] Using fallback bot token from environment for user:', userId)
+    }
+
+    if (!chatId) {
+      chatId = settings?.telegramChatId // Still try to get chat ID from user settings
+    }
+
+    if (!botToken || !chatId) {
+      console.log('[TELEGRAM] Missing Telegram configuration for user:', userId, {
+        hasBotToken: !!botToken,
+        hasChatId: !!chatId,
+        userSettings: !!settings
+      })
+      return {
+        success: false,
+        error: `Missing Telegram configuration. Bot token: ${!!botToken}, Chat ID: ${!!chatId}`
+      }
     }
 
     // Send message via Telegram Bot API
-    const telegramApiUrl = `https://api.telegram.org/bot${settings.telegramBotToken}/sendMessage`
+    const telegramApiUrl = `https://api.telegram.org/bot${botToken}/sendMessage`
 
     const payload: TelegramMessage = {
       text: message,
@@ -197,6 +218,16 @@ export async function sendOrderNotification(userId: string, orderData: any) {
   console.log('[TELEGRAM] Preparing order notification for user:', userId)
   console.log('[TELEGRAM] Order data received:', JSON.stringify(orderData, null, 2))
 
+  // Check if user has any Telegram configuration
+  const settings = await getUserTelegramSettings(userId)
+  console.log('[TELEGRAM] User settings check:', {
+    userId,
+    hasSettings: !!settings,
+    hasBotToken: !!settings?.telegramBotToken,
+    hasChatId: !!settings?.telegramChatId,
+    fallbackBotToken: !!process.env.TELEGRAM_BOT_TOKEN
+  })
+
   const itemsList = orderData.items?.map((item: any) =>
     `• ${item.productName} (x${item.quantity}) - $${item.pricePerUnit}`
   ).join('\n') || 'No items'
@@ -220,9 +251,11 @@ ${itemsList}
 📅 <b>Order Date:</b> ${new Date(orderData.orderCreatedAt).toLocaleDateString()}
 `
 
-  console.log('[TELEGRAM] Prepared message:', message)
+  console.log('[TELEGRAM] Prepared message for user:', userId)
+  console.log('[TELEGRAM] Message content:', message)
+
   const result = await sendTelegramNotification(userId, message)
-  console.log('[TELEGRAM] Notification send result:', result)
+  console.log('[TELEGRAM] Notification send result for user:', userId, result)
 
   return result
 }
