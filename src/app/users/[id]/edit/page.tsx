@@ -26,7 +26,6 @@ interface UserEditData {
   name: string
   email: string
   role: string
-  webhook_secret?: string
   created_at: string
   updated_at: string
 }
@@ -42,8 +41,7 @@ export default function EditUserPage() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    role: '',
-    webhook_secret: ''
+    role: ''
   })
 
   useEffect(() => {
@@ -89,8 +87,7 @@ export default function EditUserPage() {
       setFormData({
         name: data.user.name || '',
         email: data.user.email || '',
-        role: data.user.role || 'user',
-        webhook_secret: data.user.webhook_secret || ''
+        role: data.user.role || 'user'
       })
     } catch (error: any) {
       console.error('Error loading user:', error)
@@ -282,23 +279,6 @@ export default function EditUserPage() {
             </Select>
           </div>
 
-          {/* Webhook Secret Field */}
-          <div className="space-y-2">
-            <Label htmlFor="webhook_secret" className="flex items-center gap-2">
-              <MessageCircle className="h-4 w-4" />
-              Webhook Secret
-            </Label>
-            <Textarea
-              id="webhook_secret"
-              value={formData.webhook_secret}
-              onChange={(e) => handleInputChange('webhook_secret', e.target.value)}
-              placeholder="Enter webhook secret (optional)"
-              rows={2}
-            />
-            <p className="text-sm text-muted-foreground">
-              Used for secure webhook authentication from external services.
-            </p>
-          </div>
         </CardContent>
       </Card>
 

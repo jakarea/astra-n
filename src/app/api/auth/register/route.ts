@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { createClient } from '@supabase/supabase-js'
-import { assignWebhookSecretToUser } from '@/lib/webhook-utils'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -104,7 +103,6 @@ export async function POST(request: NextRequest) {
     console.log('Registration successful for:', email)
 
     // Directly create user in public.users table (no trigger dependency)
-    let webhookSecret = null
     if (data.user?.id) {
       try {
         console.log('[REGISTRATION] Creating user in public.users table for:', data.user.id, email)
@@ -141,15 +139,6 @@ export async function POST(request: NextRequest) {
           role: userData.role
         })
 
-        // Now assign webhook secret to the user
-        try {
-          webhookSecret = await assignWebhookSecretToUser(data.user.id)
-          console.log('[REGISTRATION] ✅ Webhook secret assigned:', webhookSecret)
-        } catch (webhookError) {
-          console.error('[REGISTRATION] Failed to assign webhook secret:', webhookError)
-          // Don't fail registration for webhook issue - user can regenerate later
-        }
-
       } catch (error) {
         console.error('[REGISTRATION] Critical error in user creation:', error)
 
@@ -175,8 +164,7 @@ export async function POST(request: NextRequest) {
       success: true,
       user: data.user,
       session: data.session,
-      needsEmailConfirmation: !data.session,
-      webhookSecret: webhookSecret // Include webhook secret in response
+      needsEmailConfirmation: !data.session
     })
 
   } catch (error) {

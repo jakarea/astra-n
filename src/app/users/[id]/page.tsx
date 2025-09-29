@@ -35,7 +35,6 @@ interface UserData {
     name: string
     email: string
     role: string
-    webhook_secret?: string
     created_at: string
     updated_at: string
   }
@@ -475,18 +474,6 @@ export default function UserDetailPage() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Webhook Secret</label>
-                  <div className="mt-1">
-                    {userData.user.webhook_secret ? (
-                      <Badge variant="outline" className="font-mono text-xs">
-                        {userData.user.webhook_secret.substring(0, 20)}...
-                      </Badge>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">Not set</span>
-                    )}
-                  </div>
-                </div>
               </CardContent>
             </Card>
           </div>
