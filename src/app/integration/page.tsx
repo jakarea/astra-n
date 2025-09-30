@@ -172,6 +172,7 @@ export default function IntegrationPage() {
         .from('integrations')
         .select(`
           *,
+          user:users(name),
           orders:orders(
             id,
             total_amount
@@ -580,6 +581,7 @@ export default function IntegrationPage() {
                     <TableHead>Actions</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Webhook</TableHead>
+                    {isAdmin() && <TableHead>Owner</TableHead>}
                     <TableHead>Operations</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -594,6 +596,9 @@ export default function IntegrationPage() {
                       <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
                       <TableCell><Skeleton className="h-8 w-24" /></TableCell>
+                      {isAdmin() && (
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                      )}
                       <TableCell>
                         <div className="flex gap-2">
                           <Skeleton className="h-8 w-8 rounded" />
@@ -629,6 +634,7 @@ export default function IntegrationPage() {
                       <TableHead>Actions</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Webhook</TableHead>
+                      {isAdmin() && <TableHead>Owner</TableHead>}
                       <TableHead>Operations</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -735,6 +741,14 @@ export default function IntegrationPage() {
                               </Button>
                             </div>
                           </TableCell>
+
+                          {isAdmin() && (
+                            <TableCell>
+                              <div className="text-sm">
+                                {integration.user?.name || 'Unknown User'}
+                              </div>
+                            </TableCell>
+                          )}
 
                           <TableCell>
                             <div className="flex gap-1">

@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { toast } from 'sonner'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,10 +19,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Plus, Eye, Edit, Trash2, Search, ChevronLeft, ChevronRight, Package, AlertTriangle, TrendingDown, BarChart3, Download } from 'lucide-react'
+import { Plus, Eye, Edit, Trash2, Search, ChevronLeft, ChevronRight, Package, AlertTriangle, TrendingDown, BarChart3, Download, Users } from 'lucide-react'
 import { AddProductModal } from '@/components/inventory/add-product-modal'
 import { EditProductModal } from '@/components/inventory/edit-product-modal'
 import { ViewProductModal } from '@/components/inventory/view-product-modal'
+import { AssignProductModal } from '@/components/inventory/assign-product-modal'
 
 // Animated counter component
 function AnimatedCounter({ value, duration = 1000 }: { value: number; duration?: number }) {
@@ -64,8 +66,10 @@ export default function InventoryPage() {
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [viewModalOpen, setViewModalOpen] = useState(false)
+  const [assignModalOpen, setAssignModalOpen] = useState(false)
   const [editProductId, setEditProductId] = useState<string | null>(null)
   const [viewProductId, setViewProductId] = useState<string | null>(null)
+  const [assignProductId, setAssignProductId] = useState<string | null>(null)
   const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean; productId: string; productName: string }>({
     isOpen: false,
     productId: '',
@@ -102,14 +106,38 @@ export default function InventoryPage() {
       const supabase = getAuthenticatedClient()
       console.log('[INVENTORY] Authenticated client retrieved')
 
-      // Build search query
-      let query = supabase
-        .from('products')
-        .select('*', { count: 'exact' })
+      // Build search query with different logic for admin vs seller
+      let query
 
-      // Admin sees all products, seller sees only their own
-      if (!isAdmin()) {
-        query = query.eq('user_id', session.user.id)
+      if (isAdmin()) {
+        // Admin sees all products with creator and assignment info
+        query = supabase
+          .from('products')
+          .select(`
+            *,
+            creator:users!products_user_id_fkey(name),
+            sellerProducts:seller_products(
+              seller:users!seller_products_seller_id_fkey(id, name, email)
+            )
+          `, { count: 'exact' })
+      } else {
+        // Seller sees only products assigned to them
+        query = supabase
+          .from('seller_products')
+          .select(`
+            assignedAt:assigned_at,
+            product:products!seller_products_product_id_fkey(
+              id,
+              sku,
+              name,
+              stock,
+              price,
+              created_at,
+              updated_at,
+              creator:users!products_user_id_fkey(name)
+            )
+          `, { count: 'exact' })
+          .eq('seller_id', session.user.id)
       }
 
       // Add search filters if search query exists and has 3+ characters
@@ -132,10 +160,22 @@ export default function InventoryPage() {
         throw new Error(`Database error: ${error.message}`)
       }
 
-      setProducts(data || [])
+      let processedProducts = []
+
+      if (isAdmin()) {
+        processedProducts = data || []
+      } else {
+        // For sellers, extract product data and add assignment info
+        processedProducts = (data || []).map(item => ({
+          ...item.product,
+          assignedAt: item.assignedAt
+        }))
+      }
+
+      setProducts(processedProducts)
       setTotalCount(count || 0)
       setHasError(false)
-      console.log('[INVENTORY] Products loaded successfully:', data?.length || 0)
+      console.log('[INVENTORY] Products loaded successfully:', processedProducts.length)
 
       // Load stats separately (without pagination or search filters)
       await loadStats()
@@ -162,24 +202,41 @@ export default function InventoryPage() {
 
       const supabase = getAuthenticatedClient()
 
-      // Load stats
-      let statsQuery = supabase
-        .from('products')
-        .select('stock, price')
+      // Load stats with different logic for admin vs seller
+      let statsQuery
 
-      // Admin sees all products stats, seller sees only their own
-      if (!isAdmin()) {
-        statsQuery = statsQuery.eq('user_id', session.user.id)
+      if (isAdmin()) {
+        // Admin sees all products stats
+        statsQuery = supabase
+          .from('products')
+          .select('stock, price')
+      } else {
+        // Seller sees only assigned products stats
+        statsQuery = supabase
+          .from('seller_products')
+          .select(`
+            product:products!seller_products_product_id_fkey(stock, price)
+          `)
+          .eq('seller_id', session.user.id)
       }
 
       const { data: statsData, error: statsError } = await statsQuery
 
       if (!statsError && statsData) {
+        let products
+
+        if (isAdmin()) {
+          products = statsData
+        } else {
+          // For sellers, extract product data from the relation
+          products = statsData.map(item => item.product)
+        }
+
         const stats = {
-          total: statsData.length,
-          lowStock: statsData.filter(p => p.stock > 0 && p.stock <= LOW_STOCK_THRESHOLD).length,
-          outOfStock: statsData.filter(p => p.stock === 0).length,
-          totalValue: statsData.reduce((sum, p) => sum + (Number(p.price) * p.stock), 0)
+          total: products.length,
+          lowStock: products.filter(p => p.stock > 0 && p.stock <= LOW_STOCK_THRESHOLD).length,
+          outOfStock: products.filter(p => p.stock === 0).length,
+          totalValue: products.reduce((sum, p) => sum + (Number(p.price) * p.stock), 0)
         }
         setTotalStats(stats)
       }
@@ -267,6 +324,22 @@ export default function InventoryPage() {
   const handleViewClose = () => {
     setViewModalOpen(false)
     setViewProductId(null)
+  }
+
+  const handleAssignProduct = (productId: string) => {
+    setAssignProductId(productId)
+    setAssignModalOpen(true)
+  }
+
+  const handleAssignClose = () => {
+    setAssignModalOpen(false)
+    setAssignProductId(null)
+  }
+
+  const handleProductAssigned = () => {
+    // Reload products to show updated assignments
+    loadProducts(currentPage, searchQuery)
+    handleAssignClose()
   }
 
   const openDeleteDialog = (productId: string, productName: string) => {
@@ -423,10 +496,12 @@ export default function InventoryPage() {
             <Download className="h-4 w-4 mr-2" />
             Export CSV
           </Button>
-          <Button onClick={() => setAddModalOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Product
-          </Button>
+          {isAdmin() && (
+            <Button onClick={() => setAddModalOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Product
+            </Button>
+          )}
         </div>
       </div>
 
@@ -523,6 +598,8 @@ export default function InventoryPage() {
                     <TableHead>Price</TableHead>
                     <TableHead>Stock</TableHead>
                     <TableHead>Status</TableHead>
+                    {isAdmin() && <TableHead>Assigned To</TableHead>}
+                    {!isAdmin() && <TableHead>Assigned Date</TableHead>}
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -534,11 +611,22 @@ export default function InventoryPage() {
                       <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-12" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                      {isAdmin() && (
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                      )}
+                      {!isAdmin() && (
+                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                      )}
                       <TableCell>
                         <div className="flex gap-2">
                           <Skeleton className="h-8 w-8 rounded" />
-                          <Skeleton className="h-8 w-8 rounded" />
-                          <Skeleton className="h-8 w-8 rounded" />
+                          {isAdmin() && (
+                            <>
+                              <Skeleton className="h-8 w-8 rounded" />
+                              <Skeleton className="h-8 w-8 rounded" />
+                              <Skeleton className="h-8 w-8 rounded" />
+                            </>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -549,12 +637,19 @@ export default function InventoryPage() {
           ) : products.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-muted-foreground mb-4">
-                {searchQuery ? 'No products found matching your search.' : 'No products available. Add your first product!'}
+                {searchQuery
+                  ? 'No products found matching your search.'
+                  : isAdmin()
+                    ? 'No products available. Add your first product!'
+                    : 'No products assigned to you yet. Please contact your admin to assign products.'
+                }
               </div>
-              <Button onClick={() => setAddModalOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add First Product
-              </Button>
+              {isAdmin() && (
+                <Button onClick={() => setAddModalOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add First Product
+                </Button>
+              )}
             </div>
           ) : (
             <>
@@ -567,6 +662,8 @@ export default function InventoryPage() {
                       <TableHead>Price</TableHead>
                       <TableHead>Stock</TableHead>
                       <TableHead>Status</TableHead>
+                      {isAdmin() && <TableHead>Assigned To</TableHead>}
+                      {!isAdmin() && <TableHead>Assigned Date</TableHead>}
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -604,22 +701,64 @@ export default function InventoryPage() {
                             )}
                           </TableCell>
 
+                          {isAdmin() && (
+                            <TableCell>
+                              <div className="text-sm">
+                                {product.sellerProducts && product.sellerProducts.length > 0 ? (
+                                  <div className="space-y-1">
+                                    {product.sellerProducts.map((assignment: any, index: number) => (
+                                      <div key={index} className="text-xs">
+                                        {assignment.seller.name}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground">Not assigned</span>
+                                )}
+                              </div>
+                            </TableCell>
+                          )}
+
+                          {!isAdmin() && (
+                            <TableCell>
+                              <div className="text-sm">
+                                {product.assignedAt ? new Date(product.assignedAt).toLocaleDateString('en-US', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: 'numeric'
+                                }) : '-'}
+                              </div>
+                            </TableCell>
+                          )}
+
                           <TableCell>
                             <div className="flex gap-1">
                               <Button variant="ghost" size="sm" onClick={() => handleViewProduct(product.id)}>
                                 <Eye className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="sm" onClick={() => handleEditProduct(product.id)}>
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openDeleteDialog(product.id, product.name)}
-                                className="text-destructive hover:text-destructive"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              {isAdmin() && (
+                                <>
+                                  <Button variant="ghost" size="sm" onClick={() => handleEditProduct(product.id)}>
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleAssignProduct(product.id)}
+                                    title="Assign to sellers"
+                                  >
+                                    <Users className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => openDeleteDialog(product.id, product.name)}
+                                    className="text-destructive hover:text-destructive"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>
@@ -710,6 +849,16 @@ export default function InventoryPage() {
         onClose={handleViewClose}
         productId={viewProductId}
       />
+
+      {/* Assign Product Modal */}
+      {isAdmin() && (
+        <AssignProductModal
+          isOpen={assignModalOpen}
+          onClose={handleAssignClose}
+          onSuccess={handleProductAssigned}
+          productId={assignProductId}
+        />
+      )}
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog
