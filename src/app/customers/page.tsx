@@ -117,7 +117,7 @@ export default function CustomersPage() {
 
       let query = supabase
         .from('customers')
-        .select('id, name, email, phone, address, source, total_order, created_at, updated_at', { count: 'exact' })
+        .select('id, name, email, phone, address, source, total_order, created_at, updated_at, user:users(name)', { count: 'exact' })
 
       // Admin sees all customers, seller sees only their own
       const adminStatus = isAdmin()
@@ -442,6 +442,7 @@ export default function CustomersPage() {
                   <TableRow>
                     <TableHead>Created</TableHead>
                     <TableHead>Name</TableHead>
+                    {isAdmin() && <TableHead>Owner</TableHead>}
                     <TableHead>Contact</TableHead>
                     <TableHead>Orders</TableHead>
                     <TableHead>Revenue</TableHead>
@@ -454,6 +455,9 @@ export default function CustomersPage() {
                     <TableRow key={index}>
                       <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                      {isAdmin() && (
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                      )}
                       <TableCell><Skeleton className="h-4 w-40" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-40" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-16" /></TableCell>
@@ -487,6 +491,7 @@ export default function CustomersPage() {
                     <TableRow>
                       <TableHead>Created</TableHead>
                       <TableHead>Name</TableHead>
+                      {isAdmin() && <TableHead>Owner</TableHead>}
                       <TableHead>Contact</TableHead>
                       <TableHead>Address</TableHead>
                       <TableHead>Orders</TableHead>
@@ -511,6 +516,14 @@ export default function CustomersPage() {
                             <div className="text-xs text-muted-foreground">ID: {customer.id}</div>
                           </div>
                         </TableCell>
+
+                        {isAdmin() && (
+                          <TableCell>
+                            <div className="text-sm">
+                              {customer.user?.name || 'Unknown User'}
+                            </div>
+                          </TableCell>
+                        )}
 
                         <TableCell>
                           <div className="space-y-1">

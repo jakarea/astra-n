@@ -141,7 +141,7 @@ export default function OrdersPage() {
         .select(`
           *,
           customer:customers(id, name, email),
-          integration:integrations!inner(name, type, user_id),
+          integration:integrations!inner(name, type, user_id, user:users(name)),
           items:order_items(*)
         `, { count: 'exact' })
 
@@ -520,6 +520,7 @@ export default function OrdersPage() {
                     <TableHead>Items</TableHead>
                     <TableHead>Total</TableHead>
                     <TableHead>Integration</TableHead>
+                    {isAdmin() && <TableHead>Owner</TableHead>}
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -533,6 +534,9 @@ export default function OrdersPage() {
                       <TableCell><Skeleton className="h-4 w-12" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                      {isAdmin() && (
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                      )}
                       <TableCell>
                         <div className="flex gap-2">
                           <Skeleton className="h-8 w-8 rounded" />
@@ -566,6 +570,7 @@ export default function OrdersPage() {
                       <TableHead>Items</TableHead>
                       <TableHead>Total</TableHead>
                       <TableHead>Integration</TableHead>
+                      {isAdmin() && <TableHead>Owner</TableHead>}
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -611,6 +616,14 @@ export default function OrdersPage() {
                             {order.integration?.type || 'Unknown'}
                           </Badge>
                         </TableCell>
+
+                        {isAdmin() && (
+                          <TableCell>
+                            <div className="text-sm">
+                              {order.integration?.user?.name || 'Unknown User'}
+                            </div>
+                          </TableCell>
+                        )}
 
                         <TableCell>
                           <div className="flex gap-1">

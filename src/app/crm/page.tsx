@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { getAuthenticatedClient, getSession } from '@/lib/auth'
+import { getAuthenticatedClient, getSession, isAdmin } from '@/lib/auth'
 import { createClient } from '@supabase/supabase-js'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -542,7 +542,7 @@ export default function CRMPage() {
                   <TableRow>
                     <TableHead>Created</TableHead>
                     <TableHead>Name</TableHead>
-                    <TableHead>Order ID</TableHead>
+                    {isAdmin() && <TableHead>Owner</TableHead>}
                     <TableHead>Contact</TableHead>
                     <TableHead>Source</TableHead>
                     <TableHead>Logistics</TableHead>
@@ -562,12 +562,11 @@ export default function CRMPage() {
                           <Skeleton className="h-3 w-16" />
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="space-y-2">
+                      {isAdmin() && (
+                        <TableCell>
                           <Skeleton className="h-4 w-24" />
-                          <Skeleton className="h-3 w-16" />
-                        </div>
-                      </TableCell>
+                        </TableCell>
+                      )}
                       <TableCell>
                         <div className="space-y-1">
                           <Skeleton className="h-3 w-40" />
@@ -608,7 +607,7 @@ export default function CRMPage() {
                     <TableRow>
                       <TableHead>Created</TableHead>
                       <TableHead>Name</TableHead>
-                      <TableHead>Order ID</TableHead>
+                      {isAdmin() && <TableHead>Owner</TableHead>}
                       <TableHead>Contact</TableHead>
                       <TableHead>Source</TableHead>
                       <TableHead>Logistics</TableHead>
@@ -636,13 +635,13 @@ export default function CRMPage() {
                         </div>
                       </TableCell>
 
-                      <TableCell>
-                        {lead.order_id ? (
-                          <div className="font-mono text-sm">{lead.order_id}</div>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
+                      {isAdmin() && (
+                        <TableCell>
+                          <div className="text-sm">
+                            {lead.user?.name || 'Unknown User'}
+                          </div>
+                        </TableCell>
+                      )}
 
                       <TableCell>
                         <div className="space-y-1">
