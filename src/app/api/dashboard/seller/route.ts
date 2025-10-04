@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getSellerDashboardCache, setSellerDashboardCache } from '@/lib/cache-manager'
 
 function getSessionFromRequest(request: NextRequest) {
   try {
@@ -22,15 +23,12 @@ function getSessionFromRequest(request: NextRequest) {
 
     return { token, supabase }
   } catch (error) {
-    console.error('[SESSION] Error parsing session from request:', error)
     return null
   }
 }
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('[SELLER_DASHBOARD] Seller dashboard data request')
-
     const sessionInfo = getSessionFromRequest(request)
     if (!sessionInfo) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
@@ -39,15 +37,21 @@ export async function GET(request: NextRequest) {
     const { supabase } = sessionInfo
 
     // Get current user info
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
       return NextResponse.json({ error: 'Invalid authentication token' }, { status: 401 })
     }
 
     const userId = user.id
 
+    // Check cache first
+    const cachedData = getSellerDashboardCache(userId)
+    if (cachedData) {
+      return NextResponse.json(cachedData)
+    }
+
     // Verify user exists in database
-    const { data: userData, error: dbError } = await supabase
+        const { data: userData, error: dbError } = await supabase
       .from('users')
       .select('role, name')
       .eq('id', userId)
@@ -58,7 +62,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch seller-specific data (only their own data)
-    const [
+        const [
       { data: sellerOrders },
       { data: sellerProducts },
       { data: sellerCrmLeads },
@@ -137,17 +141,17 @@ export async function GET(request: NextRequest) {
     ])
 
     // Calculate seller metrics
-    const totalRevenue = sellerOrders?.reduce((sum, order) => sum + parseFloat(order.total_amount), 0) || 0
+        const totalRevenue = sellerOrders?.reduce((sum, order) => sum + parseFloat(order.total_amount), 0) || 0
     const lowStockProducts = sellerProducts?.filter(product => product.stock < 10).length || 0
 
     // Process order status distribution
-    const orderStatusStats = sellerOrders?.reduce((acc: any, order) => {
+        const orderStatusStats = sellerOrders?.reduce((acc: any, order) => {
       acc[order.status] = (acc[order.status] || 0) + 1
       return acc
     }, {}) || {}
 
     // Process CRM leads status
-    const leadsStatusStats = {
+        const leadsStatusStats = {
       logistic: {},
       cod: {},
       kpi: {}
@@ -166,13 +170,13 @@ export async function GET(request: NextRequest) {
     })
 
     // Integration status
-    const integrationStatusStats = sellerIntegrations?.reduce((acc: any, integration) => {
+        const integrationStatusStats = sellerIntegrations?.reduce((acc: any, integration) => {
       acc[integration.status] = (acc[integration.status] || 0) + 1
       return acc
     }, {}) || {}
 
     // Monthly performance (mock data - would need historical data)
-    const monthlyPerformance = [
+        const monthlyPerformance = [
       { month: 'Jan', orders: Math.floor(Math.random() * 20) + 5, revenue: Math.floor(Math.random() * 5000) + 1000 },
       { month: 'Feb', orders: Math.floor(Math.random() * 20) + 5, revenue: Math.floor(Math.random() * 5000) + 1000 },
       { month: 'Mar', orders: Math.floor(Math.random() * 20) + 5, revenue: Math.floor(Math.random() * 5000) + 1000 },
@@ -222,12 +226,12 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    console.log('[SELLER_DASHBOARD] Data compiled successfully for user:', userId)
+    // Cache the data
+    setSellerDashboardCache(userId, dashboardData)
 
     return NextResponse.json(dashboardData)
 
   } catch (error: any) {
-    console.error('[SELLER_DASHBOARD] Unexpected error:', error)
     return NextResponse.json({
       error: 'Failed to fetch dashboard data',
       details: error.message

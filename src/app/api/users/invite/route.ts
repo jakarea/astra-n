@@ -22,15 +22,12 @@ function getSessionFromRequest(request: NextRequest) {
 
     return { token, supabase }
   } catch (error) {
-    console.error('[SESSION] Error parsing session from request:', error)
     return null
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('[INVITE_USER_API] Invite user API called')
-
     const sessionInfo = getSessionFromRequest(request)
     if (!sessionInfo) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
@@ -39,26 +36,22 @@ export async function POST(request: NextRequest) {
     const { supabase } = sessionInfo
 
     // Get current user info
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    if (userError || !user) {
-      console.log('[INVITE_USER_API] Invalid token or user not found:', userError?.message)
-      return NextResponse.json({ error: 'Invalid authentication token' }, { status: 401 })
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (userError || !user) {      return NextResponse.json({ error: 'Invalid authentication token' }, { status: 401 })
     }
 
     // Get user role from database
-    const { data: userData, error: dbError } = await supabase
+        const { data: userData, error: dbError } = await supabase
       .from('users')
       .select('role')
       .eq('id', user.id)
       .single()
 
-    if (dbError || !userData) {
-      console.log('[INVITE_USER_API] User not found in database:', dbError?.message)
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    if (dbError || !userData) {      return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
     // Check if user has permission to invite (admin or seller)
-    const userRole = userData.role
+        const userRole = userData.role
     if (userRole !== 'admin' && userRole !== 'seller') {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 })
     }
@@ -76,17 +69,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Sellers can only invite with 'seller' role, admins can invite with any role
-    const inviteRole = userRole === 'admin' ? (role || 'seller') : 'seller'
-
-    console.log('[INVITE_USER_API] Processing invitation:', {
-      email,
-      role: inviteRole,
-      invitedBy: user.id,
-      invitedByRole: userRole
-    })
-
+        const inviteRole = userRole === 'admin' ? (role || 'seller') : 'seller'
     // Check if user already exists in auth.users or users table
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
     if (!supabaseServiceKey) {
       return NextResponse.json({ error: 'Service configuration error' }, { status: 500 })
     }
@@ -95,7 +80,7 @@ export async function POST(request: NextRequest) {
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey)
 
     // Check if user already exists in our database
-    const { data: existingUser } = await serviceClient
+        const { data: existingUser } = await serviceClient
       .from('users')
       .select('id, email')
       .eq('email', email)
@@ -106,7 +91,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Use Supabase Auth Admin API to invite user
-    const { data: inviteData, error: inviteError } = await serviceClient.auth.admin.inviteUserByEmail(
+        const { data: inviteData, error: inviteError } = await serviceClient.auth.admin.inviteUserByEmail(
       email,
       {
         redirectTo: `${request.nextUrl.origin}/auth/set-password?invited=true`,
@@ -119,9 +104,7 @@ export async function POST(request: NextRequest) {
       }
     )
 
-    if (inviteError) {
-      console.error('[INVITE_USER_API] Invite error:', inviteError)
-      if (inviteError.message.includes('already registered')) {
+    if (inviteError) {      if (inviteError.message.includes('already registered')) {
         return NextResponse.json({ error: 'User with this email already exists' }, { status: 400 })
       }
       return NextResponse.json({ error: `Failed to send invitation: ${inviteError.message}` }, { status: 500 })
@@ -132,7 +115,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create user record in database using service client to bypass RLS
-    const { error: createError } = await serviceClient
+        const { error: createError } = await serviceClient
       .from('users')
       .insert([{
         id: inviteData.user.id,
@@ -141,12 +124,7 @@ export async function POST(request: NextRequest) {
         role: inviteRole
       }])
 
-    if (createError && createError.code !== '23505') { // Ignore duplicate key errors
-      console.error('[INVITE_USER_API] Create user record error:', createError)
-    }
-
-    console.log(`[INVITE_USER_API] Invitation sent successfully to ${email} with role ${inviteRole}`)
-
+    if (createError && createError.code !== '23505') { // Ignore duplicate key errors    }
     return NextResponse.json({
       message: 'Invitation sent successfully',
       user: {
@@ -157,7 +135,6 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('[INVITE_USER_API] Unexpected error:', error)
     return NextResponse.json({
       error: 'Failed to send invitation',
       details: error.message

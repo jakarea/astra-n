@@ -58,11 +58,8 @@ export function ViewUserModal({ isOpen, onClose, userId }: ViewUserModalProps) {
       if (!session) {
         throw new Error('User not authenticated')
       }
-
-      console.log('[VIEW_USER] Loading user via admin API:', userId)
-
       // Make API call with authentication
-      const response = await fetch(`/api/admin/users/${userId}`, {
+        const response = await fetch(`/api/admin/users/${userId}`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -73,18 +70,14 @@ export function ViewUserModal({ isOpen, onClose, userId }: ViewUserModalProps) {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || `HTTP ${response.status}`)
+          throw new Error(errorData.error || `HTTP ${response.status}`)
       }
 
       const result = await response.json()
-      console.log('[VIEW_USER] User loaded successfully')
-
       if (result.user) {
         setUser(result.user)
       }
-    } catch (error: any) {
-      console.error('Error loading user:', error)
-      alert(`Failed to load user: ${error.message}`)
+    } catch (error: any) {      alert(`Failed to load user: ${error.message}`)
       onClose()
     } finally {
       setLoading(false)

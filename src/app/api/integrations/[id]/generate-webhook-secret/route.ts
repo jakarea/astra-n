@@ -39,30 +39,25 @@ export async function POST(
         { status: 400 }
       )
     }
-
-    console.log('[INTEGRATION_WEBHOOK] Generating webhook secret for integration:', integrationId)
-
     // Check if integration exists and belongs to user
-    const { data: integration, error: fetchError } = await supabase
+        const { data: integration, error: fetchError } = await supabase
       .from('integrations')
       .select('id, name, type, user_id, webhook_secret')
       .eq('id', integrationId)
       .eq('user_id', user.id)
       .single()
 
-    if (fetchError || !integration) {
-      console.error('[INTEGRATION_WEBHOOK] Integration not found:', fetchError)
-      return NextResponse.json(
+    if (fetchError || !integration) {      return NextResponse.json(
         { error: 'Integration not found or access denied' },
         { status: 404 }
       )
     }
 
     // Generate new webhook secret
-    const newWebhookSecret = generateWebhookSecret()
+        const newWebhookSecret = generateWebhookSecret()
 
     // Update integration with new webhook secret
-    const { data: updatedIntegration, error: updateError } = await supabase
+        const { data: updatedIntegration, error: updateError } = await supabase
       .from('integrations')
       .update({
         webhook_secret: newWebhookSecret,
@@ -73,16 +68,11 @@ export async function POST(
       .select('id, name, type, webhook_secret, updated_at')
       .single()
 
-    if (updateError) {
-      console.error('[INTEGRATION_WEBHOOK] Update error:', updateError)
-      return NextResponse.json(
+    if (updateError) {      return NextResponse.json(
         { error: 'Failed to update webhook secret' },
         { status: 500 }
       )
     }
-
-    console.log('[INTEGRATION_WEBHOOK] Webhook secret generated successfully for integration:', integrationId)
-
     return NextResponse.json({
       success: true,
       message: 'Webhook secret generated successfully',
@@ -100,7 +90,6 @@ export async function POST(
     })
 
   } catch (error: any) {
-    console.error('[INTEGRATION_WEBHOOK] Error:', error)
     return NextResponse.json(
       { error: error.message || 'Internal server error' },
       { status: 500 }
@@ -132,7 +121,7 @@ export async function GET(
     }
 
     // Get integration webhook info
-    const { data: integration, error: fetchError } = await supabase
+        const { data: integration, error: fetchError } = await supabase
       .from('integrations')
       .select('id, name, type, webhook_secret')
       .eq('id', integrationId)
@@ -162,7 +151,6 @@ export async function GET(
     })
 
   } catch (error: any) {
-    console.error('[INTEGRATION_WEBHOOK] Error:', error)
     return NextResponse.json(
       { error: error.message || 'Internal server error' },
       { status: 500 }

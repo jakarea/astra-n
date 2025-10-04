@@ -67,7 +67,7 @@ export function InviteUserModal({ isOpen, onClose, onSuccess }: InviteUserModalP
       }
 
       // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
       if (!emailRegex.test(formData.email)) {
         setError('Please enter a valid email address')
         setLoading(false)
@@ -75,14 +75,11 @@ export function InviteUserModal({ isOpen, onClose, onSuccess }: InviteUserModalP
       }
 
       // Ensure sellers can only invite with 'seller' role
-      const inviteRole = userIsAdmin ? formData.role : 'seller'
-
-      console.log('[INVITE_USER] Inviting user with data:', { email: formData.email, role: inviteRole, userIsAdmin })
-
+        const inviteRole = userIsAdmin ? formData.role : 'seller'
       await inviteUser(formData.email.trim().toLowerCase(), inviteRole)
 
       // Create a temporary user object for optimistic update
-      const newUser = {
+        const newUser = {
         id: crypto.randomUUID(),
         name: formData.email.split('@')[0],
         email: formData.email.trim().toLowerCase(),
@@ -109,9 +106,7 @@ export function InviteUserModal({ isOpen, onClose, onSuccess }: InviteUserModalP
         onClose()
       }, 2000)
 
-    } catch (error: any) {
-      console.error('Error inviting user:', error)
-      setError(error.message || 'Failed to invite user')
+    } catch (error: any) {      setError(error.message || 'Failed to invite user')
     } finally {
       setLoading(false)
     }

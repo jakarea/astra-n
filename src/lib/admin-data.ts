@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { getDashboardCache, setDashboardCache } from './cache-manager'
 
 // Use Supabase directly like other working modules
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -44,19 +45,16 @@ export interface AdminDashboardData {
   }
 }
 
-// Simple in-memory cache for dashboard data (5 minutes)
-let dashboardCache: { data: AdminDashboardData; timestamp: number } | null = null
-const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
-
 export async function getAdminDashboardData(): Promise<AdminDashboardData> {
-  // Check cache first
-  if (dashboardCache && Date.now() - dashboardCache.timestamp < CACHE_DURATION) {
-    return dashboardCache.data
+  // Check cache first using centralized cache manager
+        const cachedData = getDashboardCache()
+  if (cachedData) {
+    return cachedData
   }
 
   try {
     // Get counts and data using Supabase - optimized with parallel fetching
-    const [
+        const [
       { count: totalUsers },
       { count: totalOrders },
       { count: totalCustomers },
@@ -118,7 +116,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     const totalRevenue = revenueData?.[0]?.sum || 0
 
     // Process user role distribution
-    const roleCounts: Record<string, number> = {}
+        const roleCounts: Record<string, number> = {}
     userRolesData?.forEach((user: any) => {
       roleCounts[user.role] = (roleCounts[user.role] || 0) + 1
     })
@@ -127,7 +125,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     }))
 
     // Process leads status stats
-    const leadsStatus = {
+        const leadsStatus = {
       logistic: {} as Record<string, number>,
       cod: {} as Record<string, number>,
       kpi: {} as Record<string, number>
@@ -149,7 +147,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     })
 
     // Process integration stats
-    const typeCounts: Record<string, number> = {}
+        const typeCounts: Record<string, number> = {}
     integrationsData?.forEach((integration: any) => {
       typeCounts[integration.type] = (typeCounts[integration.type] || 0) + 1
     })
@@ -158,7 +156,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     }))
 
     // Create monthly orders data (simplified for now)
-    const monthlyOrders = [
+        const monthlyOrders = [
       { month: 'Jan', orders: Math.floor((totalOrders || 0) / 6), revenue: Math.floor((totalRevenue || 0) / 6) },
       { month: 'Feb', orders: Math.floor((totalOrders || 0) / 6), revenue: Math.floor((totalRevenue || 0) / 6) },
       { month: 'Mar', orders: Math.floor((totalOrders || 0) / 6), revenue: Math.floor((totalRevenue || 0) / 6) },
@@ -168,7 +166,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     ]
 
     // Calculate insights
-    const avgOrderValue = (totalOrders || 0) > 0 ? (totalRevenue || 0) / (totalOrders || 0) : 0
+        const avgOrderValue = (totalOrders || 0) > 0 ? (totalRevenue || 0) / (totalOrders || 0) : 0
     const conversionRate = (totalCustomers || 0) > 0 ? ((totalOrders || 0) / (totalCustomers || 0)) * 100 : 0
 
     const data: AdminDashboardData = {
@@ -200,12 +198,10 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       }
     }
 
-    // Cache the data
-    dashboardCache = { data, timestamp: Date.now() }
+    // Cache the data using centralized cache manager
+    setDashboardCache(data)
 
     return data
-  } catch (error) {
-    console.error('Error fetching admin dashboard data:', error)
-    throw new Error('Failed to fetch dashboard data')
+  } catch (error) {    throw new Error('Failed to fetch dashboard data')
   }
 }

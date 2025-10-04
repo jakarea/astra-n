@@ -24,18 +24,13 @@ export async function GET(request: NextRequest) {
         { status: 401 }
       )
     }
-
-    console.log('[TELEGRAM_SETTINGS] Fetching settings for user:', user.id)
-
     const { data, error } = await supabase
       .from('user_settings')
       .select('telegram_bot_token, telegram_chat_id')
       .eq('user_id', user.id)
       .single()
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
-      console.error('[TELEGRAM_SETTINGS] Database error:', error)
-      return NextResponse.json(
+    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found      return NextResponse.json(
         { error: 'Failed to fetch settings' },
         { status: 500 }
       )
@@ -51,7 +46,6 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('[TELEGRAM_SETTINGS] Error:', error)
     return NextResponse.json(
       { error: error.message || 'Internal server error' },
       { status: 500 }
@@ -79,13 +73,8 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-
-    console.log('[TELEGRAM_SETTINGS] Updating settings for user:', user.id)
-
     // Test connection if requested
-    if (testConnection) {
-      console.log('[TELEGRAM_SETTINGS] Testing telegram connection...')
-      const testResult = await testTelegramConnection(botToken, chatId)
+    if (testConnection) {      const testResult = await testTelegramConnection(botToken, chatId)
 
       if (!testResult.success) {
         return NextResponse.json(
@@ -96,7 +85,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Upsert user settings
-    const { data, error } = await supabase
+        const { data, error } = await supabase
       .from('user_settings')
       .upsert({
         user_id: user.id,
@@ -109,16 +98,11 @@ export async function POST(request: NextRequest) {
       .select()
       .single()
 
-    if (error) {
-      console.error('[TELEGRAM_SETTINGS] Database error:', error)
-      return NextResponse.json(
+    if (error) {      return NextResponse.json(
         { error: 'Failed to save settings' },
         { status: 500 }
       )
     }
-
-    console.log('[TELEGRAM_SETTINGS] Settings updated successfully for user:', user.id)
-
     return NextResponse.json({
       success: true,
       message: testConnection ?
@@ -132,7 +116,6 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('[TELEGRAM_SETTINGS] Error:', error)
     return NextResponse.json(
       { error: error.message || 'Internal server error' },
       { status: 500 }
@@ -151,9 +134,6 @@ export async function DELETE(request: NextRequest) {
         { status: 401 }
       )
     }
-
-    console.log('[TELEGRAM_SETTINGS] Removing settings for user:', user.id)
-
     const { data, error } = await supabase
       .from('user_settings')
       .update({
@@ -164,9 +144,7 @@ export async function DELETE(request: NextRequest) {
       .eq('user_id', user.id)
       .select()
 
-    if (error) {
-      console.error('[TELEGRAM_SETTINGS] Database error:', error)
-      return NextResponse.json(
+    if (error) {      return NextResponse.json(
         { error: 'Failed to remove settings' },
         { status: 500 }
       )
@@ -178,7 +156,6 @@ export async function DELETE(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('[TELEGRAM_SETTINGS] Error:', error)
     return NextResponse.json(
       { error: error.message || 'Internal server error' },
       { status: 500 }

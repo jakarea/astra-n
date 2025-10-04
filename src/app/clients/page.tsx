@@ -29,9 +29,7 @@ export default function ClientsPage() {
               data.role.charAt(0).toUpperCase() + data.role.slice(1).toLowerCase() : 'User'
             setUserRole(capitalizedRole)
           }
-        } catch (error) {
-          console.error('Error fetching user data:', error)
-        }
+        } catch (error) {        }
       }
     }
 

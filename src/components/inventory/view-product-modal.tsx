@@ -102,9 +102,7 @@ export function ViewProductModal({ isOpen, onClose, productId }: ViewProductModa
       if (data) {
         setProduct(data)
       }
-    } catch (error: any) {
-      console.error('Error loading product:', error)
-      alert(`Failed to load product: ${error.message}`)
+    } catch (error: any) {      alert(`Failed to load product: ${error.message}`)
       onClose()
     } finally {
       setLoading(false)

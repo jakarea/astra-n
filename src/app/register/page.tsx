@@ -32,7 +32,7 @@ export default function RegisterPage() {
   }
 
   const validateForm = () => {
-    // Name validation
+      // Name validation
     if (!formData.name.trim()) {
       setError('👤 Name is required')
       return false
@@ -67,7 +67,7 @@ export default function RegisterPage() {
     }
 
     // Enhanced password validation
-    const hasLetter = /[a-zA-Z]/.test(formData.password)
+        const hasLetter = /[a-zA-Z]/.test(formData.password)
     const hasNumber = /[0-9]/.test(formData.password)
 
     if (!hasLetter || !hasNumber) {
@@ -93,10 +93,8 @@ export default function RegisterPage() {
     setError('')
 
     try {
-      console.log('Starting registration process...')
-
       // Call our API route for registration
-      const response = await fetch('/api/auth/register', {
+        const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -111,11 +109,11 @@ export default function RegisterPage() {
       const result = await response.json()
 
       if (!response.ok) {
-        // Handle error without throwing - directly set the error message
+      // Handle error without throwing - directly set the error message
         let errorMessage = 'Error during registration'
 
         if (result.error) {
-          // Check for specific error codes first, then fallback to message content
+      // Check for specific error codes first, then fallback to message content
           if (result.code === 'EMAIL_ALREADY_EXISTS' || result.error.includes('User already registered')) {
             errorMessage = '⚠️ This email is already registered. Try logging in or use a different email.'
           } else if (result.code === 'WEAK_PASSWORD' || result.error.includes('Password should be')) {
@@ -134,11 +132,11 @@ export default function RegisterPage() {
       }
 
       if (result.success) {
-        // Check if email confirmation is required
+      // Check if email confirmation is required
         if (result.needsEmailConfirmation) {
           setSuccess('Registration completed! Check your email to confirm your account.')
         } else {
-          // If no email confirmation required, redirect to dashboard
+      // If no email confirmation required, redirect to dashboard
           setSuccess('Registration completed! Redirecting...')
           setTimeout(() => {
             router.push('/dashboard')
@@ -147,7 +145,6 @@ export default function RegisterPage() {
       }
 
     } catch (error) {
-      console.error('Network or unexpected error:', error)
       // Only handle network/fetch errors here, since API errors are handled above
       if (error instanceof Error && (error.message.includes('fetch') || error.message.includes('Network'))) {
         setError('Connection error. Check your internet connection.')

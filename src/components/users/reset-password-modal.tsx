@@ -44,15 +44,12 @@ export function ResetPasswordModal({ isOpen, onClose, initialEmail = '' }: Reset
       }
 
       // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
       if (!emailRegex.test(email)) {
         setError('Please enter a valid email address')
         setLoading(false)
         return
       }
-
-      console.log('[RESET_PASSWORD_MODAL] Sending password reset to:', email)
-
       await resetUserPassword(email.trim().toLowerCase())
 
       // Show success message
@@ -65,9 +62,7 @@ export function ResetPasswordModal({ isOpen, onClose, initialEmail = '' }: Reset
         onClose()
       }, 3000)
 
-    } catch (error: any) {
-      console.error('Error sending password reset:', error)
-      setError(error.message || 'Failed to send password reset')
+    } catch (error: any) {      setError(error.message || 'Failed to send password reset')
     } finally {
       setLoading(false)
     }

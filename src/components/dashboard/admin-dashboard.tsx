@@ -98,9 +98,7 @@ export function AdminDashboard() {
 
 
       setData(result.data)
-    } catch (error: any) {
-      console.error('Error fetching admin dashboard:', error)
-      toast.error('Failed to load dashboard data', {
+    } catch (error: any) {      toast.error('Failed to load dashboard data', {
         description: error.message || 'Please refresh the page or contact support if the issue persists.'
       })
 

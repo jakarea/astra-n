@@ -10,7 +10,6 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/s
 import { VisuallyHidden } from "@/components/ui/visually-hidden"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/contexts/AuthContext"
-import { useTheme } from "@/contexts/ThemeContext"
 import {
   Menu,
   Users,
@@ -23,9 +22,7 @@ import {
   Shield,
   UserCog,
   Puzzle,
-  User,
-  Sun,
-  Moon
+  User
 } from "lucide-react"
 
 const navigation = [
@@ -44,14 +41,13 @@ export function MobileNav() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const { user } = useAuth()
-  const { theme, toggleTheme } = useTheme()
   const userRole = user?.role || null
   const userName = user?.name || user?.email?.split('@')[0] || 'User'
 
   const handleLogout = async () => {
     try {
       // Call the logout API endpoint
-      const response = await fetch('/api/auth/logout', {
+        const response = await fetch('/api/auth/logout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -59,22 +55,18 @@ export function MobileNav() {
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        console.error('Logout API error:', error)
-      }
+        const error = await response.json()      }
 
       // Force redirect to login page and reload to clear all client state
       window.location.href = '/login'
 
-    } catch (error) {
-      console.error('Error signing out:', error)
-      // Even if there's an error, try to clear local state and redirect
+    } catch (error) {      // Even if there's an error, try to clear local state and redirect
       window.location.href = '/login'
     }
   }
 
   // Filter navigation based on user role
-  const filteredNavigation = navigation.filter(item => {
+        const filteredNavigation = navigation.filter(item => {
     // Show common items (neither adminOnly nor sellerOnly)
     if (!item.adminOnly && !item.sellerOnly) {
       return true
@@ -177,8 +169,8 @@ export function MobileNav() {
                         className={cn(
                           "group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors",
                           isActive
-                            ? "bg-blue-600 text-white"
-                            : "text-gray-300 hover:bg-blue-600 hover:text-white"
+                            ? "bg-active-parimary text-white"
+                            : "text-primary hover:bg-popover hover:text-white"
                         )}
                       >
                         <item.icon
@@ -198,25 +190,8 @@ export function MobileNav() {
                   })}
                 </nav>
 
-                {/* Theme toggle and Logout buttons */}
-                <div className="px-2 pb-4 space-y-2">
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"
-                    onClick={toggleTheme}
-                  >
-                    {theme === 'dark' ? (
-                      <>
-                        <Sun className="mr-3 h-4 w-4" />
-                        Light Mode
-                      </>
-                    ) : (
-                      <>
-                        <Moon className="mr-3 h-4 w-4" />
-                        Dark Mode
-                      </>
-                    )}
-                  </Button>
+                {/* Logout button */}
+                <div className="px-2 pb-4">
                   <Button
                     variant="outline"
                     className="w-full justify-start border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"

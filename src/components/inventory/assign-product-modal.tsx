@@ -61,41 +61,26 @@ export function AssignProductModal({ isOpen, onClose, onSuccess, productId }: As
       setLoading(true)
       setError(null)
       const session = getSession()
-
-      console.log('🔍 Session check:', { hasSession: !!session, userId: session?.user?.id })
       if (!session) {
         throw new Error('No session found')
       }
 
       const supabase = getAuthenticatedClient()
-      console.log('🔗 Supabase client created')
 
       // Test Supabase client authentication
-      console.log('🧪 Testing Supabase auth...')
       const { data: authUser, error: authError } = await supabase.auth.getUser()
-      console.log('🧪 Auth test result:', {
-        authUser: authUser?.user ? {
-          id: authUser.user.id,
-          email: authUser.user.email,
-          role: authUser.user.user_metadata?.role
-        } : null,
-        authError: authError?.message
-      })
 
       // Load product details
-      console.log('📦 Loading product details for ID:', productId)
       const { data: productData, error: productError } = await supabase
         .from('products')
         .select('id, name, sku')
         .eq('id', productId)
         .single()
 
-      console.log('📦 Product query result:', { productData, productError })
       if (productError) throw new Error(`Failed to load product: ${productError.message}`)
       setProduct(productData)
 
       // Try admin API approach first (like User Management page)
-      console.log('👥 Trying admin API approach...')
       let usersData = null
       let usersError = null
 
@@ -108,60 +93,28 @@ export function AssignProductModal({ isOpen, onClose, onSuccess, productId }: As
             'Authorization': `Bearer ${session.token}`
           }
         })
-
-        console.log('👥 Admin API response status:', response.status)
-
         if (response.ok) {
           const result = await response.json()
           usersData = result.users || []
-          console.log('👥 Admin API success:', {
-            count: usersData.length,
-            method: result.method,
-            users: usersData.map((u: any) => ({ id: u.id, name: u.name, email: u.email, role: u.role }))
-          })
         } else {
           const errorData = await response.json()
-          console.log('👥 Admin API failed, trying direct query...', errorData)
           throw new Error(`Admin API failed: ${errorData.error}`)
         }
       } catch (apiError: any) {
-        console.log('👥 Admin API error, falling back to direct query:', apiError.message)
-
         // Fallback to direct Supabase query
-        console.log('👥 Using direct Supabase query fallback...')
         const { data: directData, error: directError } = await supabase
           .from('users')
           .select('id, name, email, role')
           .order('name')
-
-        console.log('👥 Direct query result:', {
-          data: directData,
-          error: directError,
-          count: directData?.length
-        })
-
         usersData = directData
         usersError = directError
       }
 
-      console.log('👥 Users query result:', {
-        usersData,
-        usersError,
-        count: usersData?.length,
-        roles: usersData?.map(u => u.role),
-        userDetails: usersData?.map(u => ({ id: u.id, name: u.name, email: u.email, role: u.role }))
-      })
-
       if (usersError) {
-        console.error('❌ Error fetching users:', usersError)
         throw new Error(`Failed to load users: ${usersError.message}`)
       }
 
       if (!usersData || usersData.length === 0) {
-        console.warn('⚠️ No users found in database')
-        console.log('🔍 Debug: usersData is:', usersData)
-        console.log('🔍 Debug: usersData type:', typeof usersData)
-        console.log('🔍 Debug: usersData length:', usersData?.length)
         toast.error('No users found', {
           description: 'No users were found in the database'
         })
@@ -186,30 +139,11 @@ export function AssignProductModal({ isOpen, onClose, onSuccess, productId }: As
         isAssigned: assignedUserIds.has(user.id)
       }))
 
-      console.log('👥 Final users with assignment status:', {
-        count: usersWithAssignment.length,
-        users: usersWithAssignment.map(u => ({
-          id: u.id,
-          name: u.name,
-          email: u.email,
-          role: u.role,
-          isAssigned: u.isAssigned
-        })),
-        assignedUserIds: Array.from(assignedUserIds)
-      })
-
       setUsers(usersWithAssignment)
 
       // Set initially selected users (those currently assigned)
       setSelectedUsers(new Set(Array.from(assignedUserIds)))
-
-      console.log('✅ Modal state updated:', {
-        usersSet: usersWithAssignment.length,
-        selectedUsersSet: assignedUserIds.size
-      })
-
     } catch (error: any) {
-      console.error('Error loading data:', error)
       setError(error.message || 'Failed to load data')
       toast.error('Failed to load data', {
         description: error.message || 'Please try again or contact support'
@@ -302,9 +236,7 @@ export function AssignProductModal({ isOpen, onClose, onSuccess, productId }: As
       toast.success('Product assignments updated successfully')
       onSuccess()
 
-    } catch (error: any) {
-      console.error('Error saving assignments:', error)
-      toast.error('Failed to update assignments')
+    } catch (error: any) {      toast.error('Failed to update assignments')
     } finally {
       setSaving(false)
     }

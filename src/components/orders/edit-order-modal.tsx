@@ -48,9 +48,7 @@ export function EditOrderModal({ isOpen, onClose, onSuccess, orderId }: EditOrde
     setInitialLoading(true)
     try {
       const session = getSession()
-      if (!session) {
-        console.error('No session found')
-        return
+      if (!session) {        return
       }
 
       const supabase = getAuthenticatedClient()
@@ -74,9 +72,7 @@ export function EditOrderModal({ isOpen, onClose, onSuccess, orderId }: EditOrde
         totalAmount: data.total_amount ? Number(data.total_amount).toFixed(2) : '',
         orderCreatedAt: data.order_created_at ? new Date(data.order_created_at).toISOString().split('T')[0] : ''
       })
-    } catch (error: any) {
-      console.error('Error loading order:', error)
-      alert(`Failed to load order: ${error.message}`)
+    } catch (error: any) {      alert(`Failed to load order: ${error.message}`)
     } finally {
       setInitialLoading(false)
     }
@@ -130,9 +126,7 @@ export function EditOrderModal({ isOpen, onClose, onSuccess, orderId }: EditOrde
 
       onSuccess(data)
       onClose()
-    } catch (error: any) {
-      console.error('Error updating order:', error)
-      alert(`Failed to update order: ${error.message}`)
+    } catch (error: any) {      alert(`Failed to update order: ${error.message}`)
     } finally {
       setLoading(false)
     }

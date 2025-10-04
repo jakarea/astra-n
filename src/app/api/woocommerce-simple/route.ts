@@ -9,26 +9,16 @@ import { NextRequest, NextResponse } from 'next/server'
  */
 
 export async function POST(request: NextRequest) {
-  console.log('[SIMPLE_WEBHOOK] WooCommerce webhook received')
-
   try {
     // Log basic info
-    const headers = Object.fromEntries(request.headers.entries())
-    console.log('[SIMPLE_WEBHOOK] User-Agent:', headers['user-agent'] || 'None')
-    console.log('[SIMPLE_WEBHOOK] Content-Type:', headers['content-type'] || 'None')
-
+        const headers = Object.fromEntries(request.headers.entries())
     // Try to read body
     let bodyText = ''
     try {
       bodyText = await request.text()
-      console.log('[SIMPLE_WEBHOOK] Body length:', bodyText.length)
-
-      if (bodyText.length > 0) {
-        console.log('[SIMPLE_WEBHOOK] Body preview:', bodyText.substring(0, 200))
+      if (bodyText.length > 0) {)
       }
-    } catch (e) {
-      console.log('[SIMPLE_WEBHOOK] Could not read body')
-    }
+    } catch (e) {    }
 
     // Always return success
     return NextResponse.json({
@@ -47,8 +37,7 @@ export async function POST(request: NextRequest) {
       }
     })
 
-  } catch (error: any) {
-    console.error('[SIMPLE_WEBHOOK] Error (but still returning success):', error)
+  } catch (error: any) {:', error)
 
     // Even on error, return success to allow WooCommerce config
     return NextResponse.json({

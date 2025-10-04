@@ -31,11 +31,9 @@ export default function ResetPasswordPage() {
       setLoading(true)
 
       // Get the current session from the password reset callback
-      const { data, error } = await supabase.auth.getSession()
+        const { data, error } = await supabase.auth.getSession()
 
-      if (error) {
-        console.error('Auth session error:', error)
-        setError('Invalid or expired reset link. Please request a new password reset.')
+      if (error) {        setError('Invalid or expired reset link. Please request a new password reset.')
         setLoading(false)
         return
       }
@@ -47,9 +45,7 @@ export default function ResetPasswordPage() {
         setError('Invalid or expired reset link. Please request a new password reset.')
         setLoading(false)
       }
-    } catch (error: any) {
-      console.error('Reset callback error:', error)
-      setError('An error occurred. Please try requesting a new password reset.')
+    } catch (error: any) {      setError('An error occurred. Please try requesting a new password reset.')
       setLoading(false)
     }
   }
@@ -72,7 +68,7 @@ export default function ResetPasswordPage() {
       setError('')
 
       // Update the user's password
-      const { error: updateError } = await supabase.auth.updateUser({
+        const { error: updateError } = await supabase.auth.updateUser({
         password: password
       })
 
@@ -87,9 +83,7 @@ export default function ResetPasswordPage() {
         router.push('/login')
       }, 2000)
 
-    } catch (error: any) {
-      console.error('Password reset error:', error)
-      setError(error.message || 'Failed to reset password')
+    } catch (error: any) {      setError(error.message || 'Failed to reset password')
     } finally {
       setUpdating(false)
     }

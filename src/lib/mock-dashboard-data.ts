@@ -1,7 +1,7 @@
 // Generate slightly randomized mock data to feel more dynamic
 function generateDynamicMockData() {
   // Add some small random variations to make it feel less static
-  const dailyVariation = Math.floor(Math.random() * 10) - 5 // ±5 variation
+        const dailyVariation = Math.floor(Math.random() * 10) - 5 // ±5 variation
 
   return {
   summary: {

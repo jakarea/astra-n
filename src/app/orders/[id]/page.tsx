@@ -82,9 +82,7 @@ export default function OrderDetailPage() {
       }
 
       setOrder(orderData)
-    } catch (error: any) {
-      console.error('Error loading order details:', error)
-      alert(`Failed to load order: ${error.message}`)
+    } catch (error: any) {      alert(`Failed to load order: ${error.message}`)
       router.push('/orders')
     } finally {
       setLoading(false)

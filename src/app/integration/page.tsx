@@ -125,7 +125,7 @@ export default function IntegrationPage() {
   const [loading, setLoading] = useState(true)
 
   // Session expired modal hook
-  const { triggerSessionExpired, SessionExpiredComponent } = useSessionExpired()
+        const { triggerSessionExpired, SessionExpiredComponent } = useSessionExpired()
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [editIntegrationId, setEditIntegrationId] = useState<string | null>(null)
@@ -150,7 +150,7 @@ export default function IntegrationPage() {
   const ITEMS_PER_PAGE = 10
 
   // Helper function to check if user is admin (client-side only)
-  const isUserAdmin = () => {
+        const isUserAdmin = () => {
     return mounted && userRole === 'admin'
   }
 
@@ -166,12 +166,8 @@ export default function IntegrationPage() {
   const loadIntegrations = async (page = 1, search = '') => {
     try {
       setLoading(true)
-      console.log('[INTEGRATION] Starting to load integrations...', { page, search })
-
       const session = getSession()
-      if (!session) {
-        console.error('[INTEGRATION] No session found')
-        setLoading(false)
+      if (!session) {        setLoading(false)
         triggerSessionExpired({
           title: "Authentication Required",
           message: "You must be logged in to view integrations. Please log in first.",
@@ -181,8 +177,6 @@ export default function IntegrationPage() {
       }
 
       const supabase = getAuthenticatedClient()
-      console.log('[INTEGRATION] Authenticated client retrieved')
-
       // Build search query - filter by current user's integrations only
       let query = supabase
         .from('integrations')
@@ -206,37 +200,23 @@ export default function IntegrationPage() {
       }
 
       // Add pagination
-      const from = (page - 1) * ITEMS_PER_PAGE
+        const from = (page - 1) * ITEMS_PER_PAGE
       const to = from + ITEMS_PER_PAGE - 1
 
 
       const { data, error, count } = await query
         .order('created_at', { ascending: false })
-        .range(from, to)
+        .range(from, to)))
 
-      console.log('[INTEGRATION] Query result:', { data, error, integrationCount: data?.length, totalCount: count })
-      console.log('[INTEGRATION] Raw integration data:', data?.map(d => ({
-        id: d.id,
-        name: d.name,
-        webhook_secret: d.webhook_secret ? 'SET' : 'NOT_SET',
-        user_id: d.user_id
-      })))
-
-      if (error) {
-        console.error('[INTEGRATION] Database error:', error)
-        throw new Error(`Database error: ${error.message}`)
+      if (error) {        throw new Error(`Database error: ${error.message}`)
       }
 
       setIntegrations(data || [])
       setTotalCount(count || 0)
       setHasError(false)
-      console.log('[INTEGRATION] Integrations loaded successfully:', data?.length || 0)
-
       // Load stats separately (without pagination or search filters)
       await loadStats()
-    } catch (error) {
-      console.error('[INTEGRATION] Database connection error:', error)
-      setHasError(true)
+    } catch (error) {      setHasError(true)
       if (error.message && error.message.includes('JWT')) {
         setLoading(false)
         triggerSessionExpired({
@@ -256,9 +236,7 @@ export default function IntegrationPage() {
   const loadStats = async () => {
     try {
       const session = getSession()
-      if (!session) {
-        console.error('[INTEGRATION] No session found for stats')
-        return
+      if (!session) {        return
       }
 
       const supabase = getAuthenticatedClient()
@@ -293,9 +271,7 @@ export default function IntegrationPage() {
         }
         setTotalStats(stats)
       }
-    } catch (error) {
-      console.error('[INTEGRATION] Stats loading error:', error)
-    }
+    } catch (error) {    }
   }
 
   // Debounced search effect
@@ -321,7 +297,7 @@ export default function IntegrationPage() {
   }, [])
 
   // Optimistic updates - no server reload needed
-  const handleIntegrationAdded = (newIntegration: any) => {
+        const handleIntegrationAdded = (newIntegration: any) => {
     // Add to current integrations list
     setIntegrations(prev => [newIntegration, ...prev])
 
@@ -378,7 +354,7 @@ export default function IntegrationPage() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to generate webhook secret')
+          throw new Error(errorData.error || 'Failed to generate webhook secret')
       }
 
       const result = await response.json()
@@ -398,9 +374,7 @@ export default function IntegrationPage() {
       } else {
         throw new Error(result.error || 'Unknown error occurred')
       }
-    } catch (error: any) {
-      console.error('Error generating webhook secret:', error)
-      toast.error(`Failed to generate webhook secret: ${error.message}`)
+    } catch (error: any) {      toast.error(`Failed to generate webhook secret: ${error.message}`)
     }
   }
 
@@ -413,9 +387,7 @@ export default function IntegrationPage() {
 
     try {
       const session = getSession()
-      if (!session) {
-        console.error('[INTEGRATION] No session found for delete')
-        return
+      if (!session) {        return
       }
 
       const supabase = getAuthenticatedClient()
@@ -439,9 +411,7 @@ export default function IntegrationPage() {
       handleIntegrationDeleted(integrationId)
       // Close dialog
       setDeleteDialog({ isOpen: false, integrationId: '', integrationName: '' })
-    } catch (error) {
-      console.error('Error deleting integration:', error)
-      alert('Failed to delete integration. Please try again.')
+    } catch (error) {      alert('Failed to delete integration. Please try again.')
       setDeleteDialog({ isOpen: false, integrationId: '', integrationName: '' })
     }
   }
@@ -528,7 +498,7 @@ export default function IntegrationPage() {
       const csvContent = [headers.join(','), ...rows].join('\n')
 
       // Create and download file
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
       const link = document.createElement('a')
       const url = URL.createObjectURL(blob)
       link.setAttribute('href', url)
@@ -537,14 +507,12 @@ export default function IntegrationPage() {
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
-    } catch (error) {
-      console.error('Error exporting CSV:', error)
-      alert('Failed to export CSV. Please try again.')
+    } catch (error) {      alert('Failed to export CSV. Please try again.')
     }
   }
 
   // Pagination calculations
-  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE)
+        const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE)
   const startItem = (currentPage - 1) * ITEMS_PER_PAGE + 1
   const endItem = Math.min(currentPage * ITEMS_PER_PAGE, totalCount)
 
@@ -806,7 +774,7 @@ export default function IntegrationPage() {
                               if (actions.length === 0) return '-'
 
                               const actionType = actions[0].split(':')[0] // e.g., "order", "webhook", "data"
-                              const actionNames = actions.map(a => a.split(':')[1]) // e.g., ["created", "updated", ...]
+        const actionNames = actions.map(a => a.split(':')[1]) // e.g., ["created", "updated", ...]
 
                               let displayText = actionType + '['
                               if (actionNames.length <= 2) {

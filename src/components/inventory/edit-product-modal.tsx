@@ -85,9 +85,7 @@ export function EditProductModal({ isOpen, onClose, onSuccess, productId }: Edit
           stock: data.stock.toString()
         })
       }
-    } catch (error: any) {
-      console.error('Error loading product:', error)
-      alert(`Failed to load product: ${error.message}`)
+    } catch (error: any) {      alert(`Failed to load product: ${error.message}`)
       onClose()
     } finally {
       setInitialLoading(false)
@@ -112,7 +110,7 @@ export function EditProductModal({ isOpen, onClose, onSuccess, productId }: Edit
       }
 
       // Validate numeric fields
-      const price = parseFloat(formData.price)
+        const price = parseFloat(formData.price)
       const stock = parseInt(formData.stock)
 
       if (isNaN(price) || price < 0) {
@@ -129,9 +127,6 @@ export function EditProductModal({ isOpen, onClose, onSuccess, productId }: Edit
         price: price,
         stock: stock,
       }
-
-      console.log('[EDIT_PRODUCT] Updating product with data:', productData)
-
       const supabase = getAuthenticatedClient()
       const { data, error } = await supabase
         .from('products')
@@ -140,12 +135,7 @@ export function EditProductModal({ isOpen, onClose, onSuccess, productId }: Edit
         .eq('user_id', session.user.id)
         .select()
         .single()
-
-      console.log('[EDIT_PRODUCT] Update result:', { data, error })
-
-      if (error) {
-        console.error('[EDIT_PRODUCT] Update error:', error)
-        if (error.code === '23505' && error.message.includes('user_id_sku')) {
+      if (error) {        if (error.code === '23505' && error.message.includes('user_id_sku')) {
           throw new Error('A product with this SKU already exists. Please use a different SKU.')
         }
         throw new Error(error.message)
@@ -154,9 +144,7 @@ export function EditProductModal({ isOpen, onClose, onSuccess, productId }: Edit
       // Pass the updated product data to parent
       onSuccess(data)
       onClose()
-    } catch (error: any) {
-      console.error('Error updating product:', error)
-      alert(`Failed to update product: ${error.message}`)
+    } catch (error: any) {      alert(`Failed to update product: ${error.message}`)
     } finally {
       setLoading(false)
     }

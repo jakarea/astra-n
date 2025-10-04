@@ -99,9 +99,7 @@ export default function CRMViewPage() {
       }
 
       setLead(data)
-    } catch (err) {
-      console.error('Error loading lead:', err)
-      setError('Failed to load lead')
+    } catch (err) {      setError('Failed to load lead')
     } finally {
       setLoading(false)
     }

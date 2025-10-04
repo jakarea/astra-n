@@ -66,11 +66,8 @@ export function EditUserModal({ isOpen, onClose, onSuccess, userId }: EditUserMo
       if (!session) {
         throw new Error('User not authenticated')
       }
-
-      console.log('[EDIT_USER] Loading user via admin API:', userId)
-
       // Make API call with authentication
-      const response = await fetch(`/api/admin/users/${userId}`, {
+        const response = await fetch(`/api/admin/users/${userId}`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -81,12 +78,10 @@ export function EditUserModal({ isOpen, onClose, onSuccess, userId }: EditUserMo
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || `HTTP ${response.status}`)
+          throw new Error(errorData.error || `HTTP ${response.status}`)
       }
 
       const result = await response.json()
-      console.log('[EDIT_USER] User loaded successfully')
-
       if (result.user) {
         setFormData({
           name: result.user.name,
@@ -94,9 +89,7 @@ export function EditUserModal({ isOpen, onClose, onSuccess, userId }: EditUserMo
           role: result.user.role
         })
       }
-    } catch (error: any) {
-      console.error('Error loading user:', error)
-      alert(`Failed to load user: ${error.message}`)
+    } catch (error: any) {      alert(`Failed to load user: ${error.message}`)
       onClose()
     } finally {
       setInitialLoading(false)
@@ -121,7 +114,7 @@ export function EditUserModal({ isOpen, onClose, onSuccess, userId }: EditUserMo
       }
 
       // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
       if (!emailRegex.test(formData.email)) {
         throw new Error('Please enter a valid email address')
       }
@@ -131,11 +124,8 @@ export function EditUserModal({ isOpen, onClose, onSuccess, userId }: EditUserMo
         email: formData.email.trim().toLowerCase(),
         role: formData.role,
       }
-
-      console.log('[EDIT_USER] Updating user with data:', userData)
-
       // Make API call with authentication
-      const response = await fetch(`/api/admin/users/${userId}`, {
+        const response = await fetch(`/api/admin/users/${userId}`, {
         method: 'PUT',
         credentials: 'include',
         headers: {
@@ -154,16 +144,12 @@ export function EditUserModal({ isOpen, onClose, onSuccess, userId }: EditUserMo
       }
 
       const result = await response.json()
-      console.log('[EDIT_USER] User updated successfully')
-
       const data = result.user
 
       // Pass the updated user data to parent
       onSuccess(data)
       onClose()
-    } catch (error: any) {
-      console.error('Error updating user:', error)
-      alert(`Failed to update user: ${error.message}`)
+    } catch (error: any) {      alert(`Failed to update user: ${error.message}`)
     } finally {
       setLoading(false)
     }

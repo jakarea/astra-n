@@ -68,14 +68,14 @@ export function SimpleSellerDashboard() {
       }
 
       // Fetch real data from database
-      const result = await getSellerDashboardAction(session.user.id)
+        const result = await getSellerDashboardAction(session.user.id)
 
       if (!result.success) {
         throw new Error(result.error || 'Failed to fetch dashboard data')
       }
 
       // Transform the data to match our simplified interface
-      const transformedData: SimpleSellerDashboardData = {
+        const transformedData: SimpleSellerDashboardData = {
         summary: {
           totalOrders: result.data.summary.totalOrders || 0,
           totalProducts: result.data.summary.totalProducts || 0,
@@ -104,9 +104,7 @@ export function SimpleSellerDashboard() {
 
       setData(transformedData)
       setError(null)
-    } catch (err: any) {
-      console.error('Error fetching dashboard data:', err)
-      setError(err.message || 'Failed to load dashboard data')
+    } catch (err: any) {      setError(err.message || 'Failed to load dashboard data')
     } finally {
       setLoading(false)
     }

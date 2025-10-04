@@ -94,7 +94,7 @@ export default function InventoryPage() {
   const LOW_STOCK_THRESHOLD = 10
 
   // Helper function to check if user is admin (client-side only)
-  const isUserAdmin = () => {
+        const isUserAdmin = () => {
     return mounted && userRole === 'admin'
   }
 
@@ -110,25 +110,19 @@ export default function InventoryPage() {
   const loadProducts = async (page = 1, search = '') => {
     try {
       setLoading(true)
-      console.log('[INVENTORY] Starting to load products...', { page, search })
-
       const session = getSession()
-      if (!session) {
-        console.error('[INVENTORY] No session found')
-        setHasError(true)
+      if (!session) {        setHasError(true)
         setErrorMessage('You must be logged in to view inventory. Please log in first.')
         setLoading(false)
         return
       }
 
       const supabase = getAuthenticatedClient()
-      console.log('[INVENTORY] Authenticated client retrieved')
-
       // Build search query with different logic for admin vs seller
       let query
 
       if (session.user.role === 'admin') {
-        // Admin sees all products with creator and assignment info
+      // Admin sees all products with creator and assignment info
         query = supabase
           .from('products')
           .select(`
@@ -139,7 +133,7 @@ export default function InventoryPage() {
             )
           `, { count: 'exact' })
       } else {
-        // Seller sees only products assigned to them
+      // Seller sees only products assigned to them
         query = supabase
           .from('seller_products')
           .select(`
@@ -164,18 +158,13 @@ export default function InventoryPage() {
       }
 
       // Add pagination
-      const from = (page - 1) * ITEMS_PER_PAGE
+        const from = (page - 1) * ITEMS_PER_PAGE
       const to = from + ITEMS_PER_PAGE - 1
 
       const { data, error, count } = await query
         .order('created_at', { ascending: false })
         .range(from, to)
-
-      console.log('[INVENTORY] Query result:', { data, error, productCount: data?.length, totalCount: count })
-
-      if (error) {
-        console.error('[INVENTORY] Database error:', error)
-        throw new Error(`Database error: ${error.message}`)
+      if (error) {        throw new Error(`Database error: ${error.message}`)
       }
 
       let processedProducts = []
@@ -183,7 +172,7 @@ export default function InventoryPage() {
       if (session.user.role === 'admin') {
         processedProducts = data || []
       } else {
-        // For sellers, extract product data and add assignment info
+      // For sellers, extract product data and add assignment info
         processedProducts = (data || []).map(item => ({
           ...item.product,
           assignedAt: item.assignedAt
@@ -193,13 +182,9 @@ export default function InventoryPage() {
       setProducts(processedProducts)
       setTotalCount(count || 0)
       setHasError(false)
-      console.log('[INVENTORY] Products loaded successfully:', processedProducts.length)
-
       // Load stats separately (without pagination or search filters)
       await loadStats()
-    } catch (error: any) {
-      console.error('[INVENTORY] Database connection error:', error)
-      setHasError(true)
+    } catch (error: any) {      setHasError(true)
       if (error.message && error.message.includes('JWT')) {
         setErrorMessage('Authentication token expired. Please log in again.')
       } else {
@@ -213,9 +198,7 @@ export default function InventoryPage() {
   const loadStats = async () => {
     try {
       const session = getSession()
-      if (!session) {
-        console.error('[INVENTORY] No session found for stats')
-        return
+      if (!session) {        return
       }
 
       const supabase = getAuthenticatedClient()
@@ -224,12 +207,12 @@ export default function InventoryPage() {
       let statsQuery
 
       if (session.user.role === 'admin') {
-        // Admin sees all products stats
+      // Admin sees all products stats
         statsQuery = supabase
           .from('products')
           .select('stock, price')
       } else {
-        // Seller sees only assigned products stats
+      // Seller sees only assigned products stats
         statsQuery = supabase
           .from('seller_products')
           .select(`
@@ -246,7 +229,7 @@ export default function InventoryPage() {
         if (session.user.role === 'admin') {
           products = statsData
         } else {
-          // For sellers, extract product data from the relation
+      // For sellers, extract product data from the relation
           products = statsData.map(item => item.product)
         }
 
@@ -258,9 +241,7 @@ export default function InventoryPage() {
         }
         setTotalStats(stats)
       }
-    } catch (error) {
-      console.error('[INVENTORY] Stats loading error:', error)
-    }
+    } catch (error) {    }
   }
 
   // Debounced search effect
@@ -286,8 +267,8 @@ export default function InventoryPage() {
   }, [])
 
   // Optimistic updates - no server reload needed
-  const handleProductAdded = (newProduct: any) => {
-    // Add to current products list
+        const handleProductAdded = (newProduct: any) => {
+      // Add to current products list
     setProducts(prev => [newProduct, ...prev])
 
     // Update total count
@@ -304,7 +285,7 @@ export default function InventoryPage() {
   }
 
   const handleProductUpdated = (updatedProduct: any) => {
-    // Update the specific product in the list
+      // Update the specific product in the list
     setProducts(prev => prev.map(product =>
       product.id === updatedProduct.id ? { ...product, ...updatedProduct } : product
     ))
@@ -314,7 +295,7 @@ export default function InventoryPage() {
   }
 
   const handleProductDeleted = (productId: string) => {
-    // Remove from current products list
+      // Remove from current products list
     setProducts(prev => prev.filter(product => product.id !== productId))
 
     // Update total count
@@ -355,7 +336,7 @@ export default function InventoryPage() {
   }
 
   const handleProductAssigned = () => {
-    // Reload products to show updated assignments
+      // Reload products to show updated assignments
     loadProducts(currentPage, searchQuery)
     handleAssignClose()
   }
@@ -369,9 +350,7 @@ export default function InventoryPage() {
 
     try {
       const session = getSession()
-      if (!session) {
-        console.error('[INVENTORY] No session found for delete')
-        return
+      if (!session) {        return
       }
 
       const supabase = getAuthenticatedClient()
@@ -395,9 +374,7 @@ export default function InventoryPage() {
       handleProductDeleted(productId)
       // Close dialog
       setDeleteDialog({ isOpen: false, productId: '', productName: '' })
-    } catch (error) {
-      console.error('Error deleting product:', error)
-      alert('Failed to delete product. Please try again.')
+    } catch (error) {      alert('Failed to delete product. Please try again.')
       setDeleteDialog({ isOpen: false, productId: '', productName: '' })
     }
   }
@@ -416,7 +393,7 @@ export default function InventoryPage() {
       let exportData: any[] = []
 
       if (session.user.role === 'admin') {
-        // Admin exports all products with assignment info
+      // Admin exports all products with assignment info
         exportQuery = supabase
           .from('products')
           .select(`
@@ -432,7 +409,7 @@ export default function InventoryPage() {
 
         exportData = data || []
       } else {
-        // Seller exports only assigned products
+      // Seller exports only assigned products
         exportQuery = supabase
           .from('seller_products')
           .select(`
@@ -461,7 +438,7 @@ export default function InventoryPage() {
       }
 
       // Helper function to get stock status
-      const getStockStatus = (stock: number) => {
+        const getStockStatus = (stock: number) => {
         if (stock === 0) return 'Out of Stock'
         if (stock <= LOW_STOCK_THRESHOLD) return 'Low Stock'
         return 'In Stock'
@@ -500,7 +477,7 @@ export default function InventoryPage() {
       const csvContent = [headers.join(','), ...rows].join('\n')
 
       // Create and download file
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
       const link = document.createElement('a')
       const url = URL.createObjectURL(blob)
       link.setAttribute('href', url)
@@ -509,14 +486,12 @@ export default function InventoryPage() {
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
-    } catch (error) {
-      console.error('Error exporting CSV:', error)
-      alert('Failed to export CSV. Please try again.')
+    } catch (error) {      alert('Failed to export CSV. Please try again.')
     }
   }
 
   // Pagination calculations
-  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE)
+        const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE)
   const startItem = (currentPage - 1) * ITEMS_PER_PAGE + 1
   const endItem = Math.min(currentPage * ITEMS_PER_PAGE, totalCount)
 

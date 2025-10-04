@@ -87,48 +87,30 @@ export default function UsersPage() {
   })
 
   // Session expired modal hook
-  const { triggerSessionExpired, SessionExpiredComponent } = useSessionExpired()
+        const { triggerSessionExpired, SessionExpiredComponent } = useSessionExpired()
 
   const ITEMS_PER_PAGE = 10
 
   // Check if user is admin on mount
   useEffect(() => {
     const session = getSession()
-    console.log('[USERS_PAGE] Session check:', {
-      hasSession: !!session,
-      userId: session?.user?.id,
-      userEmail: session?.user?.email,
-      userRole: session?.user?.role
-    })
-
-    if (!session) {
-      console.error('[USERS_PAGE] No session found')
-      triggerSessionExpired()
+    if (!session) {      triggerSessionExpired()
       setLoading(false)
       return
     }
 
-    if (session.user.role !== 'admin') {
-      console.error('[USERS_PAGE] User is not admin, role:', session.user.role)
-      setHasError(true)
+    if (session.user.role !== 'admin') {      setHasError(true)
       setErrorMessage('Access denied. Admin role required.')
       setLoading(false)
       return
-    }
-
-    console.log('[USERS_PAGE] Admin verified, loading users')
-    loadUsers()
+    }    loadUsers()
   }, [])
 
   const loadUsers = async (page = 1, search = '') => {
     try {
       setLoading(true)
-      console.log('[USERS] Starting to load users via API...', { page, search })
-
       const session = getSession()
-      if (!session) {
-        console.error('[USERS] No session found')
-        setHasError(true)
+      if (!session) {        setHasError(true)
         setErrorMessage('You must be logged in to view users. Please log in first.')
         setLoading(false)
         return
@@ -140,11 +122,8 @@ export default function UsersPage() {
         setLoading(false)
         return
       }
-
-      console.log('[USERS] Fetching users via admin API')
-
       // Build query parameters
-      const params = new URLSearchParams({
+        const params = new URLSearchParams({
         page: page.toString(),
         limit: ITEMS_PER_PAGE.toString()
       })
@@ -154,7 +133,7 @@ export default function UsersPage() {
       }
 
       // Make API call with authentication
-      const response = await fetch(`/api/admin/users?${params}`, {
+        const response = await fetch(`/api/admin/users?${params}`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -167,9 +146,7 @@ export default function UsersPage() {
         const errorData = await response.json()
 
         // Check for authentication errors
-        if (response.status === 401) {
-          console.error('[USERS] Session expired during users API call')
-          triggerSessionExpired()
+        if (response.status === 401) {          triggerSessionExpired()
           return
         }
 
@@ -177,22 +154,12 @@ export default function UsersPage() {
       }
 
       const result = await response.json()
-      console.log('[USERS] API result:', {
-        userCount: result.users?.length || 0,
-        totalCount: result.totalCount || 0,
-        method: result.method
-      })
-
       setUsers(result.users || [])
       setTotalCount(result.totalCount || 0)
       setHasError(false)
-      console.log('[USERS] Users loaded successfully via', result.method, ':', result.users?.length || 0)
-
       // Load stats separately
       await loadStats()
-    } catch (error: any) {
-      console.error('[USERS] API error:', error)
-      setHasError(true)
+    } catch (error: any) {      setHasError(true)
       if (error.message && error.message.includes('Authentication')) {
         setErrorMessage('Authentication token expired. Please log in again.')
       } else if (error.message && error.message.includes('Admin')) {
@@ -208,15 +175,10 @@ export default function UsersPage() {
   const loadStats = async () => {
     try {
       const session = getSession()
-      if (!session) {
-        console.error('[USERS] No session found for stats')
-        return
+      if (!session) {        return
       }
-
-      console.log('[USERS] Loading stats via admin API')
-
       // Make API call for stats
-      const response = await fetch('/api/admin/users/stats', {
+        const response = await fetch('/api/admin/users/stats', {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -226,15 +188,9 @@ export default function UsersPage() {
       })
 
       if (response.ok) {
-        const result = await response.json()
-        console.log('[USERS] Stats loaded successfully:', result.stats)
-        setTotalStats(result.stats)
-      } else {
-        console.error('[USERS] Stats API error:', response.status)
-      }
-    } catch (error) {
-      console.error('[USERS] Stats loading error:', error)
-    }
+        const result = await response.json()        setTotalStats(result.stats)
+      } else {      }
+    } catch (error) {    }
   }
 
   // Debounced search effect
@@ -258,7 +214,7 @@ export default function UsersPage() {
   }, [searchQuery, currentPage])
 
   // Optimistic updates - no server reload needed
-  const handleUserAdded = (newUser: any) => {
+        const handleUserAdded = (newUser: any) => {
     // Add to current users list
     setUsers(prev => [newUser, ...prev])
 
@@ -323,18 +279,13 @@ export default function UsersPage() {
 
     try {
       const session = getSession()
-      if (!session) {
-        console.error('[USERS] No session found for delete')
-        toast.error('Authentication required', {
+      if (!session) {        toast.error('Authentication required', {
           description: 'Please log in to delete users.'
         })
         return
       }
-
-      console.log('[USERS] Deleting user via API:', userId)
-
       // Use API endpoint to delete from both auth and database
-      const response = await fetch(`/api/admin/users/${userId}`, {
+        const response = await fetch(`/api/admin/users/${userId}`, {
         method: 'DELETE',
         credentials: 'include',
         headers: {
@@ -345,12 +296,10 @@ export default function UsersPage() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || `HTTP ${response.status}`)
+          throw new Error(errorData.error || `HTTP ${response.status}`)
       }
 
       const result = await response.json()
-      console.log('[USERS] Delete result:', result)
-
       toast.success('User deleted successfully', {
         description: 'User has been removed from both authentication and database.'
       })
@@ -358,9 +307,7 @@ export default function UsersPage() {
       handleUserDeleted(userId)
       // Close dialog
       setDeleteDialog({ isOpen: false, userId: '', userName: '' })
-    } catch (error: any) {
-      console.error('Error deleting user:', error)
-      toast.error('Failed to delete user', {
+    } catch (error: any) {      toast.error('Failed to delete user', {
         description: error.message || 'Please try again.'
       })
       setDeleteDialog({ isOpen: false, userId: '', userName: '' })
@@ -373,9 +320,7 @@ export default function UsersPage() {
       toast.success(`Password reset link sent to ${email}`, {
         description: 'The user will receive an email with instructions to reset their password.'
       })
-    } catch (error: any) {
-      console.error('Error resetting password:', error)
-      toast.error('Failed to send reset email', {
+    } catch (error: any) {      toast.error('Failed to send reset email', {
         description: error.message
       })
     }
@@ -402,7 +347,7 @@ export default function UsersPage() {
       }
 
       // Create CSV content
-      const headers = ['Name', 'Email', 'Role', 'Status']
+        const headers = ['Name', 'Email', 'Role', 'Status']
       const csvContent = [
         headers.join(','),
         ...data.map(user => [
@@ -414,7 +359,7 @@ export default function UsersPage() {
       ].join('\n')
 
       // Create and download file
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
       const link = document.createElement('a')
       const url = URL.createObjectURL(blob)
       link.setAttribute('href', url)
@@ -427,16 +372,14 @@ export default function UsersPage() {
       toast.success('CSV export completed', {
         description: `Downloaded ${data.length} user records successfully.`
       })
-    } catch (error) {
-      console.error('Error exporting CSV:', error)
-      toast.error('Failed to export CSV', {
+    } catch (error) {      toast.error('Failed to export CSV', {
         description: 'Please try again.'
       })
     }
   }
 
   // Pagination calculations
-  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE)
+        const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE)
   const startItem = (currentPage - 1) * ITEMS_PER_PAGE + 1
   const endItem = Math.min(currentPage * ITEMS_PER_PAGE, totalCount)
 

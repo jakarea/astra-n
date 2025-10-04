@@ -15,9 +15,6 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
 export async function POST(request: NextRequest) {
   try {
     const { email, password, name } = await request.json()
-
-    console.log('Registration API called for:', email)
-
     // Validate input
     if (!email || !password || !name) {
       return NextResponse.json(
@@ -27,13 +24,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Get the current origin for email confirmation redirect
-    const origin = request.nextUrl.origin
+        const origin = request.nextUrl.origin
     const redirectUrl = `${origin}/auth/callback`
-
-    console.log('[REGISTRATION] Setting emailRedirectTo:', redirectUrl)
-
     // Create a client-side Supabase client for this request with proper redirect URL
-    const supabaseWithRedirect = createClient(
+        const supabaseWithRedirect = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
@@ -44,7 +38,7 @@ export async function POST(request: NextRequest) {
     )
 
     // Sign up with Supabase Auth
-    const { data, error: signUpError } = await supabaseWithRedirect.auth.signUp({
+        const { data, error: signUpError } = await supabaseWithRedirect.auth.signUp({
       email,
       password,
       options: {
@@ -57,13 +51,6 @@ export async function POST(request: NextRequest) {
     })
 
     if (signUpError) {
-      console.error('Registration error:', {
-        message: signUpError.message,
-        code: signUpError.code,
-        status: signUpError.status,
-        fullError: signUpError
-      })
-
       // Map Supabase errors to user-friendly messages
       let errorMessage = signUpError.message
       let errorCode = 'REGISTRATION_FAILED'
@@ -99,15 +86,10 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-
-    console.log('Registration successful for:', email)
-
     // Directly create user in public.users table (no trigger dependency)
     if (data.user?.id) {
       try {
-        console.log('[REGISTRATION] Creating user in public.users table for:', data.user.id, email)
-
-        // Create or update user record in public.users using UPSERT
+      // Create or update user record in public.users using UPSERT
         const { data: userData, error: userInsertError } = await supabaseAdmin
           .from('users')
           .upsert({
@@ -121,34 +103,14 @@ export async function POST(request: NextRequest) {
           .single()
 
         if (userInsertError) {
-          console.error('[REGISTRATION] Failed to create user in public.users:', {
-            error: userInsertError,
-            userId: data.user.id,
-            email: email
-          })
-
-          // This is important - if we can't create the user record,
+      // This is important - if we can't create the user record,
           // the CRM won't work for this user
           throw new Error(`Failed to create user record: ${userInsertError.message}`)
         }
-
-        console.log('[REGISTRATION] ✅ User created successfully in public.users:', {
-          id: userData.id,
-          name: userData.name,
-          email: userData.email,
-          role: userData.role
-        })
-
       } catch (error) {
-        console.error('[REGISTRATION] Critical error in user creation:', error)
-
-        // Clean up - delete the auth user if we can't create the app user
+      // Clean up - delete the auth user if we can't create the app user
         try {
-          await supabaseAdmin.auth.admin.deleteUser(data.user.id)
-          console.log('[REGISTRATION] Cleaned up auth user due to app user creation failure')
-        } catch (cleanupError) {
-          console.error('[REGISTRATION] Failed to cleanup auth user:', cleanupError)
-        }
+          await supabaseAdmin.auth.admin.deleteUser(data.user.id)        } catch (cleanupError) {        }
 
         return NextResponse.json(
           {
@@ -168,7 +130,6 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Registration API error:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

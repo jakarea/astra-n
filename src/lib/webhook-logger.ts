@@ -35,9 +35,7 @@ class WebhookLogger {
 
       this.logFile = path.join(this.logDir, `webhook-debug-${new Date().toISOString().split('T')[0]}.log`)
       this.ensureLogDirectory()
-    } catch (error) {
-      console.error('[WEBHOOK_LOGGER] Failed to initialize logger:', error)
-      // Fallback to console-only logging
+    } catch (error) {      // Fallback to console-only logging
       this.logDir = ''
       this.logFile = ''
     }
@@ -48,9 +46,7 @@ class WebhookLogger {
       if (!fs.existsSync(this.logDir)) {
         fs.mkdirSync(this.logDir, { recursive: true })
       }
-    } catch (error) {
-      console.error('[WEBHOOK_LOGGER] Failed to create log directory:', error)
-    }
+    } catch (error) {    }
   }
 
   private sanitizeHeaders(headers: Record<string, string | string[]>): Record<string, string | string[]> {
@@ -155,22 +151,16 @@ class WebhookLogger {
     try {
       const logLine = `${prefix}\n${JSON.stringify(data, null, 2)}\n${'='.repeat(80)}\n`
 
-      // Always console log for immediate debugging
-      console.log(`[WEBHOOK_DEBUG] ${prefix}`)
-      console.log(JSON.stringify(data, null, 2))
+      // Always console log for immediate debugging)
 
       // Try to write to file if possible
       if (this.logFile) {
         try {
           fs.appendFileSync(this.logFile, logLine, 'utf8')
-        } catch (fileError) {
-          console.warn('[WEBHOOK_LOGGER] File write failed, using console-only logging:', fileError.message)
-        }
+        } catch (fileError) {        }
       }
 
-    } catch (error) {
-      console.error('[WEBHOOK_LOGGER] Failed to write log:', error)
-    }
+    } catch (error) {    }
   }
 
   public getLogFilePath(): string {
@@ -185,20 +175,15 @@ class WebhookLogger {
       }
       return 'No logs found'
     } catch (error) {
-      console.error('[WEBHOOK_LOGGER] Failed to read logs:', error)
-      return `Error reading logs: ${error.message}`
+    return `Error reading logs: ${error.message}`
     }
   }
 
   public clearLogs() {
     try {
       if (fs.existsSync(this.logFile)) {
-        fs.unlinkSync(this.logFile)
-        console.log('[WEBHOOK_LOGGER] Logs cleared')
-      }
-    } catch (error) {
-      console.error('[WEBHOOK_LOGGER] Failed to clear logs:', error)
-    }
+        fs.unlinkSync(this.logFile)      }
+    } catch (error) {    }
   }
 }
 

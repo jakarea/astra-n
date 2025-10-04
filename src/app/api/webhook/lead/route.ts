@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     try {
       body = await request.json()
     } catch (_error) {
-      return NextResponse.json(
+    return NextResponse.json(
         {
           error: 'Invalid JSON',
           message: 'Request body must be valid JSON'
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate webhook secret from header
-    const webhookSecret = request.headers.get('x-webhook-secret') || request.headers.get('webhook-secret')
+        const webhookSecret = request.headers.get('x-webhook-secret') || request.headers.get('webhook-secret')
     if (!webhookSecret || typeof webhookSecret !== 'string') {
       return NextResponse.json(
         {
@@ -53,15 +53,13 @@ export async function POST(request: NextRequest) {
     const leadData = body
 
     // Find user by webhook secret
-    const { data: user, error: userError } = await supabaseAdmin
+        const { data: user, error: userError } = await supabaseAdmin
       .from('users')
       .select('id')
       .eq('webhook_secret', webhookSecret)
       .single()
 
-    if (userError || !user) {
-      console.error('[WEBHOOK] User lookup error:', userError)
-      return NextResponse.json(
+    if (userError || !user) {      return NextResponse.json(
         {
           error: 'Invalid webhook secret',
           message: 'The provided webhook secret is not valid or does not exist'
@@ -71,7 +69,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate required lead fields
-    const { source } = leadData
+        const { source } = leadData
     if (!source || typeof source !== 'string') {
       return NextResponse.json(
         {
@@ -83,7 +81,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate optional fields if provided
-    const allowedFields = ['name', 'email', 'phone', 'source', 'logistic_status', 'cod_status', 'kpi_status', 'notes']
+        const allowedFields = ['name', 'email', 'phone', 'source', 'logistic_status', 'cod_status', 'kpi_status', 'notes']
     const invalidFields = Object.keys(leadData).filter(field => !allowedFields.includes(field))
     if (invalidFields.length > 0) {
       return NextResponse.json(
@@ -124,7 +122,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate status fields if provided
-    const validLogisticStatuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled']
+        const validLogisticStatuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled']
     const validCodStatuses = ['pending', 'confirmed', 'rejected']
     const validKpiStatuses = ['new', 'contacted', 'qualified', 'proposal', 'negotiation', 'won', 'lost']
 
@@ -159,7 +157,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Prepare lead data for insertion
-    const leadInsertData = {
+        const leadInsertData = {
       user_id: user.id,
       name: leadData.name || null,
       email: leadData.email || null,
@@ -170,19 +168,14 @@ export async function POST(request: NextRequest) {
       kpi_status: leadData.kpi_status || null,
       notes: leadData.notes || null
     }
-
-    console.log('[WEBHOOK] Creating lead with data:', leadInsertData)
-
     // Insert lead into database
-    const { data: createdLead, error: insertError } = await supabaseAdmin
+        const { data: createdLead, error: insertError } = await supabaseAdmin
       .from('crm_leads')
       .insert([leadInsertData])
       .select()
       .single()
 
-    if (insertError) {
-      console.error('[WEBHOOK] Insert error:', insertError)
-      return NextResponse.json(
+    if (insertError) {      return NextResponse.json(
         {
           error: 'Database error',
           message: 'Failed to create lead in database'
@@ -190,15 +183,8 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       )
     }
-
-    console.log('[WEBHOOK] Lead created successfully:', createdLead)
-
     // Send Telegram notification (non-blocking)
-    sendLeadNotification(user.id, createdLead).then((result) => {
-      console.log('[WEBHOOK] Telegram notification result:', result)
-    }).catch((error) => {
-      console.error('[WEBHOOK] Telegram notification error:', error)
-    })
+    sendLeadNotification(user.id, createdLead).then((result) => {    }).catch((error) => {    })
 
     return NextResponse.json(
       {
@@ -221,7 +207,6 @@ export async function POST(request: NextRequest) {
     )
 
   } catch (error) {
-    console.error('[WEBHOOK] Unexpected error:', error)
     return NextResponse.json(
       {
         error: 'Internal server error',

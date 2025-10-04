@@ -144,6 +144,8 @@ model Order {
   status          String
   totalAmount     Decimal  @db.Decimal(10, 2) @map("total_amount")
   orderCreatedAt  DateTime @map("order_created_at")
+  trackingId      String?  @map("tracking_id")
+  trackingSlug    String?  @map("tracking_slug")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
@@ -159,6 +161,7 @@ model Order {
   @@index([integrationId])
   @@index([customerId])
   @@index([status])
+  @@index([trackingId])
   @@map("orders")
 }
 

@@ -12,7 +12,7 @@ function getSessionFromRequest(request: NextRequest) {
     const token = authHeader.substring(7) // Remove "Bearer " prefix
 
     // Create a Supabase client with this token to verify and get user info
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -25,7 +25,6 @@ function getSessionFromRequest(request: NextRequest) {
 
     return { token, supabase }
   } catch (error) {
-    console.error('[SESSION] Error parsing session from request:', error)
     return null
   }
 }
@@ -33,21 +32,15 @@ function getSessionFromRequest(request: NextRequest) {
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    console.log('[ADMIN_USER_DETAILED] Get detailed user data API called for:', id)
-
     const sessionInfo = getSessionFromRequest(request)
-    if (!sessionInfo) {
-      console.log('[ADMIN_USER_DETAILED] No valid session found in request')
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    if (!sessionInfo) {      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
     const { supabase } = sessionInfo
 
     // Get current user info and verify admin role
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    if (userError || !user) {
-      console.log('[ADMIN_USER_DETAILED] Invalid token or user not found:', userError?.message)
-      return NextResponse.json({ error: 'Invalid authentication token' }, { status: 401 })
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (userError || !user) {      return NextResponse.json({ error: 'Invalid authentication token' }, { status: 401 })
     }
 
     const { data: userData, error: dbError } = await supabase
@@ -56,15 +49,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .eq('id', user.id)
       .single()
 
-    if (dbError || !userData || userData.role !== 'admin') {
-      console.log('[ADMIN_USER_DETAILED] User is not admin:', userData?.role || 'no role found')
-      return NextResponse.json({ error: 'Admin role required' }, { status: 403 })
+    if (dbError || !userData || userData.role !== 'admin') {      return NextResponse.json({ error: 'Admin role required' }, { status: 403 })
     }
-
-    console.log('[ADMIN_USER_DETAILED] Admin user authenticated, fetching detailed user data:', id)
-
     // Use service role for admin access
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
     if (!supabaseServiceKey) {
       return NextResponse.json({ error: 'Service configuration error' }, { status: 500 })
     }
@@ -73,26 +61,24 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey)
 
     // Get user basic info
-    const { data: userInfo, error: userInfoError } = await serviceClient
+        const { data: userInfo, error: userInfoError } = await serviceClient
       .from('users')
       .select('*')
       .eq('id', id)
       .single()
 
-    if (userInfoError) {
-      console.error('[ADMIN_USER_DETAILED] User info error:', userInfoError)
-      return NextResponse.json({ error: userInfoError.message }, { status: 500 })
+    if (userInfoError) {      return NextResponse.json({ error: userInfoError.message }, { status: 500 })
     }
 
     // Get user settings
-    const { data: userSettings } = await serviceClient
+        const { data: userSettings } = await serviceClient
       .from('user_settings')
       .select('*')
       .eq('user_id', id)
       .single()
 
     // Get integrations
-    const { data: integrations } = await serviceClient
+        const { data: integrations } = await serviceClient
       .from('integrations')
       .select(`
         id,
@@ -110,14 +96,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .order('created_at', { ascending: false })
 
     // Get products
-    const { data: products } = await serviceClient
+        const { data: products } = await serviceClient
       .from('products')
       .select('*')
       .eq('user_id', id)
       .order('created_at', { ascending: false })
 
     // Get orders through integrations
-    const integrationIds = integrations?.map(i => i.id) || []
+        const integrationIds = integrations?.map(i => i.id) || []
     let orders = []
     let customers = []
 
@@ -141,7 +127,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       orders = ordersData || []
 
       // Get customers
-      const { data: customersData } = await serviceClient
+        const { data: customersData } = await serviceClient
         .from('customers')
         .select('*')
         .eq('user_id', id)
@@ -152,7 +138,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     // Get CRM leads
-    const { data: crmLeads } = await serviceClient
+        const { data: crmLeads } = await serviceClient
       .from('crm_leads')
       .select(`
         id,
@@ -172,7 +158,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .limit(20) // Limit to recent leads
 
     // Calculate statistics
-    const stats = {
+        const stats = {
       integrations: {
         total: integrations?.length || 0,
         active: integrations?.filter(i => i.is_active).length || 0,
@@ -213,19 +199,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       crmLeads: crmLeads || [],
       stats
     }
-
-    console.log('[ADMIN_USER_DETAILED] Detailed user data compiled successfully:', {
-      integrations: detailedUserData.integrations.length,
-      products: detailedUserData.products.length,
-      orders: detailedUserData.orders.length,
-      customers: detailedUserData.customers.length,
-      crmLeads: detailedUserData.crmLeads.length,
-    })
-
     return NextResponse.json(detailedUserData)
 
   } catch (error: any) {
-    console.error('[ADMIN_USER_DETAILED] Unexpected error:', error)
     return NextResponse.json({
       error: 'Failed to fetch detailed user data',
       details: error.message

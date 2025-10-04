@@ -4,9 +4,6 @@ import { supabase } from '@/lib/supabase'
 export async function POST(request: NextRequest) {
   try {
     const { email, password } = await request.json()
-
-    console.log('Login API called for:', email)
-
     // Validate input
     if (!email || !password) {
       return NextResponse.json(
@@ -16,14 +13,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Sign in with Supabase Auth
-    const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({
       email,
       password
     })
 
     if (signInError) {
-      console.error('Login error:', signInError)
-
       // Map Supabase errors to user-friendly messages
       let errorMessage = signInError.message
       if (signInError.message.includes('Invalid login credentials')) {
@@ -39,9 +34,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-
-    console.log('Login successful for:', email)
-
     return NextResponse.json({
       success: true,
       user: data.user,
@@ -49,7 +41,6 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Login API error:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

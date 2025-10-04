@@ -8,25 +8,16 @@ import { NextRequest, NextResponse } from 'next/server'
  */
 
 export async function POST(request: NextRequest) {
-  console.log('[WEBHOOK_VALIDATION] WooCommerce validation request received')
-
   try {
     // Log the validation request details
-    const headers = Object.fromEntries(request.headers.entries())
+        const headers = Object.fromEntries(request.headers.entries())
     const url = new URL(request.url)
-    const query = Object.fromEntries(url.searchParams.entries())
-
-    console.log('[WEBHOOK_VALIDATION] Headers:', JSON.stringify(headers, null, 2))
-    console.log('[WEBHOOK_VALIDATION] Query:', JSON.stringify(query, null, 2))
+    const query = Object.fromEntries(url.searchParams.entries())))
 
     // Try to read body
     let body = ''
     try {
-      body = await request.text()
-      console.log('[WEBHOOK_VALIDATION] Body:', body)
-    } catch (e) {
-      console.log('[WEBHOOK_VALIDATION] No body or body read error')
-    }
+      body = await request.text()    } catch (e) {    }
 
     // Always return success for validation
     return NextResponse.json({
@@ -37,8 +28,6 @@ export async function POST(request: NextRequest) {
     }, { status: 200 })
 
   } catch (error: any) {
-    console.error('[WEBHOOK_VALIDATION] Error:', error)
-
     // Still return success to pass validation
     return NextResponse.json({
       success: true,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getUserStatsCache, setUserStatsCache } from '@/lib/cache-manager'
 
 // Server-side function to get session from request headers
 function getSessionFromRequest(request: NextRequest) {
@@ -12,7 +13,7 @@ function getSessionFromRequest(request: NextRequest) {
     const token = authHeader.substring(7) // Remove "Bearer " prefix
 
     // Create a Supabase client with this token to verify and get user info
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -25,15 +26,12 @@ function getSessionFromRequest(request: NextRequest) {
 
     return { token, supabase }
   } catch (error) {
-    console.error('[SESSION] Error parsing session from request:', error)
     return null
   }
 }
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('[ADMIN_USER_STATS] User stats API called')
-
     const sessionInfo = getSessionFromRequest(request)
     if (!sessionInfo) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
@@ -42,7 +40,7 @@ export async function GET(request: NextRequest) {
     const { supabase } = sessionInfo
 
     // Get current user info and verify admin role
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
       return NextResponse.json({ error: 'Invalid authentication token' }, { status: 401 })
     }
@@ -57,24 +55,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Admin role required' }, { status: 403 })
     }
 
+    // Check cache first
+    const cachedStats = getUserStatsCache()
+    if (cachedStats) {
+      return NextResponse.json(cachedStats)
+    }
+
     // Use service role for admin access
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
     if (!supabaseServiceKey) {
       return NextResponse.json({ error: 'Service configuration error' }, { status: 500 })
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey)
-
-    console.log('[ADMIN_USER_STATS] Fetching user statistics via service role')
-
     const { data: statsData, error: statsError } = await serviceClient
       .from('users')
       .select('role')
 
-    if (statsError) {
-      console.error('[ADMIN_USER_STATS] Error:', statsError)
-      return NextResponse.json({ error: statsError.message }, { status: 500 })
+    if (statsError) {      return NextResponse.json({ error: statsError.message }, { status: 500 })
     }
 
     const stats = {
@@ -84,12 +83,14 @@ export async function GET(request: NextRequest) {
       admins: statsData?.filter(u => u.role === 'admin').length || 0
     }
 
-    console.log('[ADMIN_USER_STATS] Stats calculated:', stats)
+    const responseData = { stats }
 
-    return NextResponse.json({ stats })
+    // Cache the stats
+    setUserStatsCache(responseData)
+
+    return NextResponse.json(responseData)
 
   } catch (error: any) {
-    console.error('[ADMIN_USER_STATS] Unexpected error:', error)
     return NextResponse.json({
       error: 'Failed to fetch user statistics',
       details: error.message

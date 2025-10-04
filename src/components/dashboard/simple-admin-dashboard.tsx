@@ -61,15 +61,23 @@ export function SimpleAdminDashboard() {
         throw new Error('Authentication required')
       }
 
-      // Fetch real data from database
-      const result = await getAdminDashboardAction()
+      // Clear all caches before fetching fresh data
+      await fetch('/api/cache/clear', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+
+      // Fetch fresh data from database
+        const result = await getAdminDashboardAction()
 
       if (!result.success) {
         throw new Error(result.error || 'Failed to fetch dashboard data')
       }
 
       // Transform the data to match our simplified interface
-      const transformedData: SimpleDashboardData = {
+        const transformedData: SimpleDashboardData = {
         summary: {
           totalUsers: result.data.summary.totalUsers || 0,
           totalOrders: result.data.summary.totalOrders || 0,
@@ -93,9 +101,7 @@ export function SimpleAdminDashboard() {
 
       setData(transformedData)
       setError(null)
-    } catch (err: any) {
-      console.error('Error fetching dashboard data:', err)
-      setError(err.message || 'Failed to load dashboard data')
+    } catch (err: any) {      setError(err.message || 'Failed to load dashboard data')
     } finally {
       setLoading(false)
     }
@@ -182,9 +188,9 @@ export function SimpleAdminDashboard() {
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-          <Badge variant="outline" className="flex items-center gap-1">
-            <Activity className="h-3 w-3" />
-            Live
+          <Badge variant="outline" className="flex items-center gap-2 px-4 py-1.5">
+            <div className="heartbeat-line" />
+            <span>Live</span>
           </Badge>
         </div>
       </div>

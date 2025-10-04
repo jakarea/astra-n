@@ -137,9 +137,7 @@ export function EditLeadModal({ isOpen, onClose, onSuccess, leadId }: EditLeadMo
         kpi_status: data.kpi_status || '',
         notes: data.notes || ''
       })
-    } catch (error) {
-      console.error('Error loading lead:', error)
-      alert('Failed to load lead data')
+    } catch (error) {      alert('Failed to load lead data')
       onClose()
     } finally {
       setLoading(false)
@@ -170,9 +168,6 @@ export function EditLeadModal({ isOpen, onClose, onSuccess, leadId }: EditLeadMo
         kpi_status: formData.kpi_status || null,
         notes: formData.notes || null
       }
-
-      console.log('[EDIT_LEAD] Updating lead with data:', updateData)
-
       const { data, error } = await supabase
         .from('crm_leads')
         .update(updateData)
@@ -180,20 +175,13 @@ export function EditLeadModal({ isOpen, onClose, onSuccess, leadId }: EditLeadMo
         .eq('user_id', session.user.id)
         .select()
         .single()
-
-      console.log('[EDIT_LEAD] Update result:', { data, error })
-
-      if (error) {
-        console.error('[EDIT_LEAD] Update error:', error)
-        throw new Error(error.message)
+      if (error) {        throw new Error(error.message)
       }
 
       // Pass the updated lead data to parent
       onSuccess(data)
       onClose()
-    } catch (error) {
-      console.error('Error updating lead:', error)
-      alert('Failed to update lead. Please try again.')
+    } catch (error) {      alert('Failed to update lead. Please try again.')
     } finally {
       setSaving(false)
     }

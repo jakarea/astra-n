@@ -19,7 +19,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Check for existing session
-    const existingSession = getSession()
+        const existingSession = getSession()
 
     if (existingSession && isAuthenticated()) {
       setUser(existingSession.user)

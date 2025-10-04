@@ -99,9 +99,7 @@ export function SellerDashboard() {
       }
 
       setData(result.data)
-    } catch (error: any) {
-      console.error('Error fetching seller dashboard:', error)
-      toast.error('Failed to load dashboard data', {
+    } catch (error: any) {      toast.error('Failed to load dashboard data', {
         description: error.message
       })
     } finally {

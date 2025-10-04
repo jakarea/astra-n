@@ -9,10 +9,7 @@ export function getSupabaseClient(): SupabaseClient {
 
     if (!supabaseUrl || !supabaseAnonKey) {
       throw new Error('Missing Supabase environment variables')
-    }
-
-    console.log('[SUPABASE] Creating singleton client instance')
-    supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
+    }    supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,

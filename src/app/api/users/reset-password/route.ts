@@ -3,8 +3,6 @@ import { createClient } from '@supabase/supabase-js'
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('[RESET_PASSWORD_API] Password reset request received')
-
     const { email } = await request.json()
 
     // Validate input
@@ -21,31 +19,23 @@ export async function POST(request: NextRequest) {
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
     const supabase = createClient(supabaseUrl, supabaseAnonKey)
-
-    console.log('[RESET_PASSWORD_API] Sending password reset email to:', email)
-
     // Use Supabase's built-in password reset functionality
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${request.nextUrl.origin}/auth/reset-password`
     })
 
     if (error) {
-      console.error('[RESET_PASSWORD_API] Reset password error:', error)
       // Don't reveal if user exists or not for security reasons
       // Always return success to prevent email enumeration
       return NextResponse.json({
         message: 'If an account with this email exists, a password reset email has been sent.'
       })
     }
-
-    console.log('[RESET_PASSWORD_API] Password reset email sent successfully')
-
     return NextResponse.json({
       message: 'If an account with this email exists, a password reset email has been sent.'
     })
 
   } catch (error: any) {
-    console.error('[RESET_PASSWORD_API] Unexpected error:', error)
     return NextResponse.json({
       message: 'If an account with this email exists, a password reset email has been sent.'
     })
