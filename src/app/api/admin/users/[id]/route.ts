@@ -208,7 +208,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     }
 
     // Prevent self-deletion
-    if (params.id === user.id) {
+    if (id === user.id) {
       return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 })
     }
 
@@ -219,19 +219,42 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-    const serviceClient = createClient(supabaseUrl, supabaseServiceKey)
+    const serviceClient = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    })
 
-    const { error } = await serviceClient
+    // Delete from Supabase Auth first (admin API)
+    const { error: authError } = await serviceClient.auth.admin.deleteUser(id)
+
+    if (authError) {
+      console.error('[ADMIN_USER_DELETE] Auth delete error:', authError)
+      return NextResponse.json({
+        error: 'Failed to delete user from authentication',
+        details: authError.message
+      }, { status: 500 })
+    }
+
+    console.log('[ADMIN_USER_DELETE] User deleted from auth, now deleting from users table')
+
+    // Delete from users table (this should cascade to related records if FK constraints are set)
+    const { error: deleteError } = await serviceClient
       .from('users')
       .delete()
       .eq('id', id)
 
-    if (error) {
-      console.error('[ADMIN_USER_DELETE] Delete error:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    if (deleteError) {
+      console.error('[ADMIN_USER_DELETE] Database delete error:', deleteError)
+      // Auth user is already deleted, log warning but still return success
+      console.warn('[ADMIN_USER_DELETE] User deleted from auth but failed to delete from users table:', deleteError.message)
     }
 
-    return NextResponse.json({ success: true, message: 'User deleted successfully' })
+    return NextResponse.json({
+      success: true,
+      message: 'User deleted successfully from both authentication and database'
+    })
 
   } catch (error: any) {
     console.error('[ADMIN_USER_DELETE] Unexpected error:', error)

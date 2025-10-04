@@ -22,7 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Plus, Eye, Edit, Trash2, Mail, Phone, Users, UserCheck, TrendingUp, DollarSign, Search, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Eye, Edit, Trash2, Mail, Phone, Users, UserCheck, TrendingUp, DollarSign, Search, ChevronLeft, ChevronRight, Download } from 'lucide-react'
 
 // Status badge helper using default Shadcn Badge variants
 function getStatusBadge(status: string | null, type: 'cod' | 'logistic' | 'kpi') {
@@ -121,8 +121,24 @@ export default function CRMPage() {
     confirmed: 0,
     revenue: 0
   })
+  const [mounted, setMounted] = useState(false)
+  const [userRole, setUserRole] = useState<string | null>(null)
 
   const ITEMS_PER_PAGE = 10
+
+  // Helper function to check if user is admin (client-side only)
+  const isUserAdmin = () => {
+    return mounted && userRole === 'admin'
+  }
+
+  // Set mounted state and user role on client
+  useEffect(() => {
+    setMounted(true)
+    const session = getSession()
+    if (session) {
+      setUserRole(session.user.role || null)
+    }
+  }, [])
 
   const loadLeads = useCallback(async (page = 1, search = '') => {
     try {
@@ -143,13 +159,23 @@ export default function CRMPage() {
           if (apiData.success) {
             const leads = apiData.leads || []
 
+            // Calculate stats from all leads (one-time)
+            const stats = {
+              total: leads.length,
+              pending: leads.filter((l: any) => l.cod_status === 'pending').length,
+              confirmed: leads.filter((l: any) => l.cod_status === 'confirmed').length,
+              revenue: 0
+            }
+            setTotalStats(stats)
+
             // Apply search filter if needed
             let filteredLeads = leads
             if (search && search.length >= 3) {
+              const searchLower = search.toLowerCase()
               filteredLeads = leads.filter((lead: any) =>
-                lead.name?.toLowerCase().includes(search.toLowerCase()) ||
-                lead.email?.toLowerCase().includes(search.toLowerCase()) ||
-                lead.phone?.toLowerCase().includes(search.toLowerCase())
+                lead.name?.toLowerCase().includes(searchLower) ||
+                lead.email?.toLowerCase().includes(searchLower) ||
+                lead.phone?.toLowerCase().includes(searchLower)
               )
             }
 
@@ -160,8 +186,6 @@ export default function CRMPage() {
             setLeads(paginatedLeads)
             setTotalCount(filteredLeads.length)
             setHasError(false)
-
-            await loadStats()
             return
           } else {
             throw new Error(apiData.error || 'API request failed')
@@ -174,15 +198,21 @@ export default function CRMPage() {
       // Regular user or admin fallback - use Supabase client
       const supabase = getAuthenticatedClient()
 
-      // Build base query
+      // Build base query - optimize by only selecting needed fields
       let query = supabase
         .from('crm_leads')
         .select(`
-          *,
-          user:users(name),
-          tags:crm_lead_tags(
-            tag:crm_tags(id, name, color)
-          )
+          id,
+          name,
+          email,
+          phone,
+          source,
+          logistic_status,
+          cod_status,
+          kpi_status,
+          tags,
+          created_at,
+          user:users(name)
         `, { count: 'exact' })
 
       // Apply role-based filtering for non-admin users
@@ -211,7 +241,10 @@ export default function CRMPage() {
       setTotalCount(count || 0)
       setHasError(false)
 
-      await loadStats()
+      // Load stats separately for non-admin
+      if (!isAdmin) {
+        await loadStats()
+      }
     } catch (error) {
       setHasError(true)
       setErrorMessage('Unable to connect to database. Please check your configuration.')
@@ -227,43 +260,12 @@ export default function CRMPage() {
         return
       }
 
-      const isAdmin = session.user.role === 'admin'
-
-      // For admin users, use API endpoint to get correct total count
-      if (isAdmin) {
-        try {
-          const response = await fetch('/api/debug/crm-leads')
-          const apiData = await response.json()
-
-          if (apiData.success) {
-            const allLeads = apiData.leads || []
-            const stats = {
-              total: allLeads.length,
-              pending: allLeads.filter((l: any) => l.cod_status === 'pending').length,
-              confirmed: allLeads.filter((l: any) => l.cod_status === 'confirmed').length,
-              revenue: 0
-            }
-            setTotalStats(stats)
-            return
-          }
-        } catch (error) {
-          // Fall back to regular query
-        }
-      }
-
-      // Regular user or admin fallback
+      // Only used for non-admin users (admin stats are calculated in loadLeads)
       const supabase = getAuthenticatedClient()
-      let statsQuery = supabase
+      const { data: statsData, error: statsError } = await supabase
         .from('crm_leads')
-        .select(`
-          cod_status
-        `)
-
-      if (!isAdmin) {
-        statsQuery = statsQuery.eq('user_id', session.user.id)
-      }
-
-      const { data: statsData, error: statsError } = await statsQuery
+        .select('cod_status')
+        .eq('user_id', session.user.id)
 
       if (!statsError && statsData) {
         const stats = {
@@ -398,6 +400,97 @@ export default function CRMPage() {
     }
   }
 
+  const handleExportCSV = async () => {
+    try {
+      const session = getSession()
+      if (!session) {
+        alert('You must be logged in to export data.')
+        return
+      }
+
+      const isAdmin = session.user.role === 'admin'
+      let exportData: any[] = []
+
+      if (isAdmin) {
+        // Admin exports all leads via API
+        const response = await fetch('/api/debug/crm-leads')
+        const apiData = await response.json()
+        if (apiData.success) {
+          exportData = apiData.leads || []
+        }
+      } else {
+        // Seller exports only their own leads
+        const supabase = getAuthenticatedClient()
+        const { data, error } = await supabase
+          .from('crm_leads')
+          .select(`
+            *,
+            user:users!crm_leads_user_id_fkey(name)
+          `)
+          .eq('user_id', session.user.id)
+          .order('created_at', { ascending: false })
+
+        if (error) {
+          throw new Error(error.message)
+        }
+        exportData = data || []
+      }
+
+      // Helper function to get status label
+      const getStatusLabel = (status: string | null) => {
+        if (!status) return '-'
+        return status.charAt(0).toUpperCase() + status.slice(1)
+      }
+
+      // Create CSV content based on role
+      let headers: string[]
+      let rows: string[]
+
+      if (isAdmin) {
+        headers = ['Created', 'Name', 'Owner', 'Contact', 'Source', 'Logistics', 'COD', 'KPI', 'Tags']
+        rows = exportData.map(lead => [
+          new Date(lead.created_at).toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+          `"${lead.name || '-'}"`,
+          `"${lead.user?.name || 'Unknown User'}"`,
+          `"${lead.email || '-'} / ${lead.phone || '-'}"`,
+          `"${lead.source || '-'}"`,
+          `"${getStatusLabel(lead.logistic_status)}"`,
+          `"${getStatusLabel(lead.cod_status)}"`,
+          `"${getStatusLabel(lead.kpi_status)}"`,
+          `"${lead.tags || '-'}"`
+        ].join(','))
+      } else {
+        headers = ['Created', 'Name', 'Contact', 'Source', 'Logistics', 'COD', 'KPI', 'Tags']
+        rows = exportData.map(lead => [
+          new Date(lead.created_at).toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+          `"${lead.name || '-'}"`,
+          `"${lead.email || '-'} / ${lead.phone || '-'}"`,
+          `"${lead.source || '-'}"`,
+          `"${getStatusLabel(lead.logistic_status)}"`,
+          `"${getStatusLabel(lead.cod_status)}"`,
+          `"${getStatusLabel(lead.kpi_status)}"`,
+          `"${lead.tags || '-'}"`
+        ].join(','))
+      }
+
+      const csvContent = [headers.join(','), ...rows].join('\n')
+
+      // Create and download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+      link.setAttribute('download', `crm-leads-${new Date().toISOString().split('T')[0]}.csv`)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    } catch (error) {
+      console.error('Error exporting CSV:', error)
+      alert('Failed to export CSV. Please try again.')
+    }
+  }
+
   // Pagination calculations
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE)
   const startItem = (currentPage - 1) * ITEMS_PER_PAGE + 1
@@ -445,6 +538,10 @@ export default function CRMPage() {
           </p>
         </div>
         <div className="flex gap-3">
+          <Button onClick={handleExportCSV} variant="outline">
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
           <Button onClick={() => setAddModalOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Lead
@@ -542,7 +639,7 @@ export default function CRMPage() {
                   <TableRow>
                     <TableHead>Created</TableHead>
                     <TableHead>Name</TableHead>
-                    {isAdmin() && <TableHead>Owner</TableHead>}
+                    {isUserAdmin() && <TableHead>Owner</TableHead>}
                     <TableHead>Contact</TableHead>
                     <TableHead>Source</TableHead>
                     <TableHead>Logistics</TableHead>
@@ -562,7 +659,7 @@ export default function CRMPage() {
                           <Skeleton className="h-3 w-16" />
                         </div>
                       </TableCell>
-                      {isAdmin() && (
+                      {isUserAdmin() && (
                         <TableCell>
                           <Skeleton className="h-4 w-24" />
                         </TableCell>
@@ -607,7 +704,7 @@ export default function CRMPage() {
                     <TableRow>
                       <TableHead>Created</TableHead>
                       <TableHead>Name</TableHead>
-                      {isAdmin() && <TableHead>Owner</TableHead>}
+                      {isUserAdmin() && <TableHead>Owner</TableHead>}
                       <TableHead>Contact</TableHead>
                       <TableHead>Source</TableHead>
                       <TableHead>Logistics</TableHead>
@@ -635,7 +732,7 @@ export default function CRMPage() {
                         </div>
                       </TableCell>
 
-                      {isAdmin() && (
+                      {isUserAdmin() && (
                         <TableCell>
                           <div className="text-sm">
                             {lead.user?.name || 'Unknown User'}

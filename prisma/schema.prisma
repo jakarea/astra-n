@@ -96,19 +96,20 @@ model Product {
 
 // Pivot table to assign products to sellers
 model SellerProduct {
-  sellerId  String   @map("seller_id") @db.Uuid
-  productId Int      @map("product_id")
-  assignedAt DateTime @default(now()) @map("assigned_at")
+  sellerId   String   @map("seller_id") @db.Uuid
+  productId  Int      @map("product_id")
+  assignedAt DateTime @default(now()) @map("assigned_at") @db.Timestamp(3)
   assignedBy String   @map("assigned_by") @db.Uuid // Admin who made the assignment
 
-  // Relations
-  seller    User    @relation("SellerProducts", fields: [sellerId], references: [id], onDelete: Cascade)
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  assigner  User    @relation("ProductAssignments", fields: [assignedBy], references: [id], onDelete: Cascade)
+  // Relations with explicit constraint names
+  seller   User    @relation("SellerProducts", fields: [sellerId], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "seller_products_seller_id_fkey")
+  product  Product @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "seller_products_product_id_fkey")
+  assigner User    @relation("ProductAssignments", fields: [assignedBy], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "seller_products_assigned_by_fkey")
 
-  @@id([sellerId, productId])
-  @@index([sellerId])
-  @@index([productId])
+  @@id([sellerId, productId], map: "seller_products_pkey")
+  @@index([sellerId], map: "idx_seller_products_seller_id")
+  @@index([productId], map: "idx_seller_products_product_id")
+  @@index([assignedBy], map: "idx_seller_products_assigned_by")
   @@map("seller_products")
 }
 

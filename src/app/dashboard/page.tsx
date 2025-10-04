@@ -7,9 +7,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle, Shield, User } from "lucide-react"
 import { getSession } from '@/lib/auth'
 
-// Lazy load heavy dashboard components
-const AdminDashboard = lazy(() => import('@/components/dashboard/admin-dashboard').then(module => ({ default: module.AdminDashboard })))
-const SellerDashboard = lazy(() => import('@/components/dashboard/seller-dashboard').then(module => ({ default: module.SellerDashboard })))
+// Lazy load simplified dashboard components
+const SimpleAdminDashboard = lazy(() => import('@/components/dashboard/simple-admin-dashboard').then(module => ({ default: module.SimpleAdminDashboard })))
+const SimpleSellerDashboard = lazy(() => import('@/components/dashboard/simple-seller-dashboard').then(module => ({ default: module.SimpleSellerDashboard })))
 
 // Dashboard loading skeleton
 function DashboardSkeleton() {
@@ -23,7 +23,7 @@ function DashboardSkeleton() {
         <Skeleton className="h-10 w-32" />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {Array.from({ length: 6 }).map((_, i) => (
           <Card key={i}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -68,36 +68,29 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const fetchUserRole = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-
-        const session = getSession()
-        if (!session) {
-          setError('Please log in to access your dashboard')
-          setLoading(false)
-          return
-        }
-
-        // Get user role from session
-        const role = session.user.role
-        if (!role) {
-          setError('User role not found. Please contact support.')
-          setLoading(false)
-          return
-        }
-
-        setUserRole(role)
-      } catch (error: any) {
-        console.error('Error fetching user role:', error)
-        setError('Failed to load user information')
-      } finally {
+    try {
+      const session = getSession()
+      if (!session) {
+        setError('Please log in to access your dashboard')
         setLoading(false)
+        return
       }
-    }
 
-    fetchUserRole()
+      // Get user role from session
+      const role = session.user.role
+      if (!role) {
+        setError('User role not found. Please contact support.')
+        setLoading(false)
+        return
+      }
+
+      setUserRole(role)
+      setLoading(false)
+    } catch (error: any) {
+      console.error('Error fetching user role:', error)
+      setError('Failed to load user information')
+      setLoading(false)
+    }
   }, [])
 
   if (loading) {
@@ -111,8 +104,8 @@ export default function DashboardPage() {
           <Skeleton className="h-10 w-32" />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {Array.from({ length: 4 }).map((_, i) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {Array.from({ length: 6 }).map((_, i) => (
             <Card key={i}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <Skeleton className="h-4 w-24" />
@@ -173,12 +166,12 @@ export default function DashboardPage() {
     <div className="min-h-screen">
       {userRole === 'admin' && (
         <Suspense fallback={<DashboardSkeleton />}>
-          <AdminDashboard />
+          <SimpleAdminDashboard />
         </Suspense>
       )}
       {userRole === 'seller' && (
         <Suspense fallback={<DashboardSkeleton />}>
-          <SellerDashboard />
+          <SimpleSellerDashboard />
         </Suspense>
       )}
 

@@ -25,6 +25,8 @@ import { EditProductModal } from '@/components/inventory/edit-product-modal'
 import { ViewProductModal } from '@/components/inventory/view-product-modal'
 import { AssignProductModal } from '@/components/inventory/assign-product-modal'
 
+
+
 // Animated counter component
 function AnimatedCounter({ value, duration = 1000 }: { value: number; duration?: number }) {
   const [count, setCount] = useState(0)
@@ -70,6 +72,8 @@ export default function InventoryPage() {
   const [editProductId, setEditProductId] = useState<string | null>(null)
   const [viewProductId, setViewProductId] = useState<string | null>(null)
   const [assignProductId, setAssignProductId] = useState<string | null>(null)
+  const [userRole, setUserRole] = useState<string | null>(null)
+  const [mounted, setMounted] = useState(false)
   const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean; productId: string; productName: string }>({
     isOpen: false,
     productId: '',
@@ -88,6 +92,20 @@ export default function InventoryPage() {
 
   const ITEMS_PER_PAGE = 10
   const LOW_STOCK_THRESHOLD = 10
+
+  // Helper function to check if user is admin (client-side only)
+  const isUserAdmin = () => {
+    return mounted && userRole === 'admin'
+  }
+
+  // Set mounted state and user role on client
+  useEffect(() => {
+    setMounted(true)
+    const session = getSession()
+    if (session) {
+      setUserRole(session.user.role || null)
+    }
+  }, [])
 
   const loadProducts = async (page = 1, search = '') => {
     try {
@@ -109,7 +127,7 @@ export default function InventoryPage() {
       // Build search query with different logic for admin vs seller
       let query
 
-      if (isAdmin()) {
+      if (session.user.role === 'admin') {
         // Admin sees all products with creator and assignment info
         query = supabase
           .from('products')
@@ -162,7 +180,7 @@ export default function InventoryPage() {
 
       let processedProducts = []
 
-      if (isAdmin()) {
+      if (session.user.role === 'admin') {
         processedProducts = data || []
       } else {
         // For sellers, extract product data and add assignment info
@@ -205,7 +223,7 @@ export default function InventoryPage() {
       // Load stats with different logic for admin vs seller
       let statsQuery
 
-      if (isAdmin()) {
+      if (session.user.role === 'admin') {
         // Admin sees all products stats
         statsQuery = supabase
           .from('products')
@@ -225,7 +243,7 @@ export default function InventoryPage() {
       if (!statsError && statsData) {
         let products
 
-        if (isAdmin()) {
+        if (session.user.role === 'admin') {
           products = statsData
         } else {
           // For sellers, extract product data from the relation
@@ -364,7 +382,7 @@ export default function InventoryPage() {
         .eq('id', productId)
 
       // For sellers, also check user_id; admin can delete any product
-      if (!isAdmin()) {
+      if (session.user.role !== 'admin') {
         deleteQuery = deleteQuery.eq('user_id', session.user.id)
       }
 
@@ -394,32 +412,92 @@ export default function InventoryPage() {
 
       const supabase = getAuthenticatedClient()
 
-      let exportQuery = supabase
-        .from('products')
-        .select('name, sku, price, stock')
+      let exportQuery
+      let exportData: any[] = []
 
-      // Admin exports all products, seller exports only their own
-      if (!isAdmin()) {
-        exportQuery = exportQuery.eq('user_id', session.user.id)
+      if (session.user.role === 'admin') {
+        // Admin exports all products with assignment info
+        exportQuery = supabase
+          .from('products')
+          .select(`
+            *,
+            sellerProducts:seller_products(seller_id)
+          `)
+
+        const { data, error } = await exportQuery.order('name')
+
+        if (error) {
+          throw new Error(error.message)
+        }
+
+        exportData = data || []
+      } else {
+        // Seller exports only assigned products
+        exportQuery = supabase
+          .from('seller_products')
+          .select(`
+            assignedAt:assigned_at,
+            product:products!seller_products_product_id_fkey(
+              id,
+              sku,
+              name,
+              stock,
+              price
+            )
+          `)
+          .eq('seller_id', session.user.id)
+
+        const { data, error } = await exportQuery.order('assigned_at', { ascending: false })
+
+        if (error) {
+          throw new Error(error.message)
+        }
+
+        // Transform seller data to match product structure
+        exportData = (data || []).map(item => ({
+          ...item.product,
+          assignedAt: item.assignedAt
+        }))
       }
 
-      const { data, error } = await exportQuery.order('name')
-
-      if (error) {
-        throw new Error(error.message)
+      // Helper function to get stock status
+      const getStockStatus = (stock: number) => {
+        if (stock === 0) return 'Out of Stock'
+        if (stock <= LOW_STOCK_THRESHOLD) return 'Low Stock'
+        return 'In Stock'
       }
 
-      // Create CSV content
-      const headers = ['Name', 'SKU', 'Price', 'Stock']
-      const csvContent = [
-        headers.join(','),
-        ...data.map(product => [
+      // Create CSV content based on role
+      let headers: string[]
+      let rows: string[]
+
+      if (session.user.role === 'admin') {
+        headers = ['Name', 'SKU', 'Price', 'Stock', 'Status', 'Assigned To']
+        rows = exportData.map(product => [
           `"${product.name}"`,
           `"${product.sku}"`,
           Number(product.price).toFixed(2),
-          product.stock
+          product.stock,
+          `"${getStockStatus(product.stock)}"`,
+          product.sellerProducts && product.sellerProducts.length > 0
+            ? `"${product.sellerProducts.length} user${product.sellerProducts.length !== 1 ? 's' : ''}"`
+            : '"Not assigned"'
         ].join(','))
-      ].join('\n')
+      } else {
+        headers = ['Name', 'SKU', 'Price', 'Stock', 'Status', 'Assigned Date']
+        rows = exportData.map(product => [
+          `"${product.name}"`,
+          `"${product.sku}"`,
+          Number(product.price).toFixed(2),
+          product.stock,
+          `"${getStockStatus(product.stock)}"`,
+          product.assignedAt
+            ? `"${new Date(product.assignedAt).toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' })}"`
+            : '"-"'
+        ].join(','))
+      }
+
+      const csvContent = [headers.join(','), ...rows].join('\n')
 
       // Create and download file
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
@@ -441,6 +519,26 @@ export default function InventoryPage() {
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE)
   const startItem = (currentPage - 1) * ITEMS_PER_PAGE + 1
   const endItem = Math.min(currentPage * ITEMS_PER_PAGE, totalCount)
+
+  // Show loading state until mounted to prevent hydration issues
+  if (!mounted) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <div className="h-8 w-64 bg-muted animate-pulse rounded mb-2" />
+            <div className="h-4 w-96 bg-muted animate-pulse rounded" />
+          </div>
+          <div className="h-10 w-32 bg-muted animate-pulse rounded" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-24 bg-muted animate-pulse rounded" />
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   // Show error state if database connection failed
   if (hasError) {
@@ -483,6 +581,7 @@ export default function InventoryPage() {
 
   return (
     <div className="space-y-6">
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -496,7 +595,7 @@ export default function InventoryPage() {
             <Download className="h-4 w-4 mr-2" />
             Export CSV
           </Button>
-          {isAdmin() && (
+          {isUserAdmin() && (
             <Button onClick={() => setAddModalOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Add Product
@@ -598,8 +697,8 @@ export default function InventoryPage() {
                     <TableHead>Price</TableHead>
                     <TableHead>Stock</TableHead>
                     <TableHead>Status</TableHead>
-                    {isAdmin() && <TableHead>Assigned To</TableHead>}
-                    {!isAdmin() && <TableHead>Assigned Date</TableHead>}
+                    {isUserAdmin() && <TableHead>Assigned To</TableHead>}
+                    {!isUserAdmin() && <TableHead>Assigned Date</TableHead>}
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -611,16 +710,16 @@ export default function InventoryPage() {
                       <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-12" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                      {isAdmin() && (
+                      {isUserAdmin() && (
                         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                       )}
-                      {!isAdmin() && (
+                      {!isUserAdmin() && (
                         <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                       )}
                       <TableCell>
                         <div className="flex gap-2">
                           <Skeleton className="h-8 w-8 rounded" />
-                          {isAdmin() && (
+                          {isUserAdmin() && (
                             <>
                               <Skeleton className="h-8 w-8 rounded" />
                               <Skeleton className="h-8 w-8 rounded" />
@@ -639,12 +738,12 @@ export default function InventoryPage() {
               <div className="text-muted-foreground mb-4">
                 {searchQuery
                   ? 'No products found matching your search.'
-                  : isAdmin()
+                  : isUserAdmin()
                     ? 'No products available. Add your first product!'
                     : 'No products assigned to you yet. Please contact your admin to assign products.'
                 }
               </div>
-              {isAdmin() && (
+              {isUserAdmin() && (
                 <Button onClick={() => setAddModalOpen(true)}>
                   <Plus className="h-4 w-4 mr-2" />
                   Add First Product
@@ -662,8 +761,8 @@ export default function InventoryPage() {
                       <TableHead>Price</TableHead>
                       <TableHead>Stock</TableHead>
                       <TableHead>Status</TableHead>
-                      {isAdmin() && <TableHead>Assigned To</TableHead>}
-                      {!isAdmin() && <TableHead>Assigned Date</TableHead>}
+                      {isUserAdmin() && <TableHead>Assigned To</TableHead>}
+                      {!isUserAdmin() && <TableHead>Assigned Date</TableHead>}
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -701,17 +800,13 @@ export default function InventoryPage() {
                             )}
                           </TableCell>
 
-                          {isAdmin() && (
+                          {isUserAdmin() && (
                             <TableCell>
                               <div className="text-sm">
                                 {product.sellerProducts && product.sellerProducts.length > 0 ? (
-                                  <div className="space-y-1">
-                                    {product.sellerProducts.map((assignment: any, index: number) => (
-                                      <div key={index} className="text-xs">
-                                        {assignment.seller.name}
-                                      </div>
-                                    ))}
-                                  </div>
+                                  <span className="font-medium">
+                                    {product.sellerProducts.length} user{product.sellerProducts.length !== 1 ? 's' : ''}
+                                  </span>
                                 ) : (
                                   <span className="text-muted-foreground">Not assigned</span>
                                 )}
@@ -719,7 +814,7 @@ export default function InventoryPage() {
                             </TableCell>
                           )}
 
-                          {!isAdmin() && (
+                          {!isUserAdmin() && (
                             <TableCell>
                               <div className="text-sm">
                                 {product.assignedAt ? new Date(product.assignedAt).toLocaleDateString('en-US', {
@@ -736,7 +831,7 @@ export default function InventoryPage() {
                               <Button variant="ghost" size="sm" onClick={() => handleViewProduct(product.id)}>
                                 <Eye className="h-4 w-4" />
                               </Button>
-                              {isAdmin() && (
+                              {isUserAdmin() && (
                                 <>
                                   <Button variant="ghost" size="sm" onClick={() => handleEditProduct(product.id)}>
                                     <Edit className="h-4 w-4" />
@@ -851,7 +946,7 @@ export default function InventoryPage() {
       />
 
       {/* Assign Product Modal */}
-      {isAdmin() && (
+      {mounted && isUserAdmin() && (
         <AssignProductModal
           isOpen={assignModalOpen}
           onClose={handleAssignClose}

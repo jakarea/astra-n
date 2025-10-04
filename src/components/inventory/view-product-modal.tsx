@@ -22,7 +22,8 @@ import {
   Calendar,
   AlertTriangle,
   TrendingDown,
-  BarChart3
+  BarChart3,
+  Users
 } from 'lucide-react'
 
 interface ViewProductModalProps {
@@ -39,13 +40,23 @@ interface ProductData {
   stock: number
   created_at: string
   updated_at: string
+  sellerProducts?: any[]
 }
 
 export function ViewProductModal({ isOpen, onClose, productId }: ViewProductModalProps) {
   const [loading, setLoading] = useState(false)
   const [product, setProduct] = useState<ProductData | null>(null)
+  const [userRole, setUserRole] = useState<string | null>(null)
 
   const LOW_STOCK_THRESHOLD = 10
+
+  // Get user role
+  useEffect(() => {
+    const session = getSession()
+    if (session) {
+      setUserRole(session.user.role || null)
+    }
+  }, [])
 
   // Load product data when modal opens
   useEffect(() => {
@@ -67,12 +78,22 @@ export function ViewProductModal({ isOpen, onClose, productId }: ViewProductModa
       }
 
       const supabase = getAuthenticatedClient()
-      const { data, error } = await supabase
+
+      // Build query based on user role
+      let query = supabase
         .from('products')
-        .select('*')
+        .select(`
+          *,
+          sellerProducts:seller_products(seller_id)
+        `)
         .eq('id', productId)
-        .eq('user_id', session.user.id)
-        .single()
+
+      // Only restrict to user_id for non-admin users
+      if (session.user.role !== 'admin') {
+        query = query.eq('user_id', session.user.id)
+      }
+
+      const { data, error } = await query.single()
 
       if (error) {
         throw new Error(error.message)
@@ -212,6 +233,25 @@ export function ViewProductModal({ isOpen, onClose, productId }: ViewProductModa
                   </div>
                 </div>
               </div>
+
+              {/* Assigned Users - Admin Only */}
+              {userRole === 'admin' && (
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    Assigned Users
+                  </Label>
+                  <div className="p-3 bg-muted rounded-md">
+                    <div className="font-semibold text-lg">
+                      {product.sellerProducts && product.sellerProducts.length > 0 ? (
+                        <span>{product.sellerProducts.length} user{product.sellerProducts.length !== 1 ? 's' : ''}</span>
+                      ) : (
+                        <span className="text-sm text-muted-foreground font-normal">Not assigned</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Timestamps */}
               <div className="grid grid-cols-1 gap-4 pt-4 border-t">

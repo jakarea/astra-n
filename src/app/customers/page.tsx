@@ -22,7 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Plus, Eye, Edit, Trash2, Mail, Phone, Users, UserCheck, TrendingUp, Search, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Eye, Edit, Trash2, Mail, Phone, Users, UserCheck, TrendingUp, Search, ChevronLeft, ChevronRight, Download } from 'lucide-react'
 
 
 function formatAddress(address: any) {
@@ -99,8 +99,24 @@ export default function CustomersPage() {
     active: 0,
     totalOrders: 0
   })
+  const [mounted, setMounted] = useState(false)
+  const [userRole, setUserRole] = useState<string | null>(null)
 
   const ITEMS_PER_PAGE = 10
+
+  // Helper function to check if user is admin (client-side only)
+  const isUserAdmin = () => {
+    return mounted && userRole === 'admin'
+  }
+
+  // Set mounted state and user role on client
+  useEffect(() => {
+    setMounted(true)
+    const session = getSession()
+    if (session) {
+      setUserRole(session.user.role || null)
+    }
+  }, [])
 
   const loadCustomers = async (page = 1, search = '', sort = sortBy) => {
     try {
@@ -120,7 +136,7 @@ export default function CustomersPage() {
         .select('id, name, email, phone, address, source, total_order, created_at, updated_at, user:users(name)', { count: 'exact' })
 
       // Admin sees all customers, seller sees only their own
-      const adminStatus = isAdmin()
+      const adminStatus = session.user.role === 'admin'
       console.log('[CUSTOMERS] User role check:', {
         userId: session.user.id,
         userRole: session.user.role,
@@ -197,7 +213,7 @@ export default function CustomersPage() {
         .select('id, total_order')
 
       // Admin sees all customers stats, seller sees only their own
-      if (!isAdmin()) {
+      if (session.user.role !== 'admin') {
         statsQuery = statsQuery.eq('user_id', session.user.id)
       }
 
@@ -292,7 +308,7 @@ export default function CustomersPage() {
         .eq('id', customerId)
 
       // For sellers, also check user_id; admin can delete any customer
-      if (!isAdmin()) {
+      if (session.user.role !== 'admin') {
         deleteQuery = deleteQuery.eq('user_id', session.user.id)
       }
 
@@ -308,6 +324,76 @@ export default function CustomersPage() {
       console.error('Error deleting customer:', error)
       alert('Failed to delete customer. Please try again.')
       setDeleteDialog({ isOpen: false, customerId: '', customerName: '' })
+    }
+  }
+
+  const handleExportCSV = async () => {
+    try {
+      const session = getSession()
+      if (!session) {
+        alert('You must be logged in to export data.')
+        return
+      }
+
+      const supabase = getAuthenticatedClient()
+      const isAdmin = session.user.role === 'admin'
+
+      let exportQuery = supabase
+        .from('customers')
+        .select('id, name, email, phone, address, source, total_order, created_at, user:users(name)')
+
+      if (!isAdmin) {
+        exportQuery = exportQuery.eq('user_id', session.user.id)
+      }
+
+      const { data, error } = await exportQuery.order('name')
+
+      if (error) {
+        throw new Error(error.message)
+      }
+
+      // Create CSV content based on role
+      let headers: string[]
+      let rows: string[]
+
+      if (isAdmin) {
+        headers = ['Created', 'Name', 'Owner', 'Contact', 'Address', 'Orders', 'Source']
+        rows = (data || []).map(customer => [
+          new Date(customer.created_at).toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+          `"${customer.name || '-'}"`,
+          `"${customer.user?.name || 'Unknown User'}"`,
+          `"${customer.email || '-'} / ${customer.phone || '-'}"`,
+          `"${formatAddress(customer.address)}"`,
+          customer.total_order || 0,
+          `"${customer.source || '-'}"`
+        ].join(','))
+      } else {
+        headers = ['Created', 'Name', 'Contact', 'Address', 'Orders', 'Source']
+        rows = (data || []).map(customer => [
+          new Date(customer.created_at).toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+          `"${customer.name || '-'}"`,
+          `"${customer.email || '-'} / ${customer.phone || '-'}"`,
+          `"${formatAddress(customer.address)}"`,
+          customer.total_order || 0,
+          `"${customer.source || '-'}"`
+        ].join(','))
+      }
+
+      const csvContent = [headers.join(','), ...rows].join('\n')
+
+      // Create and download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+      link.setAttribute('download', `customers-${new Date().toISOString().split('T')[0]}.csv`)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    } catch (error) {
+      console.error('Error exporting CSV:', error)
+      alert('Failed to export CSV. Please try again.')
     }
   }
 
@@ -355,6 +441,10 @@ export default function CustomersPage() {
           </p>
         </div>
         <div className="flex gap-3">
+          <Button onClick={handleExportCSV} variant="outline">
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
           <Button onClick={() => setAddModalOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Customer
@@ -442,7 +532,7 @@ export default function CustomersPage() {
                   <TableRow>
                     <TableHead>Created</TableHead>
                     <TableHead>Name</TableHead>
-                    {isAdmin() && <TableHead>Owner</TableHead>}
+                    {isUserAdmin() && <TableHead>Owner</TableHead>}
                     <TableHead>Contact</TableHead>
                     <TableHead>Orders</TableHead>
                     <TableHead>Revenue</TableHead>
@@ -455,7 +545,7 @@ export default function CustomersPage() {
                     <TableRow key={index}>
                       <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                      {isAdmin() && (
+                      {isUserAdmin() && (
                         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                       )}
                       <TableCell><Skeleton className="h-4 w-40" /></TableCell>
@@ -491,7 +581,7 @@ export default function CustomersPage() {
                     <TableRow>
                       <TableHead>Created</TableHead>
                       <TableHead>Name</TableHead>
-                      {isAdmin() && <TableHead>Owner</TableHead>}
+                      {isUserAdmin() && <TableHead>Owner</TableHead>}
                       <TableHead>Contact</TableHead>
                       <TableHead>Address</TableHead>
                       <TableHead>Orders</TableHead>
@@ -517,7 +607,7 @@ export default function CustomersPage() {
                           </div>
                         </TableCell>
 
-                        {isAdmin() && (
+                        {isUserAdmin() && (
                           <TableCell>
                             <div className="text-sm">
                               {customer.user?.name || 'Unknown User'}
