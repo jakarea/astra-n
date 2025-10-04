@@ -19,7 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Plus, Edit, Trash2, Link, ShoppingCart, DollarSign, Search, ChevronLeft, ChevronRight, Webhook, Copy, Key } from 'lucide-react'
+import { Plus, Edit, Trash2, Link, ShoppingCart, DollarSign, Search, ChevronLeft, ChevronRight, Webhook, Copy, Key, Download } from 'lucide-react'
 import { AddIntegrationModal } from '@/components/integration/add-integration-modal'
 import { EditIntegrationModal } from '@/components/integration/edit-integration-modal'
 import { useSessionExpired } from '@/components/ui/session-expired-modal'
@@ -144,8 +144,24 @@ export default function IntegrationPage() {
     totalOrders: 0,
     totalRevenue: 0
   })
+  const [mounted, setMounted] = useState(false)
+  const [userRole, setUserRole] = useState<string | null>(null)
 
   const ITEMS_PER_PAGE = 10
+
+  // Helper function to check if user is admin (client-side only)
+  const isUserAdmin = () => {
+    return mounted && userRole === 'admin'
+  }
+
+  // Set mounted state and user role on client
+  useEffect(() => {
+    setMounted(true)
+    const session = getSession()
+    if (session) {
+      setUserRole(session.user.role || null)
+    }
+  }, [])
 
   const loadIntegrations = async (page = 1, search = '') => {
     try {
@@ -180,7 +196,7 @@ export default function IntegrationPage() {
         `, { count: 'exact' })
 
       // Admin sees all integrations, seller sees only their own
-      if (!isAdmin()) {
+      if (session.user.role !== 'admin') {
         query = query.eq('user_id', session.user.id)
       }
 
@@ -256,7 +272,7 @@ export default function IntegrationPage() {
         `)
 
       // Admin sees all integrations stats, seller sees only their own
-      if (!isAdmin()) {
+      if (session.user.role !== 'admin') {
         statsQuery = statsQuery.eq('user_id', session.user.id)
       }
 
@@ -410,7 +426,7 @@ export default function IntegrationPage() {
         .eq('id', integrationId)
 
       // For sellers, also check user_id; admin can delete any integration
-      if (!isAdmin()) {
+      if (session.user.role !== 'admin') {
         deleteQuery = deleteQuery.eq('user_id', session.user.id)
       }
 
@@ -427,6 +443,103 @@ export default function IntegrationPage() {
       console.error('Error deleting integration:', error)
       alert('Failed to delete integration. Please try again.')
       setDeleteDialog({ isOpen: false, integrationId: '', integrationName: '' })
+    }
+  }
+
+  const handleExportCSV = async () => {
+    try {
+      const session = getSession()
+      if (!session) {
+        alert('You must be logged in to export data.')
+        return
+      }
+
+      const supabase = getAuthenticatedClient()
+      const isAdmin = session.user.role === 'admin'
+
+      let exportQuery = supabase
+        .from('integrations')
+        .select(`
+          id,
+          name,
+          type,
+          domain,
+          status,
+          is_active,
+          webhook_secret,
+          created_at,
+          user:users(name),
+          orders:orders(total_amount)
+        `)
+
+      if (!isAdmin) {
+        exportQuery = exportQuery.eq('user_id', session.user.id)
+      }
+
+      const { data, error } = await exportQuery.order('name')
+
+      if (error) {
+        throw new Error(error.message)
+      }
+
+      // Create CSV content based on role
+      let headers: string[]
+      let rows: string[]
+
+      if (isAdmin) {
+        headers = ['Created', 'Name', 'Type', 'Domain', 'Delivery URL', 'Actions', 'Status', 'Webhook Secret', 'Owner']
+        rows = (data || []).map(integration => {
+          const deliveryUrl = integration.type ? `${typeof window !== 'undefined' ? window.location.origin : ''}/api/webhooks/${integration.type}-order-integration` : '-'
+          const actions = getSupportedActions(integration.type || '').join(', ') || '-'
+          const status = integration.is_active ? 'Active' : 'Inactive'
+
+          return [
+            new Date(integration.created_at).toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+            `"${integration.name || '-'}"`,
+            `"${integration.type || '-'}"`,
+            `"${integration.domain || '-'}"`,
+            `"${deliveryUrl}"`,
+            `"${actions}"`,
+            `"${status}"`,
+            `"${integration.webhook_secret || '-'}"`,
+            `"${integration.user?.name || 'Unknown User'}"`
+          ].join(',')
+        })
+      } else {
+        headers = ['Created', 'Name', 'Type', 'Domain', 'Delivery URL', 'Actions', 'Status', 'Webhook Secret']
+        rows = (data || []).map(integration => {
+          const deliveryUrl = integration.type ? `${typeof window !== 'undefined' ? window.location.origin : ''}/api/webhooks/${integration.type}-order-integration` : '-'
+          const actions = getSupportedActions(integration.type || '').join(', ') || '-'
+          const status = integration.is_active ? 'Active' : 'Inactive'
+
+          return [
+            new Date(integration.created_at).toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+            `"${integration.name || '-'}"`,
+            `"${integration.type || '-'}"`,
+            `"${integration.domain || '-'}"`,
+            `"${deliveryUrl}"`,
+            `"${actions}"`,
+            `"${status}"`,
+            `"${integration.webhook_secret || '-'}"`
+          ].join(',')
+        })
+      }
+
+      const csvContent = [headers.join(','), ...rows].join('\n')
+
+      // Create and download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+      link.setAttribute('download', `integrations-${new Date().toISOString().split('T')[0]}.csv`)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    } catch (error) {
+      console.error('Error exporting CSV:', error)
+      alert('Failed to export CSV. Please try again.')
     }
   }
 
@@ -477,6 +590,10 @@ export default function IntegrationPage() {
           </p>
         </div>
         <div className="flex gap-3">
+          <Button onClick={handleExportCSV} variant="outline">
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
           <Button onClick={() => setAddModalOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Integration
@@ -581,7 +698,7 @@ export default function IntegrationPage() {
                     <TableHead>Actions</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Webhook</TableHead>
-                    {isAdmin() && <TableHead>Owner</TableHead>}
+                    {isUserAdmin() && <TableHead>Owner</TableHead>}
                     <TableHead>Operations</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -596,7 +713,7 @@ export default function IntegrationPage() {
                       <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
                       <TableCell><Skeleton className="h-8 w-24" /></TableCell>
-                      {isAdmin() && (
+                      {isUserAdmin() && (
                         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                       )}
                       <TableCell>
@@ -634,7 +751,7 @@ export default function IntegrationPage() {
                       <TableHead>Actions</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Webhook</TableHead>
-                      {isAdmin() && <TableHead>Owner</TableHead>}
+                      {isUserAdmin() && <TableHead>Owner</TableHead>}
                       <TableHead>Operations</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -742,7 +859,7 @@ export default function IntegrationPage() {
                             </div>
                           </TableCell>
 
-                          {isAdmin() && (
+                          {isUserAdmin() && (
                             <TableCell>
                               <div className="text-sm">
                                 {integration.user?.name || 'Unknown User'}

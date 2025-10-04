@@ -6,9 +6,11 @@ import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
+import { VisuallyHidden } from "@/components/ui/visually-hidden"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/contexts/AuthContext"
+import { useTheme } from "@/contexts/ThemeContext"
 import {
   Menu,
   Users,
@@ -21,7 +23,9 @@ import {
   Shield,
   UserCog,
   Puzzle,
-  User
+  User,
+  Sun,
+  Moon
 } from "lucide-react"
 
 const navigation = [
@@ -40,6 +44,7 @@ export function MobileNav() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const { user } = useAuth()
+  const { theme, toggleTheme } = useTheme()
   const userRole = user?.role || null
   const userName = user?.name || user?.email?.split('@')[0] || 'User'
 
@@ -111,6 +116,9 @@ export function MobileNav() {
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="w-64 bg-[#121212f2] border-gray-700">
+              <VisuallyHidden>
+                <SheetTitle>Navigation Menu</SheetTitle>
+              </VisuallyHidden>
               <div className="flex flex-col h-full pt-4">
                 {/* Logo */}
                 <div className="flex items-center px-2 mb-6">
@@ -190,8 +198,25 @@ export function MobileNav() {
                   })}
                 </nav>
 
-                {/* Logout button */}
-                <div className="px-2 pb-4">
+                {/* Theme toggle and Logout buttons */}
+                <div className="px-2 pb-4 space-y-2">
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"
+                    onClick={toggleTheme}
+                  >
+                    {theme === 'dark' ? (
+                      <>
+                        <Sun className="mr-3 h-4 w-4" />
+                        Light Mode
+                      </>
+                    ) : (
+                      <>
+                        <Moon className="mr-3 h-4 w-4" />
+                        Dark Mode
+                      </>
+                    )}
+                  </Button>
                   <Button
                     variant="outline"
                     className="w-full justify-start border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"

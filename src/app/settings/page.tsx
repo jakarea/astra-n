@@ -6,16 +6,17 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Settings, User, Shield, Bell, Palette, Monitor } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
+import { useTheme } from "@/contexts/ThemeContext"
 import { getSupabaseClient } from "@/lib/supabase"
 import { toast } from 'sonner'
 
 export default function SettingsPage() {
   const { user } = useAuth()
+  const { theme, setTheme } = useTheme()
   const [userName, setUserName] = useState<string>('')
   const [userRole, setUserRole] = useState<string>('User')
   const [notificationsEnabled, setNotificationsEnabled] = useState(true)
   const [emailNotifications, setEmailNotifications] = useState(true)
-  const [darkMode, setDarkMode] = useState(false)
   const [autoSave, setAutoSave] = useState(true)
 
   useEffect(() => {
@@ -41,14 +42,13 @@ export default function SettingsPage() {
           // Fetch user settings
           const { data: settingsData, error: settingsError } = await supabase
             .from('user_settings')
-            .select('notifications_enabled, email_notifications, dark_mode, auto_save')
+            .select('notifications_enabled, email_notifications, auto_save')
             .eq('user_id', user.id)
             .single()
 
           if (!settingsError && settingsData) {
             setNotificationsEnabled(settingsData.notifications_enabled ?? true)
             setEmailNotifications(settingsData.email_notifications ?? true)
-            setDarkMode(settingsData.dark_mode ?? false)
             setAutoSave(settingsData.auto_save ?? true)
           }
         } catch (error) {
@@ -73,7 +73,6 @@ export default function SettingsPage() {
           user_id: user.id,
           notifications_enabled: notificationsEnabled,
           email_notifications: emailNotifications,
-          dark_mode: darkMode,
           auto_save: autoSave,
           updated_at: new Date().toISOString()
         })
@@ -227,11 +226,11 @@ export default function SettingsPage() {
               </div>
             </div>
             <Button
-              variant={darkMode ? "default" : "outline"}
+              variant={theme === 'dark' ? "default" : "outline"}
               size="sm"
-              onClick={() => setDarkMode(!darkMode)}
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             >
-              {darkMode ? "Dark" : "Light"}
+              {theme === 'dark' ? "Dark" : "Light"}
             </Button>
           </div>
         </CardContent>

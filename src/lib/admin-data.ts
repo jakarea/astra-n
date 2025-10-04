@@ -55,7 +55,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   }
 
   try {
-    // Get counts using Supabase
+    // Get counts and data using Supabase - optimized with parallel fetching
     const [
       { count: totalUsers },
       { count: totalOrders },
@@ -68,17 +68,16 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       { data: topProductsData },
       { data: userRolesData },
       { data: crmLeadsData },
-      { data: integrationsData }
+      { data: integrationsData },
+      { data: revenueData }
     ] = await Promise.all([
-      // Counts
+      // Counts (head: true means no data transfer, only count)
       supabase.from('users').select('*', { count: 'exact', head: true }),
       supabase.from('orders').select('*', { count: 'exact', head: true }),
       supabase.from('customers').select('*', { count: 'exact', head: true }),
       supabase.from('products').select('*', { count: 'exact', head: true }),
       supabase.from('crm_leads').select('*', { count: 'exact', head: true }),
       supabase.from('integrations').select('*', { count: 'exact', head: true }),
-
-      // Active integrations
       supabase.from('integrations').select('*', { count: 'exact', head: true }).eq('is_active', true),
 
       // Recent Orders (last 10)
@@ -103,18 +102,19 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
         .order('created_at', { ascending: false })
         .limit(5),
 
-      // User roles
+      // User roles - only fetch role column
       supabase.from('users').select('role'),
 
-      // CRM leads for status stats
+      // CRM leads - only fetch status columns
       supabase.from('crm_leads').select('logistic_status, cod_status, kpi_status'),
 
-      // Integrations for type stats
-      supabase.from('integrations').select('type')
+      // Integrations - only fetch type column
+      supabase.from('integrations').select('type'),
+
+      // Revenue calculation
+      supabase.rpc('sum_total_revenue')
     ])
 
-    // Calculate total revenue
-    const { data: revenueData } = await supabase.rpc('sum_total_revenue')
     const totalRevenue = revenueData?.[0]?.sum || 0
 
     // Process user role distribution

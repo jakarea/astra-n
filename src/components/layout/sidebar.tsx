@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/contexts/AuthContext"
+import { useTheme } from "@/contexts/ThemeContext"
 import {
   Users,
   ShoppingCart,
@@ -17,7 +18,9 @@ import {
   Shield,
   UserCog,
   Puzzle,
-  User
+  User,
+  Sun,
+  Moon
 } from "lucide-react"
 
 const navigation = [
@@ -35,6 +38,7 @@ const navigation = [
 export function Sidebar() {
   const pathname = usePathname()
   const { logout: authLogout, user } = useAuth()
+  const { theme, toggleTheme } = useTheme()
   const userRole = user?.role || null
 
   const handleLogout = () => {
@@ -112,8 +116,25 @@ export function Sidebar() {
             })}
           </nav>
 
-          {/* Logout button */}
-          <div className="flex-shrink-0 px-4 pb-4">
+          {/* Theme toggle and Logout buttons */}
+          <div className="flex-shrink-0 px-4 pb-4 space-y-2">
+            <Button
+              variant="outline"
+              className="w-full justify-start border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"
+              onClick={toggleTheme}
+            >
+              {theme === 'dark' ? (
+                <>
+                  <Sun className="mr-3 h-4 w-4" />
+                  Light Mode
+                </>
+              ) : (
+                <>
+                  <Moon className="mr-3 h-4 w-4" />
+                  Dark Mode
+                </>
+              )}
+            </Button>
             <Button
               variant="outline"
               className="w-full justify-start border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"

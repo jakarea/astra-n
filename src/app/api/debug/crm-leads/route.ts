@@ -11,7 +11,16 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   }
 })
 
+// Simple in-memory cache for CRM leads (5 minutes)
+let crmLeadsCache: { data: any; timestamp: number } | null = null
+const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+
 export async function GET(request: NextRequest) {
+  // Check cache first
+  if (crmLeadsCache && Date.now() - crmLeadsCache.timestamp < CACHE_DURATION) {
+    console.log('[DEBUG_CRM_LEADS] Returning cached data')
+    return NextResponse.json(crmLeadsCache.data)
+  }
   try {
     console.log('[DEBUG_CRM_LEADS] Getting all CRM leads...')
 
@@ -56,7 +65,7 @@ export async function GET(request: NextRequest) {
       return acc
     }, {} as Record<string, any>) || {}
 
-    return NextResponse.json({
+    const responseData = {
       success: true,
       totalLeads: leads?.length || 0,
       leads: leads || [],
@@ -66,7 +75,12 @@ export async function GET(request: NextRequest) {
         leadCount: data.leads.length,
         leads: data.leads
       }))
-    })
+    }
+
+    // Cache the data
+    crmLeadsCache = { data: responseData, timestamp: Date.now() }
+
+    return NextResponse.json(responseData)
 
   } catch (error: any) {
     console.error('[DEBUG_CRM_LEADS] Error:', error)

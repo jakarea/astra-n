@@ -21,7 +21,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 
-import { Eye, Edit, Trash2, ShoppingCart, Users, DollarSign, TrendingUp, Search, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Eye, Edit, Trash2, ShoppingCart, Users, DollarSign, TrendingUp, Search, ChevronLeft, ChevronRight, Download } from 'lucide-react'
 
 // Lazy load heavy components
 const EditOrderModal = lazy(() => import('@/components/orders/edit-order-modal').then(module => ({ default: module.EditOrderModal })))
@@ -115,8 +115,24 @@ export default function OrdersPage() {
     totalRevenue: 0,
     growth: 0
   })
+  const [mounted, setMounted] = useState(false)
+  const [userRole, setUserRole] = useState<string | null>(null)
 
   const ITEMS_PER_PAGE = 10
+
+  // Helper function to check if user is admin (client-side only)
+  const isUserAdmin = () => {
+    return mounted && userRole === 'admin'
+  }
+
+  // Set mounted state and user role on client
+  useEffect(() => {
+    setMounted(true)
+    const session = getSession()
+    if (session) {
+      setUserRole(session.user.role || null)
+    }
+  }, [])
 
   const loadOrders = async (page = 1, search = '', sort = sortBy, dateFilter = dateRange) => {
     try {
@@ -146,7 +162,7 @@ export default function OrdersPage() {
         `, { count: 'exact' })
 
       // Admin sees all orders, seller sees only their own
-      if (!isAdmin()) {
+      if (session.user.role !== 'admin') {
         query = query.eq('integration.user_id', session.user.id)
       }
 
@@ -223,7 +239,7 @@ export default function OrdersPage() {
         `)
 
       // Admin sees all orders stats, seller sees only their own
-      if (!isAdmin()) {
+      if (session.user.role !== 'admin') {
         statsQuery = statsQuery.eq('integration.user_id', session.user.id)
       }
 
@@ -358,6 +374,87 @@ export default function OrdersPage() {
     setCurrentPage(1)
   }
 
+  const handleExportCSV = async () => {
+    try {
+      const session = getSession()
+      if (!session) {
+        alert('You must be logged in to export data.')
+        return
+      }
+
+      const supabase = getAuthenticatedClient()
+      const isAdmin = session.user.role === 'admin'
+
+      let exportQuery = supabase
+        .from('orders')
+        .select(`
+          id,
+          external_order_id,
+          status,
+          total_amount,
+          order_created_at,
+          customer:customers(name, email),
+          integration:integrations!inner(name, type, user_id, user:users(name)),
+          items:order_items(*)
+        `)
+
+      if (!isAdmin) {
+        exportQuery = exportQuery.eq('integration.user_id', session.user.id)
+      }
+
+      const { data, error } = await exportQuery.order('order_created_at', { ascending: false })
+
+      if (error) {
+        throw new Error(error.message)
+      }
+
+      // Create CSV content based on role
+      let headers: string[]
+      let rows: string[]
+
+      if (isAdmin) {
+        headers = ['Order Date', 'Order ID', 'Customer', 'Status', 'Items', 'Total', 'Integration', 'Owner']
+        rows = (data || []).map(order => [
+          new Date(order.order_created_at).toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+          `"${order.external_order_id || order.id}"`,
+          `"${order.customer?.name || '-'} (${order.customer?.email || '-'})"`,
+          `"${order.status || '-'}"`,
+          order.items?.length || 0,
+          Number(order.total_amount || 0).toFixed(2),
+          `"${order.integration?.name || '-'} (${order.integration?.type || '-'})"`,
+          `"${order.integration?.user?.name || 'Unknown User'}"`
+        ].join(','))
+      } else {
+        headers = ['Order Date', 'Order ID', 'Customer', 'Status', 'Items', 'Total', 'Integration']
+        rows = (data || []).map(order => [
+          new Date(order.order_created_at).toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+          `"${order.external_order_id || order.id}"`,
+          `"${order.customer?.name || '-'} (${order.customer?.email || '-'})"`,
+          `"${order.status || '-'}"`,
+          order.items?.length || 0,
+          Number(order.total_amount || 0).toFixed(2),
+          `"${order.integration?.name || '-'} (${order.integration?.type || '-'})"`
+        ].join(','))
+      }
+
+      const csvContent = [headers.join(','), ...rows].join('\n')
+
+      // Create and download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+      link.setAttribute('download', `orders-${new Date().toISOString().split('T')[0]}.csv`)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    } catch (error) {
+      console.error('Error exporting CSV:', error)
+      alert('Failed to export CSV. Please try again.')
+    }
+  }
+
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE)
   const startItem = (currentPage - 1) * ITEMS_PER_PAGE + 1
   const endItem = Math.min(currentPage * ITEMS_PER_PAGE, totalCount)
@@ -400,6 +497,12 @@ export default function OrdersPage() {
           <p className="text-muted-foreground">
             Manage customer orders and transactions
           </p>
+        </div>
+        <div className="flex gap-3">
+          <Button onClick={handleExportCSV} variant="outline">
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
         </div>
       </div>
 
@@ -520,7 +623,7 @@ export default function OrdersPage() {
                     <TableHead>Items</TableHead>
                     <TableHead>Total</TableHead>
                     <TableHead>Integration</TableHead>
-                    {isAdmin() && <TableHead>Owner</TableHead>}
+                    {isUserAdmin() && <TableHead>Owner</TableHead>}
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -534,7 +637,7 @@ export default function OrdersPage() {
                       <TableCell><Skeleton className="h-4 w-12" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                      {isAdmin() && (
+                      {isUserAdmin() && (
                         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                       )}
                       <TableCell>
@@ -570,7 +673,7 @@ export default function OrdersPage() {
                       <TableHead>Items</TableHead>
                       <TableHead>Total</TableHead>
                       <TableHead>Integration</TableHead>
-                      {isAdmin() && <TableHead>Owner</TableHead>}
+                      {isUserAdmin() && <TableHead>Owner</TableHead>}
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -617,7 +720,7 @@ export default function OrdersPage() {
                           </Badge>
                         </TableCell>
 
-                        {isAdmin() && (
+                        {isUserAdmin() && (
                           <TableCell>
                             <div className="text-sm">
                               {order.integration?.user?.name || 'Unknown User'}

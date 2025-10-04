@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Plus, Eye, Edit, Trash2, Search, ChevronLeft, ChevronRight, Users, UserCheck, UserX, Shield, Download, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
+import { useSessionExpired } from '@/components/ui/session-expired-modal'
 
 // Lazy load heavy modals
 const EditUserModal = lazy(() => import('@/components/users/edit-user-modal').then(module => ({ default: module.EditUserModal })))
@@ -85,16 +86,37 @@ export default function UsersPage() {
     admins: 0
   })
 
+  // Session expired modal hook
+  const { triggerSessionExpired, SessionExpiredComponent } = useSessionExpired()
+
   const ITEMS_PER_PAGE = 10
 
   // Check if user is admin on mount
   useEffect(() => {
-    if (!isAdmin()) {
+    const session = getSession()
+    console.log('[USERS_PAGE] Session check:', {
+      hasSession: !!session,
+      userId: session?.user?.id,
+      userEmail: session?.user?.email,
+      userRole: session?.user?.role
+    })
+
+    if (!session) {
+      console.error('[USERS_PAGE] No session found')
+      triggerSessionExpired()
+      setLoading(false)
+      return
+    }
+
+    if (session.user.role !== 'admin') {
+      console.error('[USERS_PAGE] User is not admin, role:', session.user.role)
       setHasError(true)
       setErrorMessage('Access denied. Admin role required.')
       setLoading(false)
       return
     }
+
+    console.log('[USERS_PAGE] Admin verified, loading users')
     loadUsers()
   }, [])
 
@@ -112,7 +134,7 @@ export default function UsersPage() {
         return
       }
 
-      if (!isAdmin()) {
+      if (session.user.role !== 'admin') {
         setHasError(true)
         setErrorMessage('Access denied. Admin role required.')
         setLoading(false)
@@ -143,6 +165,14 @@ export default function UsersPage() {
 
       if (!response.ok) {
         const errorData = await response.json()
+
+        // Check for authentication errors
+        if (response.status === 401) {
+          console.error('[USERS] Session expired during users API call')
+          triggerSessionExpired()
+          return
+        }
+
         throw new Error(errorData.error || `HTTP ${response.status}`)
       }
 
@@ -221,7 +251,8 @@ export default function UsersPage() {
 
   // Load users when search query or page changes
   useEffect(() => {
-    if (isAdmin()) {
+    const session = getSession()
+    if (session && session.user.role === 'admin') {
       loadUsers(currentPage, searchQuery)
     }
   }, [searchQuery, currentPage])
@@ -294,27 +325,43 @@ export default function UsersPage() {
       const session = getSession()
       if (!session) {
         console.error('[USERS] No session found for delete')
+        toast.error('Authentication required', {
+          description: 'Please log in to delete users.'
+        })
         return
       }
 
-      const supabase = getAuthenticatedClient()
+      console.log('[USERS] Deleting user via API:', userId)
 
-      const { error } = await supabase
-        .from('users')
-        .delete()
-        .eq('id', userId)
+      // Use API endpoint to delete from both auth and database
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.token}`
+        }
+      })
 
-      if (error) {
-        throw new Error(error.message)
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `HTTP ${response.status}`)
       }
+
+      const result = await response.json()
+      console.log('[USERS] Delete result:', result)
+
+      toast.success('User deleted successfully', {
+        description: 'User has been removed from both authentication and database.'
+      })
 
       handleUserDeleted(userId)
       // Close dialog
       setDeleteDialog({ isOpen: false, userId: '', userName: '' })
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting user:', error)
       toast.error('Failed to delete user', {
-        description: 'Please try again.'
+        description: error.message || 'Please try again.'
       })
       setDeleteDialog({ isOpen: false, userId: '', userName: '' })
     }
@@ -777,6 +824,9 @@ export default function UsersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Session Expired Modal */}
+      <SessionExpiredComponent />
     </div>
   )
 }
