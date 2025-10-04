@@ -60,9 +60,7 @@ export function EditCustomerModal({ isOpen, onClose, onSuccess, customerId }: Ed
     setInitialLoading(true)
     try {
       const session = getSession()
-      if (!session) {
-        console.error('No session found')
-        return
+      if (!session) {        return
       }
 
       const supabase = getAuthenticatedClient()
@@ -79,12 +77,12 @@ export function EditCustomerModal({ isOpen, onClose, onSuccess, customerId }: Ed
       }
 
       // Parse address object into billing/shipping sections
-      const address = data.address || {}
+        const address = data.address || {}
       const billing = address.billing || {}
       const shipping = address.shipping || {}
 
       // Check if shipping is same as billing
-      const shippingSameAsBilling = JSON.stringify(billing) === JSON.stringify(shipping)
+        const shippingSameAsBilling = JSON.stringify(billing) === JSON.stringify(shipping)
 
       setFormData({
         name: data.name || '',
@@ -115,9 +113,7 @@ export function EditCustomerModal({ isOpen, onClose, onSuccess, customerId }: Ed
         },
         shippingSameAsBilling
       })
-    } catch (error: any) {
-      console.error('Error loading customer:', error)
-      alert(`Failed to load customer: ${error.message}`)
+    } catch (error: any) {      alert(`Failed to load customer: ${error.message}`)
     } finally {
       setInitialLoading(false)
     }
@@ -181,7 +177,7 @@ export function EditCustomerModal({ isOpen, onClose, onSuccess, customerId }: Ed
       const supabase = getAuthenticatedClient()
 
       // Build address object in the required format
-      const billingData = {
+        const billingData = {
         first_name: formData.billing.first_name || '',
         last_name: formData.billing.last_name || '',
         company: formData.billing.company || '',
@@ -235,9 +231,7 @@ export function EditCustomerModal({ isOpen, onClose, onSuccess, customerId }: Ed
 
       onSuccess(data)
       onClose()
-    } catch (error: any) {
-      console.error('Error updating customer:', error)
-      alert(`Failed to update customer: ${error.message}`)
+    } catch (error: any) {      alert(`Failed to update customer: ${error.message}`)
     } finally {
       setLoading(false)
     }

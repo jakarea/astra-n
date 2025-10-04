@@ -17,7 +17,7 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
 export async function GET(request: NextRequest) {
   try {
     // Get auth token from cookie or header
-    const authToken = request.cookies.get('auth_token')?.value ||
+        const authToken = request.cookies.get('auth_token')?.value ||
                      request.headers.get('authorization')?.replace('Bearer ', '')
 
     if (!authToken) {
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Verify the auth token with Supabase
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(authToken)
+        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(authToken)
 
     if (authError || !user) {
       return NextResponse.json(
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch only name and role from users table
-    const userData = await prisma.user.findUnique({
+        const userData = await prisma.user.findUnique({
       where: {
         id: user.id
       },
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Capitalize first letter of role
-    const capitalizedRole = userData.role.charAt(0).toUpperCase() + userData.role.slice(1).toLowerCase()
+        const capitalizedRole = userData.role.charAt(0).toUpperCase() + userData.role.slice(1).toLowerCase()
 
     return NextResponse.json({
       name: userData.name,
@@ -64,7 +64,6 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('User profile API error:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

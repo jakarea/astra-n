@@ -93,7 +93,7 @@ export async function login(email: string, password: string): Promise<AuthUser> 
   if (!data.user || !data.session) throw new Error('Login failed')
 
   // Fetch user role from database
-  const tempClient = createClient(supabaseUrl, supabaseAnonKey, {
+        const tempClient = createClient(supabaseUrl, supabaseAnonKey, {
     global: {
       headers: {
         Authorization: `Bearer ${data.session.access_token}`
@@ -122,15 +122,13 @@ export async function login(email: string, password: string): Promise<AuthUser> 
 
 // Logout
 export async function logout(): Promise<void> {
-  // Clear browser session first
+      // Clear browser session first
   clearSession()
 
   // Sign out from Supabase
   try {
     await supabase.auth.signOut()
-  } catch (error) {
-    console.warn('Supabase logout error:', error)
-  }
+  } catch (error) {  }
 }
 
 // Get authenticated supabase client for database operations
@@ -191,7 +189,6 @@ export async function fetchUserRole(userId: string): Promise<UserRole> {
 
     return data.role as UserRole
   } catch (error) {
-    console.error('Error fetching user role:', error)
     return 'seller' // Default role
   }
 }
@@ -207,7 +204,7 @@ export async function loginWithRole(email: string, password: string): Promise<Au
   if (!data.user || !data.session) throw new Error('Login failed')
 
   // Fetch user role from database
-  const tempClient = createClient(supabaseUrl, supabaseAnonKey, {
+        const tempClient = createClient(supabaseUrl, supabaseAnonKey, {
     global: {
       headers: {
         Authorization: `Bearer ${data.session.access_token}`
@@ -241,11 +238,8 @@ export async function inviteUser(email: string, role: UserRole = 'seller'): Prom
     if (!session) {
       throw new Error('Not authenticated')
     }
-
-    console.log('[INVITE_USER] Inviting user:', { email, role, invitedBy: session.user.id })
-
     // Call the invitation API
-    const response = await fetch('/api/users/invite', {
+        const response = await fetch('/api/users/invite', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -259,22 +253,15 @@ export async function inviteUser(email: string, role: UserRole = 'seller'): Prom
     if (!response.ok) {
       throw new Error(data.error || 'Failed to send invitation')
     }
-
-    console.log(`[INVITE_USER] Invitation sent successfully to ${email}`)
-
-  } catch (error: any) {
-    console.error('Error inviting user:', error)
-    throw error
+  } catch (error: any) {    throw error
   }
 }
 
 // Reset password for user using API endpoint
 export async function resetUserPassword(email: string): Promise<void> {
   try {
-    console.log('[RESET_PASSWORD] Requesting password reset for:', email)
-
-    // Call the password reset API
-    const response = await fetch('/api/users/reset-password', {
+      // Call the password reset API
+        const response = await fetch('/api/users/reset-password', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -286,12 +273,7 @@ export async function resetUserPassword(email: string): Promise<void> {
 
     if (!response.ok) {
       throw new Error(data.error || 'Failed to send password reset email')
-    }
-
-    console.log('[RESET_PASSWORD] Password reset request processed successfully')
-  } catch (error: any) {
-    console.error('Error resetting password:', error)
-    throw error
+    }  } catch (error: any) {    throw error
   }
 }
 
@@ -310,7 +292,7 @@ export async function getSessionUser(request?: Request): Promise<AuthUser | null
         const headersList = await headers()
         authorization = headersList.get('authorization')
       } catch {
-        // If we can't access headers, return null
+      // If we can't access headers, return null
         return null
       }
     }
@@ -322,7 +304,7 @@ export async function getSessionUser(request?: Request): Promise<AuthUser | null
     const token = authorization.substring(7) // Remove 'Bearer ' prefix
 
     // Create a Supabase client with the token
-    const supabaseWithAuth = createClient(supabaseUrl, supabaseAnonKey, {
+        const supabaseWithAuth = createClient(supabaseUrl, supabaseAnonKey, {
       global: {
         headers: {
           Authorization: `Bearer ${token}`
@@ -331,22 +313,20 @@ export async function getSessionUser(request?: Request): Promise<AuthUser | null
     })
 
     // Get the user from the token
-    const { data: { user }, error } = await supabaseWithAuth.auth.getUser(token)
+        const { data: { user }, error } = await supabaseWithAuth.auth.getUser(token)
 
     if (error || !user) {
       return null
     }
 
     // Fetch user role from database
-    const { data: userData, error: userError } = await supabaseWithAuth
+        const { data: userData, error: userError } = await supabaseWithAuth
       .from('users')
       .select('name, role')
       .eq('id', user.id)
       .single()
 
-    if (userError) {
-      console.warn('Could not fetch user role:', userError)
-    }
+    if (userError) {    }
 
     return {
       id: user.id,
@@ -355,7 +335,6 @@ export async function getSessionUser(request?: Request): Promise<AuthUser | null
       role: userData?.role || 'seller'
     }
   } catch (error) {
-    console.error('Error getting session user:', error)
     return null
   }
 }

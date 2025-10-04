@@ -60,7 +60,7 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
       }
 
       // Validate numeric fields
-      const price = parseFloat(formData.price)
+        const price = parseFloat(formData.price)
       const stock = parseInt(formData.stock)
 
       if (isNaN(price) || price < 0) {
@@ -78,21 +78,13 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
         stock: stock,
         user_id: session.user.id
       }
-
-      console.log('[ADD_PRODUCT] Creating product with data:', productData)
-
       const supabase = getAuthenticatedClient()
       const { data, error } = await supabase
         .from('products')
         .insert([productData])
         .select()
         .single()
-
-      console.log('[ADD_PRODUCT] Insert result:', { data, error })
-
-      if (error) {
-        console.error('[ADD_PRODUCT] Insert error:', error)
-        if (error.code === '23505' && error.message.includes('user_id_sku')) {
+      if (error) {        if (error.code === '23505' && error.message.includes('user_id_sku')) {
           throw new Error('A product with this SKU already exists. Please use a different SKU.')
         }
         throw new Error(error.message)
@@ -109,9 +101,7 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
       // Pass the new product data to parent
       onSuccess(data)
       onClose()
-    } catch (error: any) {
-      console.error('Error creating product:', error)
-      alert(`Failed to create product: ${error.message}`)
+    } catch (error: any) {      alert(`Failed to create product: ${error.message}`)
     } finally {
       setLoading(false)
     }

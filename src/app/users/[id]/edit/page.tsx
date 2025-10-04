@@ -54,9 +54,7 @@ export default function EditUserPage() {
         }
 
         await loadUser()
-      } catch (error) {
-        console.error('Error checking admin status:', error)
-        router.push('/auth/login')
+      } catch (error) {        router.push('/auth/login')
       }
     }
 
@@ -89,9 +87,7 @@ export default function EditUserPage() {
         email: data.user.email || '',
         role: data.user.role || 'user'
       })
-    } catch (error: any) {
-      console.error('Error loading user:', error)
-      toast.error(error.message || "Failed to load user data")
+    } catch (error: any) {      toast.error(error.message || "Failed to load user data")
     } finally {
       setLoading(false)
     }
@@ -126,9 +122,7 @@ export default function EditUserPage() {
 
       // Redirect back to user detail page
       router.push(`/users/${userId}`)
-    } catch (error: any) {
-      console.error('Error updating user:', error)
-      toast.error(error.message || "Failed to update user")
+    } catch (error: any) {      toast.error(error.message || "Failed to update user")
     } finally {
       setSaving(false)
     }

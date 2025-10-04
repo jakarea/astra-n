@@ -40,7 +40,7 @@ export default function CustomerDetailPage() {
       const supabase = getAuthenticatedClient()
 
       // Load customer details
-      const { data: customerData, error: customerError } = await supabase
+        const { data: customerData, error: customerError } = await supabase
         .from('customers')
         .select('*')
         .eq('id', customerId)
@@ -54,7 +54,7 @@ export default function CustomerDetailPage() {
       setCustomer(customerData)
 
       // Load customer orders
-      const { data: ordersData, error: ordersError } = await supabase
+        const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
         .select(`
           *,
@@ -64,14 +64,10 @@ export default function CustomerDetailPage() {
         .eq('customer_id', customerId)
         .order('created_at', { ascending: false })
 
-      if (ordersError) {
-        console.error('Error loading orders:', ordersError)
-      } else {
+      if (ordersError) {      } else {
         setOrders(ordersData || [])
       }
-    } catch (error: any) {
-      console.error('Error loading customer details:', error)
-      alert(`Failed to load customer: ${error.message}`)
+    } catch (error: any) {      alert(`Failed to load customer: ${error.message}`)
       router.push('/customers')
     } finally {
       setLoading(false)

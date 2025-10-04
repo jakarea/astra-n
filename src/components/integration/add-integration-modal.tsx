@@ -82,9 +82,7 @@ export function AddIntegrationModal({ isOpen, onClose, onSuccess }: AddIntegrati
       }
 
       // Generate unique webhook secret for this integration
-      const supabase = getAuthenticatedClient()
-      console.log('[ADD_INTEGRATION] Generating unique webhook secret for new integration...')
-
+        const supabase = getAuthenticatedClient()
       const integrationData = {
         name: formData.name,
         type: formData.type,
@@ -95,28 +93,16 @@ export function AddIntegrationModal({ isOpen, onClose, onSuccess }: AddIntegrati
         status: 'active',
         is_active: true
       }
-
-      console.log('[ADD_INTEGRATION] Creating integration with data:', integrationData)
-
       const { data, error } = await supabase
         .from('integrations')
         .insert([integrationData])
         .select()
         .single()
-
-      console.log('[ADD_INTEGRATION] Insert result:', { data, error })
-
-      if (error) {
-        console.error('[ADD_INTEGRATION] Insert error:', error)
-        throw new Error(error.message)
+      if (error) {        throw new Error(error.message)
       }
 
       // Generate unique webhook secret for the newly created integration
-      console.log('[ADD_INTEGRATION] Generating webhook secret for integration:', data.id)
-
-      if (!session?.token) {
-        console.error('[ADD_INTEGRATION] No session token available for webhook secret generation')
-        throw new Error('Authentication required')
+      if (!session?.token) {        throw new Error('Authentication required')
       }
 
       const webhookResponse = await fetch(`/api/integrations/${data.id}/generate-webhook-secret`, {
@@ -128,14 +114,8 @@ export function AddIntegrationModal({ isOpen, onClose, onSuccess }: AddIntegrati
       })
 
       if (!webhookResponse.ok) {
-        const webhookError = await webhookResponse.json()
-        console.error('[ADD_INTEGRATION] Webhook secret generation failed:', webhookError)
-        // Don't fail the integration creation, just log the error
-        console.warn('[ADD_INTEGRATION] Integration created but webhook secret generation failed')
-      } else {
+        const webhookError = await webhookResponse.json()        // Don't fail the integration creation, just log the error      } else {
         const webhookResult = await webhookResponse.json()
-        console.log('[ADD_INTEGRATION] Webhook secret generated successfully:', webhookResult.data?.webhook_secret ? 'SET' : 'NOT_SET')
-
         // Update the local data with the generated webhook secret
         data.webhook_secret = webhookResult.data?.webhook_secret
       }
@@ -154,9 +134,7 @@ export function AddIntegrationModal({ isOpen, onClose, onSuccess }: AddIntegrati
       // Pass the new integration data to parent
       onSuccess(data)
       onClose()
-    } catch (error) {
-      console.error('Error creating integration:', error)
-      alert('Failed to create integration. Please try again.')
+    } catch (error) {      alert('Failed to create integration. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -174,7 +152,7 @@ export function AddIntegrationModal({ isOpen, onClose, onSuccess }: AddIntegrati
     // Generate dynamic URL based on shop type and first supported action
     if (formData.type && supportedActions.length > 0) {
       const primaryAction = supportedActions[0] // Use first action as primary
-      const actionType = primaryAction.split(':')[0] // Extract action type (order, webhook, data)
+        const actionType = primaryAction.split(':')[0] // Extract action type (order, webhook, data)
       return `${baseUrl}/api/webhook/${formData.type}-${actionType}-integration`
     }
 

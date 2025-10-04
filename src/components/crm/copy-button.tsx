@@ -13,9 +13,7 @@ export function CopyButton({ text, className }: CopyButtonProps) {
     try {
       await navigator.clipboard.writeText(text)
       // You could add a toast notification here
-    } catch (err) {
-      console.error('Failed to copy text: ', err)
-    }
+    } catch (err) {    }
   }
 
   return (

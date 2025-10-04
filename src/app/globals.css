@@ -31,15 +31,6 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
-    --popover: #53a244; /* hover color */
 }
 
 :root {
@@ -48,7 +39,7 @@
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
-  --popover: #53a244; /* hover color */
+  --popover: #53a244;
   --popover-foreground: oklch(0.145 0 0);
   --primary: #171717;
   --primary-foreground: oklch(0.985 0 0);
@@ -67,23 +58,14 @@
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-  --active-primary: #53a244; /* bg active color */
-  --hover-primary: #53a244;  /* bg hover color */ 
+  --active-primary: #53a244;
 }
 
 .dark {
-  --background: #121212; /* main bg color */
-  --foreground: oklch(0.985 0 0);  /* main text color */
-  --card: #171717;  /* all card bg color */
-  --card-foreground: #FAFAFA;  /* all card title text color */
+  --background: #121212;
+  --foreground: oklch(0.985 0 0);
+  --card: #171717;
+  --card-foreground: #FAFAFA;
   --popover: #53a244;
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.922 0 0);
@@ -91,11 +73,11 @@
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
-  --muted-foreground: #898989;  /* all secondary/mute text color */
+  --muted-foreground: #898989;
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: #2e2e2e; /* all border color */
+  --border: #2e2e2e;
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
   --chart-1: oklch(0.488 0.243 264.376);
@@ -103,16 +85,7 @@
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-  --active-primary: #53a244; /* bg active color */
-  --hover-primary: #53a244;  /* bg hover color */ 
+  --active-primary: #53a244;
 }
 
 @layer base {
@@ -127,14 +100,36 @@
   button {
     @apply cursor-pointer;
   }
-} 
-
-/* input */
-input:focus-visible{
- box-shadow: none!important; 
- border: 1px solid var(--active-primary)!important;
 }
 
-.bg-active-parimary{
+input:focus-visible {
+  box-shadow: none !important;
+  border: 1px solid var(--active-primary) !important;
+}
+
+.bg-active-parimary {
   background-color: var(--active-primary);
+}
+
+@keyframes heartbeat-wave {
+  0% {
+    background-position: 120px center;
+  }
+  100% {
+    background-position: 0px center;
+  }
+}
+
+.heartbeat-line {
+  width: 50px;
+  height: 18px;
+  background-image: url("data:image/svg+xml,%3Csvg width='120' height='18' viewBox='0 0 120 18' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 9 L8 9 L10 6 L12 13 L14 3 L16 11 L18 9 L24 9 L26 7 L28 12 L30 5 L32 10 L34 9 L42 9 L44 8 L46 11 L48 6 L50 13 L52 9 L58 9 L60 7 L62 14 L64 4 L66 12 L68 9 L76 9 L78 7 L80 13 L82 5 L84 11 L86 9 L92 9 L94 8 L96 12 L98 6 L100 13 L102 9 L108 9 L110 7 L112 14 L114 4 L116 12 L118 9 L120 9' stroke='%2353a244' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-size: 120px 18px;
+  background-repeat: repeat-x;
+  animation: heartbeat-wave 5s linear infinite;
+}
+
+.animate-heartbeat {
+  display: inline-flex;
+  align-items: center;
 }

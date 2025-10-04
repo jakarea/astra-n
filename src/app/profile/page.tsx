@@ -45,7 +45,7 @@ export default function ProfilePage() {
   })
 
   // Telegram settings state
-  const [telegramChatId, setTelegramChatId] = useState<string>('')
+        const [telegramChatId, setTelegramChatId] = useState<string>('')
   const [tempTelegramChatId, setTempTelegramChatId] = useState<string>('')
   const [telegramLoading, setTelegramLoading] = useState(false)
   const [telegramTesting, setTelegramTesting] = useState(false)
@@ -87,7 +87,7 @@ export default function ProfilePage() {
       }
 
       // Load Telegram settings
-      const { data: settingsData, error: settingsError } = await supabase
+        const { data: settingsData, error: settingsError } = await supabase
         .from('user_settings')
         .select('telegram_chat_id')
         .eq('user_id', session.user.id)
@@ -97,9 +97,7 @@ export default function ProfilePage() {
         setTelegramChatId(settingsData.telegram_chat_id || '')
         setTempTelegramChatId(settingsData.telegram_chat_id || '')
       }
-    } catch (error: any) {
-      console.error('[PROFILE] Error loading profile:', error)
-      setHasError(true)
+    } catch (error: any) {      setHasError(true)
       setErrorMessage('Failed to load profile data.')
     } finally {
       setLoading(false)
@@ -122,7 +120,7 @@ export default function ProfilePage() {
       }
 
       // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
       if (!emailRegex.test(formData.email)) {
         throw new Error('Please enter a valid email address')
       }
@@ -151,9 +149,7 @@ export default function ProfilePage() {
         setProfile(data)
         toast.success('Profile updated successfully!')
       }
-    } catch (error: any) {
-      console.error('Error updating profile:', error)
-      toast.error(`Failed to update profile: ${error.message}`)
+    } catch (error: any) {      toast.error(`Failed to update profile: ${error.message}`)
     } finally {
       setSaving(false)
     }
@@ -166,9 +162,7 @@ export default function ProfilePage() {
       await resetUserPassword(profile.email)
       setResetPasswordDialog(false)
       toast.success(`Password reset link sent to ${profile.email}`)
-    } catch (error: any) {
-      console.error('Error resetting password:', error)
-      toast.error(`Failed to send reset email: ${error.message}`)
+    } catch (error: any) {      toast.error(`Failed to send reset email: ${error.message}`)
     }
   }
 
@@ -180,7 +174,7 @@ export default function ProfilePage() {
       const supabase = getAuthenticatedClient()
 
       // Upsert user settings
-      const { error } = await supabase
+        const { error } = await supabase
         .from('user_settings')
         .upsert({
           user_id: profile.id,
@@ -194,9 +188,7 @@ export default function ProfilePage() {
 
       setTelegramChatId(tempTelegramChatId)
       toast.success('Telegram settings saved successfully!')
-    } catch (error: any) {
-      console.error('Error saving Telegram settings:', error)
-      toast.error('Failed to save Telegram settings. Please try again.')
+    } catch (error: any) {      toast.error('Failed to save Telegram settings. Please try again.')
     } finally {
       setTelegramLoading(false)
     }
@@ -227,9 +219,7 @@ export default function ProfilePage() {
       } else {
         toast.error(`Failed to send test message: ${result.error || 'Unknown error'}`)
       }
-    } catch (error: any) {
-      console.error('Error testing Telegram:', error)
-      toast.error('Failed to test Telegram connection. Please try again.')
+    } catch (error: any) {      toast.error('Failed to test Telegram connection. Please try again.')
     } finally {
       setTelegramTesting(false)
     }
@@ -520,9 +510,7 @@ export default function ProfilePage() {
         isOpen={inviteModalOpen}
         onClose={() => setInviteModalOpen(false)}
         onSuccess={() => {
-          // Handle success if needed - maybe show a toast
-          console.log('User invited successfully from profile page')
-        }}
+          // Handle success if needed - maybe show a toast        }}
       />
 
       {/* Reset Password Confirmation Dialog */}

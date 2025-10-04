@@ -27,7 +27,7 @@ async function createLead(formData: FormData) {
 
   try {
     // Generate a temporary user ID for now (in real implementation, get from session)
-    const tempUserId = crypto.randomUUID()
+        const tempUserId = crypto.randomUUID()
 
     const newLead = await prisma.crmLead.create({
       data: {
@@ -45,15 +45,13 @@ async function createLead(formData: FormData) {
     })
 
     redirect(`/crm/${newLead.id}`)
-  } catch (error) {
-    console.error('Error creating lead:', error)
-    throw new Error('Failed to create lead')
+  } catch (error) {    throw new Error('Failed to create lead')
   }
 }
 
 export default async function CRMNewPage() {
   // Get available orders for association (optional)
-  const availableOrders = await prisma.order.findMany({
+        const availableOrders = await prisma.order.findMany({
     include: {
       customer: true
     },

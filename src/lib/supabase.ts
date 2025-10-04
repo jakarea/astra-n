@@ -15,12 +15,6 @@ export function createSupabaseClient() {
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!url || !anonKey) {
-    console.error('Missing Supabase environment variables:', {
-      url: !!url,
-      anonKey: !!anonKey,
-      urlValue: url,
-      anonKeyValue: anonKey?.slice(0, 10) + '...'
-    })
     throw new Error('Missing Supabase environment variables')
   }
 

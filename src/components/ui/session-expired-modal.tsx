@@ -38,9 +38,7 @@ export function SessionExpiredModal({
 
       // Redirect to login page
       window.location.href = '/login'
-    } catch (error) {
-      console.error('Logout error:', error)
-      // Force redirect anyway
+    } catch (error) {      // Force redirect anyway
       window.location.href = '/login'
     }
   }

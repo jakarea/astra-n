@@ -162,9 +162,6 @@ export default function UserDetailPage() {
       if (!session) {
         throw new Error('Authentication required')
       }
-
-      console.log('[USER_DETAIL] Loading detailed user data:', userId)
-
       const response = await fetch(`/api/admin/users/${userId}/detailed`, {
         method: 'GET',
         credentials: 'include',
@@ -176,17 +173,13 @@ export default function UserDetailPage() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || `HTTP ${response.status}`)
+          throw new Error(errorData.error || `HTTP ${response.status}`)
       }
 
       const data = await response.json()
-      console.log('[USER_DETAIL] User data loaded successfully')
-
       setUserData(data)
       setHasError(false)
-    } catch (error: any) {
-      console.error('Error loading user data:', error)
-      setHasError(true)
+    } catch (error: any) {      setHasError(true)
       setErrorMessage(`Failed to load user data: ${error.message}`)
     } finally {
       setLoading(false)

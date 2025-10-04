@@ -105,7 +105,7 @@ export default function CustomersPage() {
   const ITEMS_PER_PAGE = 10
 
   // Helper function to check if user is admin (client-side only)
-  const isUserAdmin = () => {
+        const isUserAdmin = () => {
     return mounted && userRole === 'admin'
   }
 
@@ -121,12 +121,8 @@ export default function CustomersPage() {
   const loadCustomers = async (page = 1, search = '', sort = sortBy) => {
     try {
       setLoading(true)
-      console.log('[Customers] Loading customers...', { page, search, sort })
-
       const session = getSession()
-      if (!session) {
-        console.error('[Customers] No session found')
-        return
+      if (!session) {        return
       }
 
       const supabase = getAuthenticatedClient()
@@ -136,19 +132,9 @@ export default function CustomersPage() {
         .select('id, name, email, phone, address, source, total_order, created_at, updated_at, user:users(name)', { count: 'exact' })
 
       // Admin sees all customers, seller sees only their own
-      const adminStatus = session.user.role === 'admin'
-      console.log('[CUSTOMERS] User role check:', {
-        userId: session.user.id,
-        userRole: session.user.role,
-        isAdmin: adminStatus
-      })
-
-      if (!adminStatus) {
-        console.log('[CUSTOMERS] Filtering by user_id:', session.user.id)
-        query = query.eq('user_id', session.user.id)
-      } else {
-        console.log('[CUSTOMERS] Admin access - showing all data')
-      }
+        const adminStatus = session.user.role === 'admin'
+      if (!adminStatus) {        query = query.eq('user_id', session.user.id)
+      } else {      }
 
       if (search && search.length >= 3) {
         query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`)
@@ -165,13 +151,11 @@ export default function CustomersPage() {
 
       const { data, error, count } = await query.range(from, to)
 
-      if (error) {
-        console.error('[Customers] Database error:', error)
-        throw new Error(`Database error: ${error.message}`)
+      if (error) {        throw new Error(`Database error: ${error.message}`)
       }
 
       // Use the total_order field from database
-      const customersWithTotals = (data || []).map(customer => {
+        const customersWithTotals = (data || []).map(customer => {
         return {
           ...customer,
           totalOrders: customer.total_order || 0
@@ -186,12 +170,8 @@ export default function CustomersPage() {
       setCustomers(customersWithTotals)
       setTotalCount(count || 0)
       setHasError(false)
-      console.log('[Customers] Customers loaded successfully:', customersWithTotals.length)
-
       await loadStats()
-    } catch (error: any) {
-      console.error('[Customers] Database connection error:', error)
-      setHasError(true)
+    } catch (error: any) {      setHasError(true)
       setErrorMessage(`Database error: ${error.message || error.toString()}`)
     } finally {
       setLoading(false)
@@ -201,9 +181,7 @@ export default function CustomersPage() {
   const loadStats = async () => {
     try {
       const session = getSession()
-      if (!session) {
-        console.error('[Customers] No session found for stats')
-        return
+      if (!session) {        return
       }
 
       const supabase = getAuthenticatedClient()
@@ -219,9 +197,7 @@ export default function CustomersPage() {
 
       const { data: statsData, error: statsError } = await statsQuery
 
-      if (statsError) {
-        console.error('[Customers] Stats query error:', statsError)
-        return
+      if (statsError) {        return
       }
 
       if (statsData) {
@@ -233,9 +209,7 @@ export default function CustomersPage() {
         }
         setTotalStats(stats)
       }
-    } catch (error) {
-      console.error('[Customers] Stats loading error:', error)
-    }
+    } catch (error) {    }
   }
 
   useEffect(() => {
@@ -295,9 +269,7 @@ export default function CustomersPage() {
 
     try {
       const session = getSession()
-      if (!session) {
-        console.error('[Customers] No session found for delete')
-        return
+      if (!session) {        return
       }
 
       const supabase = getAuthenticatedClient()
@@ -320,9 +292,7 @@ export default function CustomersPage() {
 
       handleCustomerDeleted(customerId)
       setDeleteDialog({ isOpen: false, customerId: '', customerName: '' })
-    } catch (error) {
-      console.error('Error deleting customer:', error)
-      alert('Failed to delete customer. Please try again.')
+    } catch (error) {      alert('Failed to delete customer. Please try again.')
       setDeleteDialog({ isOpen: false, customerId: '', customerName: '' })
     }
   }
@@ -382,7 +352,7 @@ export default function CustomersPage() {
       const csvContent = [headers.join(','), ...rows].join('\n')
 
       // Create and download file
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
       const link = document.createElement('a')
       const url = URL.createObjectURL(blob)
       link.setAttribute('href', url)
@@ -391,9 +361,7 @@ export default function CustomersPage() {
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
-    } catch (error) {
-      console.error('Error exporting CSV:', error)
-      alert('Failed to export CSV. Please try again.')
+    } catch (error) {      alert('Failed to export CSV. Please try again.')
     }
   }
 

@@ -127,7 +127,7 @@ export default function CRMPage() {
   const ITEMS_PER_PAGE = 10
 
   // Helper function to check if user is admin (client-side only)
-  const isUserAdmin = () => {
+        const isUserAdmin = () => {
     return mounted && userRole === 'admin'
   }
 
@@ -153,14 +153,14 @@ export default function CRMPage() {
       // For admin users, use API endpoint to bypass RLS
       if (isAdmin) {
         try {
-          const response = await fetch('/api/debug/crm-leads')
+          const response = await fetch('/api/crm')
           const apiData = await response.json()
 
           if (apiData.success) {
             const leads = apiData.leads || []
 
             // Calculate stats from all leads (one-time)
-            const stats = {
+        const stats = {
               total: leads.length,
               pending: leads.filter((l: any) => l.cod_status === 'pending').length,
               confirmed: leads.filter((l: any) => l.cod_status === 'confirmed').length,
@@ -180,7 +180,7 @@ export default function CRMPage() {
             }
 
             // Apply pagination
-            const from = (page - 1) * ITEMS_PER_PAGE
+        const from = (page - 1) * ITEMS_PER_PAGE
             const paginatedLeads = filteredLeads.slice(from, from + ITEMS_PER_PAGE)
 
             setLeads(paginatedLeads)
@@ -191,12 +191,12 @@ export default function CRMPage() {
             throw new Error(apiData.error || 'API request failed')
           }
         } catch (error) {
-          // Fall back to regular query
+      // Fall back to regular query
         }
       }
 
       // Regular user or admin fallback - use Supabase client
-      const supabase = getAuthenticatedClient()
+        const supabase = getAuthenticatedClient()
 
       // Build base query - optimize by only selecting needed fields
       let query = supabase
@@ -226,7 +226,7 @@ export default function CRMPage() {
       }
 
       // Add pagination
-      const from = (page - 1) * ITEMS_PER_PAGE
+        const from = (page - 1) * ITEMS_PER_PAGE
       const to = from + ITEMS_PER_PAGE - 1
 
       const { data, error, count } = await query
@@ -261,7 +261,7 @@ export default function CRMPage() {
       }
 
       // Only used for non-admin users (admin stats are calculated in loadLeads)
-      const supabase = getAuthenticatedClient()
+        const supabase = getAuthenticatedClient()
       const { data: statsData, error: statsError } = await supabase
         .from('crm_leads')
         .select('cod_status')
@@ -294,7 +294,7 @@ export default function CRMPage() {
   }, [searchInput])
 
   // Load leads when search query or page changes
-  const loadLeadsCallback = useCallback(() => {
+        const loadLeadsCallback = useCallback(() => {
     loadLeads(currentPage, searchQuery)
   }, [currentPage, searchQuery])
 
@@ -303,7 +303,7 @@ export default function CRMPage() {
   }, [loadLeadsCallback])
 
   // Initial load
-  const initialLoad = useCallback(() => {
+        const initialLoad = useCallback(() => {
     loadLeads()
   }, [loadLeads])
 
@@ -312,8 +312,8 @@ export default function CRMPage() {
   }, [initialLoad])
 
   // Optimistic updates - no server reload needed
-  const handleLeadAdded = (newLead: any) => {
-    // Add to current leads list
+        const handleLeadAdded = (newLead: any) => {
+      // Add to current leads list
     setLeads(prev => [newLead, ...prev])
 
     // Update total count
@@ -329,7 +329,7 @@ export default function CRMPage() {
   }
 
   const handleLeadUpdated = (updatedLead: any) => {
-    // Update the specific lead in the list
+      // Update the specific lead in the list
     setLeads(prev => prev.map(lead =>
       lead.id === updatedLead.id ? { ...lead, ...updatedLead } : lead
     ))
@@ -339,7 +339,7 @@ export default function CRMPage() {
   }
 
   const handleLeadDeleted = (leadId: string) => {
-    // Remove from current leads list
+      // Remove from current leads list
     setLeads(prev => prev.filter(lead => lead.id !== leadId))
 
     // Update total count
@@ -412,14 +412,14 @@ export default function CRMPage() {
       let exportData: any[] = []
 
       if (isAdmin) {
-        // Admin exports all leads via API
-        const response = await fetch('/api/debug/crm-leads')
+      // Admin exports all leads via API
+        const response = await fetch('/api/crm')
         const apiData = await response.json()
         if (apiData.success) {
           exportData = apiData.leads || []
         }
       } else {
-        // Seller exports only their own leads
+      // Seller exports only their own leads
         const supabase = getAuthenticatedClient()
         const { data, error } = await supabase
           .from('crm_leads')
@@ -437,7 +437,7 @@ export default function CRMPage() {
       }
 
       // Helper function to get status label
-      const getStatusLabel = (status: string | null) => {
+        const getStatusLabel = (status: string | null) => {
         if (!status) return '-'
         return status.charAt(0).toUpperCase() + status.slice(1)
       }
@@ -476,7 +476,7 @@ export default function CRMPage() {
       const csvContent = [headers.join(','), ...rows].join('\n')
 
       // Create and download file
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
       const link = document.createElement('a')
       const url = URL.createObjectURL(blob)
       link.setAttribute('href', url)
@@ -485,14 +485,12 @@ export default function CRMPage() {
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
-    } catch (error) {
-      console.error('Error exporting CSV:', error)
-      alert('Failed to export CSV. Please try again.')
+    } catch (error) {      alert('Failed to export CSV. Please try again.')
     }
   }
 
   // Pagination calculations
-  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE)
+        const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE)
   const startItem = (currentPage - 1) * ITEMS_PER_PAGE + 1
   const endItem = Math.min(currentPage * ITEMS_PER_PAGE, totalCount)
 

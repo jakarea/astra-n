@@ -60,16 +60,12 @@ export async function POST(request: NextRequest) {
   let requestId: string
 
   try {
-    // EMERGENCY FIX: Always return success for now to allow WooCommerce config save
-    console.log('[WEBHOOK_EMERGENCY] Accepting all requests to fix WooCommerce 400 error')
-
-    const headers = Object.fromEntries(request.headers.entries())
+      // EMERGENCY FIX: Always return success for now to allow WooCommerce config save
+        const headers = Object.fromEntries(request.headers.entries())
     const userAgent = headers['user-agent'] || ''
 
     // If this looks like WooCommerce, return immediate success
     if (userAgent.includes('WordPress') || userAgent.includes('WooCommerce') || userAgent.includes('Hookshot')) {
-      console.log('[WEBHOOK_EMERGENCY] WooCommerce user agent detected, returning success')
-
       return NextResponse.json({
         success: true,
         message: 'WooCommerce webhook accepted',
@@ -79,7 +75,7 @@ export async function POST(request: NextRequest) {
       }, { status: 200 })
     }
     // First, capture all raw request data for logging
-    const url = new URL(request.url)
+        const url = new URL(request.url)
     const query = Object.fromEntries(url.searchParams.entries())
 
     let body: any
@@ -91,20 +87,16 @@ export async function POST(request: NextRequest) {
       if (!bodyText) {
         body = {}
       } else {
-        // Try multiple parsing methods
+      // Try multiple parsing methods
         try {
-          // Try JSON first
+      // Try JSON first
           body = JSON.parse(bodyText)
         } catch (jsonError) {
-          // Try URL-encoded form data
+      // Try URL-encoded form data
           try {
             const urlParams = new URLSearchParams(bodyText)
-            body = Object.fromEntries(urlParams.entries())
-            console.log('[WEBHOOK] Parsed as URL-encoded form data')
-          } catch (formError) {
-            // Try to handle other formats or plain text
-            console.log('[WEBHOOK] Could not parse body, treating as plain text')
-            body = { raw_body: bodyText, parse_error: jsonError.message }
+            body = Object.fromEntries(urlParams.entries())          } catch (formError) {
+      // Try to handle other formats or plain text            body = { raw_body: bodyText, parse_error: jsonError.message }
           }
         }
       }
@@ -152,7 +144,7 @@ export async function POST(request: NextRequest) {
     const contentType = request.headers.get('content-type') || ''
 
     // Be very flexible with content types - accept almost anything
-    const isValidContentType = true // Temporarily accept all content types for debugging
+        const isValidContentType = true // Temporarily accept all content types for debugging
 
     if (!isValidContentType) {
       const processingTime = Date.now() - startTime
@@ -189,8 +181,7 @@ export async function POST(request: NextRequest) {
       query.webhook_secret || // Query parameter
       query.secret || // Alternative query parameter
       body?.webhook_secret // In request body
-
-    const secretSources = {
+        const secretSources = {
       header_x_webhook_secret: !!request.headers.get('x-webhook-secret'),
       header_x_wc_webhook_signature: !!request.headers.get('x-wc-webhook-signature'),
       query_webhook_secret: !!query.webhook_secret,
@@ -216,7 +207,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if this might be a WooCommerce validation request
-    const isValidationRequest =
+        const isValidationRequest =
       headers['user-agent']?.includes('WordPress') ||
       headers['user-agent']?.includes('WooCommerce') ||
       body?.webhook_id ||
@@ -269,13 +260,11 @@ export async function POST(request: NextRequest) {
       webhookSecret
     })
 
-    // Find integration by webhook secret
-    console.log('[WOOCOMMERCE_WEBHOOK] Looking up integration with webhook secret')
-    let integration
+    // Find integration by webhook secret    let integration
     let integrationError
 
     // Try to find integration with exact webhook secret match
-    const integrationResult = await supabaseAdmin
+        const integrationResult = await supabaseAdmin
       .from('integrations')
       .select('id, user_id, name, status, is_active, webhook_secret')
       .eq('webhook_secret', webhookSecret)
@@ -287,8 +276,6 @@ export async function POST(request: NextRequest) {
 
     // If no exact match and we have a WooCommerce signature, validate against all WooCommerce integrations
     if (!integration && request.headers.get('x-wc-webhook-signature')) {
-      console.log('[WOOCOMMERCE_WEBHOOK] No exact match found, trying WooCommerce signature validation')
-
       const { data: allIntegrations } = await supabaseAdmin
         .from('integrations')
         .select('id, user_id, name, status, is_active, webhook_secret')
@@ -309,14 +296,10 @@ export async function POST(request: NextRequest) {
                 .update(rawBody, 'utf8')
                 .digest('base64')
 
-              if (signature === expectedSignature) {
-                console.log('[WOOCOMMERCE_WEBHOOK] Valid WooCommerce signature found for integration:', testIntegration.id)
-                integration = testIntegration
+              if (signature === expectedSignature) {                integration = testIntegration
                 break
               }
-            } catch (error) {
-              console.error('[WOOCOMMERCE_WEBHOOK] Error validating signature:', error)
-            }
+            } catch (error) {            }
           }
         }
       }
@@ -357,19 +340,8 @@ export async function POST(request: NextRequest) {
         isActive: integration.is_active
       }
     })
-
-    console.log('[WOOCOMMERCE_WEBHOOK] Integration found:', {
-      id: integration.id,
-      userId: integration.user_id,
-      name: integration.name,
-      status: integration.status,
-      isActive: integration.is_active
-    })
-
     // Validate that we have a valid user_id from webhook secret
-    if (!integration.user_id) {
-      console.error('[WOOCOMMERCE_WEBHOOK] No user_id found for integration')
-      return NextResponse.json(
+    if (!integration.user_id) {      return NextResponse.json(
         {
           error: 'Invalid integration',
           message: 'Integration does not have a valid user_id'
@@ -377,9 +349,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-
-    console.log('[WOOCOMMERCE_WEBHOOK] User identified from webhook secret:', integration.user_id)
-
     // Check if this is a validation request (has integration but no real order data)
     if (isValidationRequest || !body?.id || !body?.billing?.email) {
       webhookLogger.logWebhookProcessing(requestId, {
@@ -400,7 +369,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Extract customer data
-    const customerName = `${body.billing.first_name} ${body.billing.last_name}`.trim()
+        const customerName = `${body.billing.first_name} ${body.billing.last_name}`.trim()
     const customerEmail = body.billing.email
     const customerPhone = body.billing.phone
     const customerAddress = {
@@ -430,7 +399,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 1: Check if order already exists first
-    const externalOrderId = body.id.toString()
+        const externalOrderId = body.id.toString()
     const { data: existingOrder, error: _orderLookupError } = await supabaseAdmin
       .from('orders')
       .select('id, customer_id')
@@ -442,7 +411,7 @@ export async function POST(request: NextRequest) {
     let isNewOrder = !existingOrder
 
     // Step 2: Handle Customer (only increment total_order for new orders)
-    const { data: existingCustomer, error: _customerLookupError } = await supabaseAdmin
+        const { data: existingCustomer, error: _customerLookupError } = await supabaseAdmin
       .from('customers')
       .select('id, total_order')
       .eq('email', customerEmail)
@@ -451,7 +420,7 @@ export async function POST(request: NextRequest) {
 
     if (existingCustomer) {
       // Update existing customer, increment total_order only for new orders
-      const { data: updatedCustomer, error: updateError } = await supabaseAdmin
+        const { data: updatedCustomer, error: updateError } = await supabaseAdmin
         .from('customers')
         .update({
           name: customerName,
@@ -464,9 +433,7 @@ export async function POST(request: NextRequest) {
         .select()
         .single()
 
-      if (updateError) {
-        console.error('[WOOCOMMERCE_WEBHOOK] Customer update error:', updateError)
-        return NextResponse.json(
+      if (updateError) {        return NextResponse.json(
           {
             error: 'Database error',
             message: 'Failed to update customer'
@@ -477,7 +444,7 @@ export async function POST(request: NextRequest) {
       customer = updatedCustomer
     } else {
       // Create new customer (new customers always start with total_order: 1)
-      const { data: newCustomer, error: insertError } = await supabaseAdmin
+        const { data: newCustomer, error: insertError } = await supabaseAdmin
         .from('customers')
         .insert([{
           user_id: integration.user_id,
@@ -491,9 +458,7 @@ export async function POST(request: NextRequest) {
         .select()
         .single()
 
-      if (insertError) {
-        console.error('[WOOCOMMERCE_WEBHOOK] Customer insert error:', insertError)
-        return NextResponse.json(
+      if (insertError) {        return NextResponse.json(
           {
             error: 'Database error',
             message: 'Failed to create customer'
@@ -505,13 +470,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 3: Upsert Order
-    const orderCreatedAt = new Date(body.date_created).toISOString()
+        const orderCreatedAt = new Date(body.date_created).toISOString()
     const totalAmount = parseFloat(body.total)
 
     let order
     if (existingOrder) {
       // Update existing order
-      const { data: updatedOrder, error: updateError } = await supabaseAdmin
+        const { data: updatedOrder, error: updateError } = await supabaseAdmin
         .from('orders')
         .update({
           user_id: integration.user_id,
@@ -525,9 +490,7 @@ export async function POST(request: NextRequest) {
         .select()
         .single()
 
-      if (updateError) {
-        console.error('[WOOCOMMERCE_WEBHOOK] Order update error:', updateError)
-        return NextResponse.json(
+      if (updateError) {        return NextResponse.json(
           {
             error: 'Database error',
             message: 'Failed to update order'
@@ -538,7 +501,7 @@ export async function POST(request: NextRequest) {
       order = updatedOrder
     } else {
       // Create new order
-      const { data: newOrder, error: insertError } = await supabaseAdmin
+        const { data: newOrder, error: insertError } = await supabaseAdmin
         .from('orders')
         .insert([{
           user_id: integration.user_id,
@@ -552,9 +515,7 @@ export async function POST(request: NextRequest) {
         .select()
         .single()
 
-      if (insertError) {
-        console.error('[WOOCOMMERCE_WEBHOOK] Order insert error:', insertError)
-        return NextResponse.json(
+      if (insertError) {        return NextResponse.json(
           {
             error: 'Database error',
             message: 'Failed to create order'
@@ -568,18 +529,16 @@ export async function POST(request: NextRequest) {
     // Step 4: Handle Order Items
     if (existingOrder) {
       // Delete existing order items for updates
-      const { error: deleteError } = await supabaseAdmin
+        const { error: deleteError } = await supabaseAdmin
         .from('order_items')
         .delete()
         .eq('order_id', order.id)
 
-      if (deleteError) {
-        console.error('[WOOCOMMERCE_WEBHOOK] Order items delete error:', deleteError)
-      }
+      if (deleteError) {      }
     }
 
     // Insert new order items
-    const orderItems = body.line_items.map(item => ({
+        const orderItems = body.line_items.map(item => ({
       order_id: order.id,
       product_sku: item.sku || '',
       product_name: item.name,
@@ -592,9 +551,7 @@ export async function POST(request: NextRequest) {
         .from('order_items')
         .insert(orderItems)
 
-      if (itemsInsertError) {
-        console.error('[WOOCOMMERCE_WEBHOOK] Order items insert error:', itemsInsertError)
-        return NextResponse.json(
+      if (itemsInsertError) {        return NextResponse.json(
           {
             error: 'Database error',
             message: 'Failed to create order items'
@@ -603,22 +560,13 @@ export async function POST(request: NextRequest) {
         )
       }
     }
-
-    console.log('[WOOCOMMERCE_WEBHOOK] Order processed successfully:', {
-      orderId: order.id,
-      customerId: customer.id,
-      externalOrderId,
-      itemsCount: orderItems.length
-    })
-
     // Step 5: Send Telegram Notification (for both create and update)
     try {
       // User identified from webhook secret -> integration lookup
-      const notificationUserId = integration.user_id
-      console.log('[WOOCOMMERCE_WEBHOOK] Telegram notification target user (from webhook secret):', notificationUserId)
+        const notificationUserId = integration.user_id:', notificationUserId)
 
       // Send Telegram notification (non-blocking)
-      const orderData = {
+        const orderData = {
         externalOrderId,
         customer: {
           name: customerName,
@@ -633,20 +581,11 @@ export async function POST(request: NextRequest) {
           pricePerUnit: item.total
         })),
         isUpdate: !isNewOrder
-      }
-
-      console.log('[WOOCOMMERCE_WEBHOOK] Order data for notification:', JSON.stringify(orderData, null, 2))
-
-      sendOrderNotification(notificationUserId, orderData).then((result) => {
-        console.log('[WOOCOMMERCE_WEBHOOK] Telegram notification result:', result)
-        if (!result.success) {
-          console.error('[WOOCOMMERCE_WEBHOOK] Telegram notification failed:', result.error)
-        }
-      }).catch((error) => {
-        console.error('[WOOCOMMERCE_WEBHOOK] Telegram notification error:', error)
       })
+
+      sendOrderNotification(notificationUserId, orderData).then((result) => {        if (!result.success) {        }
+      }).catch((error) => {      })
     } catch (telegramError) {
-      console.error('[WOOCOMMERCE_WEBHOOK] Telegram notification error:', telegramError)
       // Don't fail the webhook if Telegram notification fails
     }
 

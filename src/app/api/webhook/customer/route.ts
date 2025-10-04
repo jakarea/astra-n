@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     try {
       body = await request.json()
     } catch (_error) {
-      return NextResponse.json(
+    return NextResponse.json(
         {
           error: 'Invalid JSON',
           message: 'Request body must be valid JSON'
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate webhook secret from header
-    const webhookSecret = request.headers.get('x-webhook-secret') || request.headers.get('webhook-secret')
+        const webhookSecret = request.headers.get('x-webhook-secret') || request.headers.get('webhook-secret')
     if (!webhookSecret || typeof webhookSecret !== 'string') {
       return NextResponse.json(
         {
@@ -53,15 +53,13 @@ export async function POST(request: NextRequest) {
     const customerData = body
 
     // Find user by webhook secret
-    const { data: user, error: userError } = await supabaseAdmin
+        const { data: user, error: userError } = await supabaseAdmin
       .from('users')
       .select('id')
       .eq('webhook_secret', webhookSecret)
       .single()
 
-    if (userError || !user) {
-      console.error('[WEBHOOK] User lookup error:', userError)
-      return NextResponse.json(
+    if (userError || !user) {      return NextResponse.json(
         {
           error: 'Invalid webhook secret',
           message: 'The provided webhook secret is not valid or does not exist'
@@ -71,7 +69,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate required customer fields
-    const { name, email } = customerData
+        const { name, email } = customerData
     if (!name || typeof name !== 'string' || name.trim() === '') {
       return NextResponse.json(
         {
@@ -93,7 +91,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate optional fields if provided
-    const allowedFields = ['name', 'email', 'phone', 'address', 'source', 'order_id']
+        const allowedFields = ['name', 'email', 'phone', 'address', 'source', 'order_id']
     const invalidFields = Object.keys(customerData).filter(field => !allowedFields.includes(field))
     if (invalidFields.length > 0) {
       return NextResponse.json(
@@ -106,7 +104,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(email)) {
       return NextResponse.json(
         {
@@ -132,7 +130,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if customer already exists (prevent duplicates)
-    const { data: existingCustomer, error: _existingError } = await supabaseAdmin
+        const { data: existingCustomer, error: _existingError } = await supabaseAdmin
       .from('customers')
       .select('id')
       .eq('user_id', user.id)
@@ -160,7 +158,7 @@ export async function POST(request: NextRequest) {
         try {
           parsedAddress = JSON.parse(customerData.address)
         } catch (_e) {
-          return NextResponse.json(
+    return NextResponse.json(
             {
               error: 'Invalid address format',
               message: 'Address must be a valid JSON object'
@@ -193,7 +191,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Prepare customer data for insertion
-    const customerInsertData = {
+        const customerInsertData = {
       user_id: user.id,
       order_id: customerData.order_id || null,
       name: name.trim(),
@@ -202,19 +200,14 @@ export async function POST(request: NextRequest) {
       address: parsedAddress,
       source: customerData.source || 'webhook'
     }
-
-    console.log('[WEBHOOK] Creating customer with data:', customerInsertData)
-
     // Insert customer into database
-    const { data: createdCustomer, error: insertError } = await supabaseAdmin
+        const { data: createdCustomer, error: insertError } = await supabaseAdmin
       .from('customers')
       .insert([customerInsertData])
       .select()
       .single()
 
     if (insertError) {
-      console.error('[WEBHOOK] Insert error:', insertError)
-
       // Check if it's a unique constraint violation
       if (insertError.code === '23505') {
         return NextResponse.json(
@@ -234,19 +227,12 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       )
     }
-
-    console.log('[WEBHOOK] Customer created successfully:', createdCustomer)
-
     // Send Telegram notification (non-blocking)
     sendWebhookChangeNotification(user.id, {
       type: 'New Customer Created',
       details: `New customer "${createdCustomer.name}" (${createdCustomer.email}) has been added to your system`,
       integration: 'Customer Webhook'
-    }).then((result) => {
-      console.log('[WEBHOOK] Telegram notification result:', result)
-    }).catch((error) => {
-      console.error('[WEBHOOK] Telegram notification error:', error)
-    })
+    }).then((result) => {    }).catch((error) => {    })
 
     return NextResponse.json(
       {
@@ -267,7 +253,6 @@ export async function POST(request: NextRequest) {
     )
 
   } catch (error) {
-    console.error('[WEBHOOK] Unexpected error:', error)
     return NextResponse.json(
       {
         error: 'Internal server error',

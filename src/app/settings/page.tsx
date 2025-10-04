@@ -26,7 +26,7 @@ export default function SettingsPage() {
           const supabase = getSupabaseClient()
 
           // Fetch user data
-          const { data, error } = await supabase
+        const { data, error } = await supabase
             .from('users')
             .select('name, role')
             .eq('id', user.id)
@@ -40,7 +40,7 @@ export default function SettingsPage() {
           }
 
           // Fetch user settings
-          const { data: settingsData, error: settingsError } = await supabase
+        const { data: settingsData, error: settingsError } = await supabase
             .from('user_settings')
             .select('notifications_enabled, email_notifications, auto_save')
             .eq('user_id', user.id)
@@ -51,9 +51,7 @@ export default function SettingsPage() {
             setEmailNotifications(settingsData.email_notifications ?? true)
             setAutoSave(settingsData.auto_save ?? true)
           }
-        } catch (error) {
-          console.error('Error fetching user data:', error)
-        }
+        } catch (error) {        }
       }
     }
 
@@ -67,7 +65,7 @@ export default function SettingsPage() {
       const supabase = getSupabaseClient()
 
       // Upsert user settings
-      const { error } = await supabase
+        const { error } = await supabase
         .from('user_settings')
         .upsert({
           user_id: user.id,
@@ -82,9 +80,7 @@ export default function SettingsPage() {
       }
 
       toast.success('Settings saved successfully!')
-    } catch (error) {
-      console.error('Error saving settings:', error)
-      toast.error('Failed to save settings. Please try again.')
+    } catch (error) {      toast.error('Failed to save settings. Please try again.')
     }
   }
 

@@ -55,21 +55,21 @@ const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
 
 export async function getSellerDashboardData(userId: string): Promise<SellerDashboardData> {
   // Check cache first
-  const cached = sellerCache.get(userId)
+        const cached = sellerCache.get(userId)
   if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
     return cached.data
   }
 
   try {
     // Get user info first
-    const { data: userInfo } = await supabase
+        const { data: userInfo } = await supabase
       .from('users')
       .select('name, role')
       .eq('id', userId)
       .single()
 
     // Get counts for this seller using Supabase
-    const [
+        const [
       { count: totalCustomers },
       { count: totalProducts },
       { count: totalCrmLeads },
@@ -133,7 +133,7 @@ export async function getSellerDashboardData(userId: string): Promise<SellerDash
     ])
 
     // Count orders and calculate revenue for this seller
-    const { data: orderData } = await supabase
+        const { data: orderData } = await supabase
       .from('orders')
       .select('total_amount, status, integrations!inner(user_id)')
       .eq('integrations.user_id', userId)
@@ -142,14 +142,14 @@ export async function getSellerDashboardData(userId: string): Promise<SellerDash
     const totalRevenue = orderData?.reduce((sum, order) => sum + (parseFloat(order.total_amount) || 0), 0) || 0
 
     // Count low stock products (stock < 10)
-    const { count: lowStockProducts } = await supabase
+        const { count: lowStockProducts } = await supabase
       .from('products')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
       .lt('stock', 10)
 
     // Process order status distribution
-    const orderStatusCounts: Record<string, number> = {}
+        const orderStatusCounts: Record<string, number> = {}
     orderData?.forEach((order: any) => {
       orderStatusCounts[order.status] = (orderStatusCounts[order.status] || 0) + 1
     })
@@ -158,7 +158,7 @@ export async function getSellerDashboardData(userId: string): Promise<SellerDash
     }))
 
     // Process leads status stats
-    const leadsStatus = {
+        const leadsStatus = {
       logistic: {} as Record<string, number>,
       cod: {} as Record<string, number>,
       kpi: {} as Record<string, number>
@@ -180,7 +180,7 @@ export async function getSellerDashboardData(userId: string): Promise<SellerDash
     })
 
     // Process integration status
-    const integrationStatusCounts = {
+        const integrationStatusCounts = {
       active: activeIntegrations || 0,
       inactive: (totalIntegrations || 0) - (activeIntegrations || 0)
     }
@@ -189,7 +189,7 @@ export async function getSellerDashboardData(userId: string): Promise<SellerDash
     }))
 
     // Create monthly performance data (simplified)
-    const monthlyPerformance = [
+        const monthlyPerformance = [
       { month: 'Jan', orders: Math.floor((totalOrders || 0) / 6), revenue: Math.floor((totalRevenue || 0) / 6) },
       { month: 'Feb', orders: Math.floor((totalOrders || 0) / 6), revenue: Math.floor((totalRevenue || 0) / 6) },
       { month: 'Mar', orders: Math.floor((totalOrders || 0) / 6), revenue: Math.floor((totalRevenue || 0) / 6) },
@@ -199,12 +199,11 @@ export async function getSellerDashboardData(userId: string): Promise<SellerDash
     ]
 
     // Calculate insights
-    const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
+        const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
     const inventoryHealth = (totalProducts || 0) > 0 ? Math.max(0, 100 - ((lowStockProducts || 0) / (totalProducts || 1)) * 100) : 100
     const leadConversionRate = (totalCrmLeads || 0) > 0 ? (totalOrders / (totalCrmLeads || 1)) * 100 : 0
     const monthlyGrowth = 8.5 // Would need historical data
-
-    const data: SellerDashboardData = {
+        const data: SellerDashboardData = {
       summary: {
         totalOrders: totalOrders || 0,
         totalProducts: totalProducts || 0,
@@ -242,8 +241,6 @@ export async function getSellerDashboardData(userId: string): Promise<SellerDash
     sellerCache.set(userId, { data, timestamp: Date.now() })
 
     return data
-  } catch (error) {
-    console.error('Error fetching seller dashboard data:', error)
-    throw new Error('Failed to fetch dashboard data')
+  } catch (error) {    throw new Error('Failed to fetch dashboard data')
   }
 }

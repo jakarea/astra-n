@@ -21,21 +21,21 @@ export async function getServerAuthUser(): Promise<ServerAuthUser | null> {
     // This is a simplified approach for the migration
 
     // Create supabase client with cookies
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+        const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
         flowType: 'pkce'
       }
     })
 
     // Get the session from Supabase
-    const { data: { session }, error } = await supabase.auth.getSession()
+        const { data: { session }, error } = await supabase.auth.getSession()
 
     if (error || !session?.user) {
       return null
     }
 
     // Get user data from our database
-    const dbUser = await prisma.user.findUnique({
+        const dbUser = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: {
         id: true,
@@ -56,7 +56,6 @@ export async function getServerAuthUser(): Promise<ServerAuthUser | null> {
       role: dbUser.role
     }
   } catch (error) {
-    console.error('Server auth error:', error)
     return null
   }
 }

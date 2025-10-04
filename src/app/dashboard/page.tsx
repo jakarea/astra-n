@@ -77,7 +77,7 @@ export default function DashboardPage() {
       }
 
       // Get user role from session
-      const role = session.user.role
+        const role = session.user.role
       if (!role) {
         setError('User role not found. Please contact support.')
         setLoading(false)
@@ -86,9 +86,7 @@ export default function DashboardPage() {
 
       setUserRole(role)
       setLoading(false)
-    } catch (error: any) {
-      console.error('Error fetching user role:', error)
-      setError('Failed to load user information')
+    } catch (error: any) {      setError('Failed to load user information')
       setLoading(false)
     }
   }, [])

@@ -102,7 +102,7 @@ export function AddCustomerModal({ isOpen, onClose, onSuccess }: AddCustomerModa
       const supabase = getAuthenticatedClient()
 
       // Build address object in the required format
-      const billingData = {
+        const billingData = {
         first_name: formData.billing.first_name || '',
         last_name: formData.billing.last_name || '',
         company: formData.billing.company || '',
@@ -185,9 +185,7 @@ export function AddCustomerModal({ isOpen, onClose, onSuccess }: AddCustomerModa
         shippingSameAsBilling: false
       })
       onClose()
-    } catch (error: any) {
-      console.error('Error adding customer:', error)
-      alert(`Failed to add customer: ${error.message}`)
+    } catch (error: any) {      alert(`Failed to add customer: ${error.message}`)
     } finally {
       setLoading(false)
     }

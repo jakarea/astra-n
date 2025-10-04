@@ -34,11 +34,9 @@ function SetPasswordPageContent() {
       setLoading(true)
 
       // Get the current session from the URL hash (email confirmation)
-      const { data, error } = await supabase.auth.getSession()
+        const { data, error } = await supabase.auth.getSession()
 
-      if (error) {
-        console.error('Auth session error:', error)
-        setError('Authentication failed. Please try the invitation link again.')
+      if (error) {        setError('Authentication failed. Please try the invitation link again.')
         setLoading(false)
         return
       }
@@ -60,9 +58,7 @@ function SetPasswordPageContent() {
         setError('No active session found. Please try the invitation link again.')
         setLoading(false)
       }
-    } catch (error: any) {
-      console.error('Callback handling error:', error)
-      setError('An error occurred during authentication.')
+    } catch (error: any) {      setError('An error occurred during authentication.')
       setLoading(false)
     }
   }
@@ -72,7 +68,7 @@ function SetPasswordPageContent() {
       const metadata = authUser.user_metadata || {}
 
       // Create user record in database
-      const { error } = await supabase
+        const { error } = await supabase
         .from('users')
         .insert([{
           id: authUser.id,
@@ -81,12 +77,8 @@ function SetPasswordPageContent() {
           role: metadata.role || 'seller'
         }])
 
-      if (error && error.code !== '23505') { // Ignore duplicate key errors
-        console.error('Database insert error:', error)
-      }
-    } catch (error) {
-      console.error('Error creating user record:', error)
-    }
+      if (error && error.code !== '23505') { // Ignore duplicate key errors      }
+    } catch (error) {    }
   }
 
   const handleSetPassword = async (e: React.FormEvent) => {
@@ -107,7 +99,7 @@ function SetPasswordPageContent() {
       setError('')
 
       // Update the user's password
-      const { error: updateError } = await supabase.auth.updateUser({
+        const { error: updateError } = await supabase.auth.updateUser({
         password: password
       })
 
@@ -127,9 +119,7 @@ function SetPasswordPageContent() {
         router.push('/login')
       }, 2000)
 
-    } catch (error: any) {
-      console.error('Password setup error:', error)
-      setError(error.message || 'Failed to set up password')
+    } catch (error: any) {      setError(error.message || 'Failed to set up password')
     } finally {
       setUpdating(false)
     }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getCrmCache, setCrmCache } from '@/lib/cache-manager'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -11,21 +12,14 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   }
 })
 
-// Simple in-memory cache for CRM leads (5 minutes)
-let crmLeadsCache: { data: any; timestamp: number } | null = null
-const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
-
 export async function GET(request: NextRequest) {
-  // Check cache first
-  if (crmLeadsCache && Date.now() - crmLeadsCache.timestamp < CACHE_DURATION) {
-    console.log('[DEBUG_CRM_LEADS] Returning cached data')
-    return NextResponse.json(crmLeadsCache.data)
+  // Check cache first using centralized cache manager
+        const cachedData = getCrmCache()
+  if (cachedData) {    return NextResponse.json(cachedData)
   }
   try {
-    console.log('[DEBUG_CRM_LEADS] Getting all CRM leads...')
-
     // Get all CRM leads with user info (no filtering)
-    const { data: leads, error } = await supabase
+        const { data: leads, error } = await supabase
       .from('crm_leads')
       .select(`
         id,
@@ -42,18 +36,13 @@ export async function GET(request: NextRequest) {
       `)
       .order('created_at', { ascending: false })
 
-    if (error) {
-      console.error('[DEBUG_CRM_LEADS] Database error:', error)
-      return NextResponse.json(
+    if (error) {      return NextResponse.json(
         { error: `Database error: ${error.message}` },
         { status: 500 }
       )
     }
-
-    console.log('[DEBUG_CRM_LEADS] Found leads:', leads?.length || 0)
-
     // Group by user_id to see distribution
-    const byUser = leads?.reduce((acc, lead) => {
+        const byUser = leads?.reduce((acc, lead) => {
       const userId = lead.user_id
       if (!acc[userId]) {
         acc[userId] = {
@@ -77,13 +66,12 @@ export async function GET(request: NextRequest) {
       }))
     }
 
-    // Cache the data
-    crmLeadsCache = { data: responseData, timestamp: Date.now() }
+    // Cache the data using centralized cache manager
+    setCrmCache(responseData)
 
     return NextResponse.json(responseData)
 
   } catch (error: any) {
-    console.error('[DEBUG_CRM_LEADS] Error:', error)
     return NextResponse.json(
       { error: error.message || 'Internal server error' },
       { status: 500 }

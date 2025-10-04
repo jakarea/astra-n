@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server'
 
 export async function GET() {
-  console.log('[TELEGRAM_BOT_INFO] Checking bot token validity')
-
   const botToken = process.env.TELEGRAM_BOT_TOKEN
 
   if (!botToken) {
@@ -12,15 +10,10 @@ export async function GET() {
     })
   }
 
-  try {
-    console.log('[TELEGRAM_BOT_INFO] Bot token length:', botToken.length)
-    console.log('[TELEGRAM_BOT_INFO] Bot token format check:', /^\d+:[A-Za-z0-9_-]+$/.test(botToken))
+  try {)
 
     const response = await fetch(`https://api.telegram.org/bot${botToken}/getMe`)
-    const data = await response.json()
-
-    console.log('[TELEGRAM_BOT_INFO] Telegram API response:', data)
-
+        const data = await response.json()
     if (data.ok) {
       return NextResponse.json({
         success: true,
@@ -40,7 +33,6 @@ export async function GET() {
       })
     }
   } catch (error: any) {
-    console.error('[TELEGRAM_BOT_INFO] Error:', error)
     return NextResponse.json({
       success: false,
       error: error.message

@@ -44,9 +44,7 @@ export async function getUserTelegramSettings(userId: string): Promise<UserTeleg
       .eq('user_id', userId)
       .single()
 
-    if (error) {
-      console.log('[TELEGRAM] No settings found for user:', userId)
-      return null
+    if (error) {      return null
     }
 
     return {
@@ -54,7 +52,6 @@ export async function getUserTelegramSettings(userId: string): Promise<UserTeleg
       telegramChatId: data?.telegram_chat_id || null
     }
   } catch (error) {
-    console.error('[TELEGRAM] Error fetching user settings:', error)
     return null
   }
 }
@@ -66,7 +63,7 @@ export async function sendTelegramNotification(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     // Get user's telegram settings
-    const settings = await getUserTelegramSettings(userId)
+        const settings = await getUserTelegramSettings(userId)
 
     // Use user settings if available, otherwise fallback to environment variables
     let botToken = settings?.telegramBotToken
@@ -74,30 +71,21 @@ export async function sendTelegramNotification(
 
     // Fallback to environment variables if user doesn't have individual settings
     if (!botToken) {
-      botToken = process.env.TELEGRAM_BOT_TOKEN
-      console.log('[TELEGRAM] Using fallback bot token from environment for user:', userId)
-    }
+      botToken = process.env.TELEGRAM_BOT_TOKEN    }
 
     if (!chatId) {
       chatId = settings?.telegramChatId // Still try to get chat ID from user settings
     }
 
-    if (!botToken || !chatId) {
-      console.log('[TELEGRAM] Missing Telegram configuration for user:', userId, {
-        hasBotToken: !!botToken,
-        hasChatId: !!chatId,
-        userSettings: !!settings
-      })
-      return {
+    if (!botToken || !chatId) {      return {
         success: false,
         error: `Missing Telegram configuration. Bot token: ${!!botToken}, Chat ID: ${!!chatId}`
       }
     }
 
     // Send message via Telegram Bot API
-    const telegramApiUrl = `https://api.telegram.org/bot${botToken}/sendMessage`
-
-    const payload: TelegramMessage = {
+        const telegramApiUrl = `https://api.telegram.org/bot${botToken}/sendMessage`
+        const payload: TelegramMessage = {
       text: message,
       parse_mode: parseMode,
       disable_web_page_preview: true
@@ -116,19 +104,13 @@ export async function sendTelegramNotification(
 
     const result = await response.json()
 
-    if (!response.ok) {
-      console.error('[TELEGRAM] API Error:', result)
-      return {
+    if (!response.ok) {      return {
         success: false,
         error: result.description || 'Failed to send telegram message'
       }
-    }
-
-    console.log('[TELEGRAM] Message sent successfully to user:', userId)
-    return { success: true }
+    }    return { success: true }
 
   } catch (error: any) {
-    console.error('[TELEGRAM] Error sending notification:', error)
     return {
       success: false,
       error: error.message || 'Unknown error occurred'
@@ -141,35 +123,19 @@ export async function testTelegramConnection(
   chatId: string
 ): Promise<{ success: boolean; error?: string; botInfo?: any }> {
   try {
-    console.log('[TELEGRAM] Testing connection with chat ID:', chatId)
-    console.log('[TELEGRAM] Bot token length:', botToken?.length || 0)
-
     // First, get bot info to verify token
-    const botInfoUrl = `https://api.telegram.org/bot${botToken}/getMe`
-    console.log('[TELEGRAM] Testing bot info URL...')
-
-    const botResponse = await fetch(botInfoUrl)
+        const botInfoUrl = `https://api.telegram.org/bot${botToken}/getMe`
+        const botResponse = await fetch(botInfoUrl)
     const botResult = await botResponse.json()
-
-    console.log('[TELEGRAM] Bot info response:', {
-      ok: botResponse.ok,
-      status: botResponse.status,
-      result: botResult
-    })
-
-    if (!botResponse.ok) {
-      console.error('[TELEGRAM] Bot info failed:', botResult)
-      return {
+    if (!botResponse.ok) {      return {
         success: false,
         error: botResult.description || 'Invalid bot token'
       }
     }
 
     // Then, send a test message
-    const messageUrl = `https://api.telegram.org/bot${botToken}/sendMessage`
-    console.log('[TELEGRAM] Sending test message...')
-
-    const messageResponse = await fetch(messageUrl, {
+        const messageUrl = `https://api.telegram.org/bot${botToken}/sendMessage`
+        const messageResponse = await fetch(messageUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -183,29 +149,16 @@ export async function testTelegramConnection(
     })
 
     const messageResult = await messageResponse.json()
-
-    console.log('[TELEGRAM] Message response:', {
-      ok: messageResponse.ok,
-      status: messageResponse.status,
-      result: messageResult
-    })
-
-    if (!messageResponse.ok) {
-      console.error('[TELEGRAM] Message send failed:', messageResult)
-      return {
+    if (!messageResponse.ok) {      return {
         success: false,
         error: messageResult.description || 'Failed to send test message'
       }
-    }
-
-    console.log('[TELEGRAM] Test message sent successfully!')
-    return {
+    }    return {
       success: true,
       botInfo: botResult.result
     }
 
   } catch (error: any) {
-    console.error('[TELEGRAM] Network error:', error)
     return {
       success: false,
       error: error.message || 'Network error occurred'
@@ -214,20 +167,10 @@ export async function testTelegramConnection(
 }
 
 // Helper functions for different notification types
-export async function sendOrderNotification(userId: string, orderData: any) {
-  console.log('[TELEGRAM] Preparing order notification for user:', userId)
-  console.log('[TELEGRAM] Order data received:', JSON.stringify(orderData, null, 2))
+export async function sendOrderNotification(userId: string, orderData: any) {)
 
   // Check if user has any Telegram configuration
-  const settings = await getUserTelegramSettings(userId)
-  console.log('[TELEGRAM] User settings check:', {
-    userId,
-    hasSettings: !!settings,
-    hasBotToken: !!settings?.telegramBotToken,
-    hasChatId: !!settings?.telegramChatId,
-    fallbackBotToken: !!process.env.TELEGRAM_BOT_TOKEN
-  })
-
+        const settings = await getUserTelegramSettings(userId)
   const itemsList = orderData.items?.map((item: any) =>
     `• ${item.productName} (x${item.quantity}) - $${item.pricePerUnit}`
   ).join('\n') || 'No items'
@@ -250,13 +193,7 @@ ${itemsList}
 
 📅 <b>Order Date:</b> ${new Date(orderData.orderCreatedAt).toLocaleDateString()}
 `
-
-  console.log('[TELEGRAM] Prepared message for user:', userId)
-  console.log('[TELEGRAM] Message content:', message)
-
   const result = await sendTelegramNotification(userId, message)
-  console.log('[TELEGRAM] Notification send result for user:', userId, result)
-
   return result
 }
 

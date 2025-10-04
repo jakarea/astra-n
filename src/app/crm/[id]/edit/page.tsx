@@ -135,9 +135,7 @@ export default function EditLeadPage() {
         kpi_status: data.kpi_status || '',
         notes: data.notes || ''
       })
-    } catch (error) {
-      console.error('Error loading lead:', error)
-      alert('Failed to load lead data')
+    } catch (error) {      alert('Failed to load lead data')
       router.push('/crm')
     } finally {
       setLoading(false)
@@ -179,9 +177,7 @@ export default function EditLeadPage() {
       }
 
       router.push(`/crm/${leadId}`)
-    } catch (error) {
-      console.error('Error updating lead:', error)
-      alert('Failed to update lead. Please try again.')
+    } catch (error) {      alert('Failed to update lead. Please try again.')
     } finally {
       setSaving(false)
     }

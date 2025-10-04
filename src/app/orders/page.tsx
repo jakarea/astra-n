@@ -21,7 +21,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 
-import { Eye, Edit, Trash2, ShoppingCart, Users, DollarSign, TrendingUp, Search, ChevronLeft, ChevronRight, Download } from 'lucide-react'
+import { Eye, Edit, Trash2, ShoppingCart, Users, DollarSign, TrendingUp, Search, ChevronLeft, ChevronRight, Download, Truck, Check, Loader2 } from 'lucide-react'
 
 // Lazy load heavy components
 const EditOrderModal = lazy(() => import('@/components/orders/edit-order-modal').then(module => ({ default: module.EditOrderModal })))
@@ -117,11 +117,15 @@ export default function OrdersPage() {
   })
   const [mounted, setMounted] = useState(false)
   const [userRole, setUserRole] = useState<string | null>(null)
+  const [trackingInputs, setTrackingInputs] = useState<Record<string, string>>({})
+  const [savingTracking, setSavingTracking] = useState<Record<string, boolean>>({})
+  const [trackingStatuses, setTrackingStatuses] = useState<Record<string, any>>({})
+  const [loadingTracking, setLoadingTracking] = useState<Record<string, boolean>>({})
 
   const ITEMS_PER_PAGE = 10
 
   // Helper function to check if user is admin (client-side only)
-  const isUserAdmin = () => {
+        const isUserAdmin = () => {
     return mounted && userRole === 'admin'
   }
 
@@ -137,25 +141,17 @@ export default function OrdersPage() {
   const loadOrders = async (page = 1, search = '', sort = sortBy, dateFilter = dateRange) => {
     try {
       setLoading(true)
-      console.log('[Orders] Loading orders...', { page, search, sort, dateFilter })
-
       const session = getSession()
-      if (!session) {
-        console.error('[Orders] No session found')
-        return
+      if (!session) {        return
       }
-
-      console.log('[Orders] Loading orders for user:', {
-        userId: session.user.id,
-        email: session.user.email
-      })
-
       const supabase = getAuthenticatedClient()
 
       let query = supabase
         .from('orders')
         .select(`
           *,
+          tracking_id,
+          tracking_slug,
           customer:customers(id, name, email),
           integration:integrations!inner(name, type, user_id, user:users(name)),
           items:order_items(*)
@@ -171,15 +167,15 @@ export default function OrdersPage() {
       }
 
       if (dateFilter?.from) {
-        // Set start date to beginning of day (00:00:00)
+      // Set start date to beginning of day (00:00:00)
         const fromDate = new Date(dateFilter.from)
         fromDate.setHours(0, 0, 0, 0)
 
         query = query.gte('order_created_at', fromDate.toISOString())
 
         if (dateFilter?.to) {
-          // Set end date to end of day (23:59:59.999)
-          const toDate = new Date(dateFilter.to)
+      // Set end date to end of day (23:59:59.999)
+        const toDate = new Date(dateFilter.to)
           toDate.setHours(23, 59, 59, 999)
 
           query = query.lte('order_created_at', toDate.toISOString())
@@ -199,20 +195,15 @@ export default function OrdersPage() {
 
       const { data, error, count } = await query.range(from, to)
 
-      if (error) {
-        console.error('[Orders] Database error:', error)
-        throw new Error(`Database error: ${error.message}`)
+      if (error) {        throw new Error(`Database error: ${error.message}`)
       }
 
       setOrders(data || [])
       setTotalCount(count || 0)
       setHasError(false)
-      console.log('[Orders] Orders loaded successfully:', (data || []).length)
 
       await loadStats()
-    } catch (error: any) {
-      console.error('[Orders] Database connection error:', error)
-      setHasError(true)
+    } catch (error: any) {      setHasError(true)
       setErrorMessage(`Database error: ${error.message || error.toString()}`)
     } finally {
       setLoading(false)
@@ -222,9 +213,7 @@ export default function OrdersPage() {
   const loadStats = async () => {
     try {
       const session = getSession()
-      if (!session) {
-        console.error('[Orders] No session found for stats')
-        return
+      if (!session) {        return
       }
 
       const supabase = getAuthenticatedClient()
@@ -245,9 +234,7 @@ export default function OrdersPage() {
 
       const { data: statsData, error: statsError } = await statsQuery
 
-      if (statsError) {
-        console.error('[Orders] Stats query error:', statsError)
-        return
+      if (statsError) {        return
       }
 
       if (statsData) {
@@ -275,9 +262,7 @@ export default function OrdersPage() {
         }
         setTotalStats(stats)
       }
-    } catch (error) {
-      console.error('[Orders] Stats loading error:', error)
-    }
+    } catch (error) {    }
   }
 
   useEffect(() => {
@@ -328,15 +313,13 @@ export default function OrdersPage() {
 
     try {
       const session = getSession()
-      if (!session) {
-        console.error('[Orders] No session found for delete')
-        return
+      if (!session) {        return
       }
 
       const supabase = getAuthenticatedClient()
 
       // First delete order items
-      const { error: itemsError } = await supabase
+        const { error: itemsError } = await supabase
         .from('order_items')
         .delete()
         .eq('order_id', orderId)
@@ -346,7 +329,7 @@ export default function OrdersPage() {
       }
 
       // Then delete the order
-      const { error } = await supabase
+        const { error } = await supabase
         .from('orders')
         .delete()
         .eq('id', orderId)
@@ -357,9 +340,7 @@ export default function OrdersPage() {
 
       handleOrderDeleted(orderId)
       setDeleteDialog({ isOpen: false, orderId: '', orderNumber: '' })
-    } catch (error) {
-      console.error('Error deleting order:', error)
-      alert('Failed to delete order. Please try again.')
+    } catch (error) {      alert('Failed to delete order. Please try again.')
       setDeleteDialog({ isOpen: false, orderId: '', orderNumber: '' })
     }
   }
@@ -372,6 +353,75 @@ export default function OrdersPage() {
   const clearDateRange = () => {
     setDateRange(undefined)
     setCurrentPage(1)
+  }
+
+  const handleTrackingInputChange = (orderId: string, value: string) => {
+    setTrackingInputs(prev => ({ ...prev, [orderId]: value }))
+  }
+
+  const handleSaveTracking = async (orderId: string) => {
+    const trackingId = trackingInputs[orderId]?.trim()
+    if (!trackingId) return
+
+    try {
+      setSavingTracking(prev => ({ ...prev, [orderId]: true }))
+      const session = getSession()
+      if (!session) return
+
+      const response = await fetch(`/api/orders/${orderId}/tracking`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.token}`
+        },
+        body: JSON.stringify({ tracking_id: trackingId })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to save tracking ID')
+      }
+
+      // Update the orders list
+      setOrders(prev => prev.map(order =>
+        order.id === parseInt(orderId)
+          ? { ...order, tracking_id: trackingId }
+          : order
+      ))
+
+      alert('Tracking ID saved successfully')
+    } catch (error) {
+      alert('Failed to save tracking ID')
+    } finally {
+      setSavingTracking(prev => ({ ...prev, [orderId]: false }))
+    }
+  }
+
+  const handleTrackOrder = async (orderId: string) => {
+    try {
+      setLoadingTracking(prev => ({ ...prev, [orderId]: true }))
+      const session = getSession()
+      if (!session) return
+
+      const response = await fetch(`/api/orders/${orderId}/tracking-status`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.token}`
+        }
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.details || 'Failed to fetch tracking status')
+      }
+
+      const data = await response.json()
+      setTrackingStatuses(prev => ({ ...prev, [orderId]: data.tracking }))
+
+    } catch (error: any) {
+      alert(error.message || 'Failed to fetch tracking status')
+    } finally {
+      setLoadingTracking(prev => ({ ...prev, [orderId]: false }))
+    }
   }
 
   const handleExportCSV = async () => {
@@ -440,7 +490,7 @@ export default function OrdersPage() {
       const csvContent = [headers.join(','), ...rows].join('\n')
 
       // Create and download file
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
       const link = document.createElement('a')
       const url = URL.createObjectURL(blob)
       link.setAttribute('href', url)
@@ -449,9 +499,7 @@ export default function OrdersPage() {
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
-    } catch (error) {
-      console.error('Error exporting CSV:', error)
-      alert('Failed to export CSV. Please try again.')
+    } catch (error) {      alert('Failed to export CSV. Please try again.')
     }
   }
 
@@ -624,6 +672,7 @@ export default function OrdersPage() {
                     <TableHead>Total</TableHead>
                     <TableHead>Integration</TableHead>
                     {isUserAdmin() && <TableHead>Owner</TableHead>}
+                    <TableHead>Tracking ID</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -640,6 +689,7 @@ export default function OrdersPage() {
                       {isUserAdmin() && (
                         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                       )}
+                      <TableCell><Skeleton className="h-8 w-48" /></TableCell>
                       <TableCell>
                         <div className="flex gap-2">
                           <Skeleton className="h-8 w-8 rounded" />
@@ -674,6 +724,7 @@ export default function OrdersPage() {
                       <TableHead>Total</TableHead>
                       <TableHead>Integration</TableHead>
                       {isUserAdmin() && <TableHead>Owner</TableHead>}
+                      <TableHead>Tracking ID</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -727,6 +778,75 @@ export default function OrdersPage() {
                             </div>
                           </TableCell>
                         )}
+
+                        <TableCell>
+                          <div className="flex items-center gap-2 min-w-[280px]">
+                            <Input
+                              placeholder="Enter tracking ID"
+                              value={trackingInputs[order.id] ?? order.tracking_id ?? ''}
+                              onChange={(e) => handleTrackingInputChange(order.id.toString(), e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  handleSaveTracking(order.id.toString())
+                                }
+                              }}
+                              className="h-8 text-xs"
+                              disabled={savingTracking[order.id]}
+                            />
+                            {(trackingInputs[order.id] && trackingInputs[order.id] !== order.tracking_id) ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleSaveTracking(order.id.toString())}
+                                disabled={savingTracking[order.id]}
+                                className="h-8 px-2"
+                              >
+                                {savingTracking[order.id] ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Check className="h-3 w-3" />
+                                )}
+                              </Button>
+                            ) : order.tracking_id || trackingInputs[order.id] ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleTrackOrder(order.id.toString())}
+                                disabled={loadingTracking[order.id]}
+                                className="h-8 px-2"
+                                title="Track shipment"
+                              >
+                                {loadingTracking[order.id] ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Truck className="h-3 w-3" />
+                                )}
+                              </Button>
+                            ) : null}
+                          </div>
+                          {trackingStatuses[order.id] && (
+                            <div className="mt-2 text-xs">
+                              <Badge variant={
+                                trackingStatuses[order.id].tag === 'Delivered' ? 'default' :
+                                trackingStatuses[order.id].tag === 'InTransit' ? 'secondary' :
+                                trackingStatuses[order.id].tag === 'Exception' ? 'destructive' :
+                                'outline'
+                              }>
+                                {trackingStatuses[order.id].statusLabel}
+                              </Badge>
+                              {trackingStatuses[order.id].lastCheckpoint && (
+                                <p className="mt-1 text-muted-foreground">
+                                  {trackingStatuses[order.id].lastCheckpoint}
+                                </p>
+                              )}
+                              {trackingStatuses[order.id].lastLocation && (
+                                <p className="text-muted-foreground">
+                                  📍 {trackingStatuses[order.id].lastLocation}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </TableCell>
 
                         <TableCell>
                           <div className="flex gap-1">

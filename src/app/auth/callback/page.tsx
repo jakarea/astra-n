@@ -34,24 +34,22 @@ function AuthCallbackContent() {
       setLoading(true)
 
       // Handle Supabase auth callback first
-      const { data, error } = await supabase.auth.getSession()
+        const { data, error } = await supabase.auth.getSession()
 
-      if (error) {
-        console.error('Auth callback error:', error)
-        setError('Authentication failed. Please try again.')
+      if (error) {        setError('Authentication failed. Please try again.')
         setLoading(false)
         return
       }
 
       if (type === 'invite' && !data.session) {
-        // User clicked the invitation link but needs to set password
+      // User clicked the invitation link but needs to set password
         setNeedsPassword(true)
         setLoading(false)
         return
       }
 
       if (data.session) {
-        // User is authenticated, redirect to dashboard
+      // User is authenticated, redirect to dashboard
         setSuccess('Successfully logged in! Redirecting...')
         setTimeout(() => {
           router.push('/dashboard')
@@ -59,9 +57,7 @@ function AuthCallbackContent() {
       } else {
         setError('No active session found. Please try logging in again.')
       }
-    } catch (error: any) {
-      console.error('Callback handling error:', error)
-      setError('An error occurred during authentication.')
+    } catch (error: any) {      setError('An error occurred during authentication.')
     } finally {
       setLoading(false)
     }
@@ -85,7 +81,7 @@ function AuthCallbackContent() {
       setError('')
 
       // Try to sign up the user with the provided password
-      const { data, error: signupError } = await supabase.auth.signUp({
+        const { data, error: signupError } = await supabase.auth.signUp({
         email: email!,
         password: password
       })
@@ -100,9 +96,7 @@ function AuthCallbackContent() {
           router.push('/login')
         }, 3000)
       }
-    } catch (error: any) {
-      console.error('Password setup error:', error)
-      setError(error.message || 'Failed to set up account')
+    } catch (error: any) {      setError(error.message || 'Failed to set up account')
     } finally {
       setLoading(false)
     }

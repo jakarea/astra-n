@@ -117,21 +117,13 @@ export function AddLeadModal({ isOpen, onClose, onSuccess }: AddLeadModalProps) 
         notes: formData.notes || null,
         user_id: session.user.id
       }
-
-      console.log('[ADD_LEAD] Creating lead with data:', leadData)
-
       const supabase = getAuthenticatedClient()
       const { data, error } = await supabase
         .from('crm_leads')
         .insert([leadData])
         .select()
         .single()
-
-      console.log('[ADD_LEAD] Insert result:', { data, error })
-
-      if (error) {
-        console.error('[ADD_LEAD] Insert error:', error)
-        throw new Error(error.message)
+      if (error) {        throw new Error(error.message)
       }
 
       // Reset form
@@ -149,9 +141,7 @@ export function AddLeadModal({ isOpen, onClose, onSuccess }: AddLeadModalProps) 
       // Pass the new lead data to parent
       onSuccess(data)
       onClose()
-    } catch (error) {
-      console.error('Error creating lead:', error)
-      alert('Failed to create lead. Please try again.')
+    } catch (error) {      alert('Failed to create lead. Please try again.')
     } finally {
       setLoading(false)
     }

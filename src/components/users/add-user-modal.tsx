@@ -64,13 +64,13 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
       }
 
       // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
       if (!emailRegex.test(formData.email)) {
         throw new Error('Please enter a valid email address')
       }
 
       // Generate a random UUID for the new user (since Supabase auth creates the actual user)
-      const userId = crypto.randomUUID()
+        const userId = crypto.randomUUID()
 
       const userData = {
         id: userId,
@@ -78,21 +78,13 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
         email: formData.email.trim().toLowerCase(),
         role: formData.role,
       }
-
-      console.log('[ADD_USER] Creating user with data:', userData)
-
       const supabase = getAuthenticatedClient()
       const { data, error } = await supabase
         .from('users')
         .insert([userData])
         .select()
         .single()
-
-      console.log('[ADD_USER] Insert result:', { data, error })
-
-      if (error) {
-        console.error('[ADD_USER] Insert error:', error)
-        if (error.code === '23505') {
+      if (error) {        if (error.code === '23505') {
           throw new Error('A user with this email already exists.')
         }
         throw new Error(error.message)
@@ -108,9 +100,7 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
       // Pass the new user data to parent
       onSuccess(data)
       onClose()
-    } catch (error: any) {
-      console.error('Error creating user:', error)
-      alert(`Failed to create user: ${error.message}`)
+    } catch (error: any) {      alert(`Failed to create user: ${error.message}`)
     } finally {
       setLoading(false)
     }

@@ -5,7 +5,7 @@ import { getSessionUser } from '@/lib/auth'
 export async function GET(request: NextRequest) {
   try {
     // Check authentication
-    const user = await getSessionUser(request)
+        const user = await getSessionUser(request)
     if (!user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -65,7 +65,6 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('[WEBHOOK_DEBUG] Error retrieving logs:', error)
     return NextResponse.json(
       {
         error: 'Failed to retrieve logs',
@@ -79,7 +78,7 @@ export async function GET(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     // Check authentication
-    const user = await getSessionUser(request)
+        const user = await getSessionUser(request)
     if (!user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -95,7 +94,6 @@ export async function DELETE(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('[WEBHOOK_DEBUG] Error clearing logs:', error)
     return NextResponse.json(
       {
         error: 'Failed to clear logs',

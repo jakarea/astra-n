@@ -68,7 +68,7 @@ export default function LoginPage() {
       const _user = await login(formData.email, formData.password)
 
       // Set auth cookie for middleware
-      const session = JSON.parse(localStorage.getItem('auth_session') || '{}')
+        const session = JSON.parse(localStorage.getItem('auth_session') || '{}')
       if (session.token) {
         document.cookie = `auth_token=${session.token}; path=/; max-age=${Math.floor((session.expiresAt - Date.now()) / 1000)}`
       }
@@ -77,8 +77,6 @@ export default function LoginPage() {
       window.location.href = '/dashboard'
 
     } catch (error) {
-      console.error('Login error:', error)
-
       let errorMessage = 'Error during login'
       if (error instanceof Error) {
         if (error.message.includes('Invalid login credentials')) {

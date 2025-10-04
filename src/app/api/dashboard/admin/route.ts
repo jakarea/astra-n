@@ -22,15 +22,12 @@ function getSessionFromRequest(request: NextRequest) {
 
     return { token, supabase }
   } catch (error) {
-    console.error('[SESSION] Error parsing session from request:', error)
     return null
   }
 }
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('[ADMIN_DASHBOARD] Admin dashboard data request')
-
     const sessionInfo = getSessionFromRequest(request)
     if (!sessionInfo) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
@@ -39,7 +36,7 @@ export async function GET(request: NextRequest) {
     const { supabase } = sessionInfo
 
     // Get current user info and verify admin role
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
       return NextResponse.json({ error: 'Invalid authentication token' }, { status: 401 })
     }
@@ -55,7 +52,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Use service role for comprehensive data access
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
     if (!supabaseServiceKey) {
       return NextResponse.json({ error: 'Service configuration error' }, { status: 500 })
     }
@@ -64,7 +61,7 @@ export async function GET(request: NextRequest) {
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey)
 
     // Parallel data fetching for better performance
-    const [
+        const [
       { data: totalUsers },
       { data: totalOrders },
       { data: totalCustomers },
@@ -154,13 +151,13 @@ export async function GET(request: NextRequest) {
     ])
 
     // Process user role stats
-    const roleDistribution = userRoleStats?.reduce((acc: any, user) => {
+        const roleDistribution = userRoleStats?.reduce((acc: any, user) => {
       acc[user.role] = (acc[user.role] || 0) + 1
       return acc
     }, {}) || {}
 
     // Process leads status stats
-    const leadsStats = {
+        const leadsStats = {
       logistic: {},
       cod: {},
       kpi: {}
@@ -179,7 +176,7 @@ export async function GET(request: NextRequest) {
     })
 
     // Process integration stats
-    const integrationsStatsProcessed = {
+        const integrationsStatsProcessed = {
       byType: {},
       byStatus: {},
       activeCount: 0
@@ -194,7 +191,7 @@ export async function GET(request: NextRequest) {
     })
 
     // Calculate revenue and growth metrics
-    const totalRevenue = recentOrders?.reduce((sum, order) => sum + parseFloat(order.total_amount), 0) || 0
+        const totalRevenue = recentOrders?.reduce((sum, order) => sum + parseFloat(order.total_amount), 0) || 0
 
     const dashboardData = {
       summary: {
@@ -230,13 +227,9 @@ export async function GET(request: NextRequest) {
         orderGrowthRate: 8.3 // Mock data - would need historical comparison
       }
     }
-
-    console.log('[ADMIN_DASHBOARD] Data compiled successfully')
-
     return NextResponse.json(dashboardData)
 
   } catch (error: any) {
-    console.error('[ADMIN_DASHBOARD] Unexpected error:', error)
     return NextResponse.json({
       error: 'Failed to fetch dashboard data',
       details: error.message

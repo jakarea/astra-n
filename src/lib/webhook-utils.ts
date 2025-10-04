@@ -32,28 +32,19 @@ export async function generateUniqueWebhookSecret(): Promise<string> {
 
     try {
       // Check if this webhook secret already exists in integrations
-      const { data: existingIntegration, error } = await supabaseAdmin
+        const { data: existingIntegration, error } = await supabaseAdmin
         .from('integrations')
         .select('id')
         .eq('webhook_secret', webhookSecret)
         .maybeSingle()
 
-      if (error) {
-        console.error('[WEBHOOK] Error checking webhook secret uniqueness:', error)
-        throw error
+      if (error) {        throw error
       }
 
       // If no existing integration found, this secret is unique
-      if (!existingIntegration) {
-        console.log('[WEBHOOK] Generated unique webhook secret')
-        return webhookSecret
-      }
-
-      console.log('[WEBHOOK] Webhook secret collision, retrying...', attempts + 1)
-      attempts++
-    } catch (error) {
-      console.error('[WEBHOOK] Error generating unique webhook secret:', error)
-      throw error
+      if (!existingIntegration) {        return webhookSecret
+      }      attempts++
+    } catch (error) {      throw error
     }
   }
 
