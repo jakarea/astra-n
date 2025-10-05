@@ -66,9 +66,19 @@ export async function POST(request: NextRequest) {
     // Capture request details for logging
     const headers = Object.fromEntries(request.headers.entries())
     const url = request.url
+    const contentType = request.headers.get('content-type') || ''
 
-    // Parse request body
-    const body: WooCommerceOrderPayload = await request.json()
+    // Parse request body based on content type
+    let body: any
+    if (contentType.includes('application/x-www-form-urlencoded')) {
+      // Handle form-urlencoded (ping requests)
+      const text = await request.text()
+      const params = new URLSearchParams(text)
+      body = Object.fromEntries(params.entries())
+    } else {
+      // Handle JSON (actual order webhooks)
+      body = await request.json()
+    }
 
     // Log complete request to test-logger
     const requestId = webhookLogger.logWebhookRequest({
