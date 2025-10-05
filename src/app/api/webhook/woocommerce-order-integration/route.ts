@@ -59,17 +59,28 @@ export async function POST(request: NextRequest) {
   const startTime = Date.now()
   let requestId: string
 
+  // 🔥 IMMEDIATE LOG - Catch every request
+  console.log('🔔 ====== WEBHOOK REQUEST RECEIVED ======')
+  console.log('🔔 Timestamp:', new Date().toISOString())
+  console.log('🔔 Method:', request.method)
+  console.log('🔔 URL:', request.url)
+
   try {
     // First, capture all raw request data for logging
     const url = new URL(request.url)
     const query = Object.fromEntries(url.searchParams.entries())
     const headers = Object.fromEntries(request.headers.entries())
 
+    console.log('🔔 Headers:', JSON.stringify(headers, null, 2))
+    console.log('🔔 Query Params:', JSON.stringify(query, null, 2))
+
     let body: any
     let bodyText = ''
 
     try {
       bodyText = await request.text()
+
+      console.log('🔔 Body Text (raw):', bodyText.substring(0, 500))
 
       if (!bodyText) {
         body = {}
@@ -78,14 +89,17 @@ export async function POST(request: NextRequest) {
         try {
           // Try JSON first
           body = JSON.parse(bodyText)
+          console.log('🔔 Body (parsed JSON):', JSON.stringify(body, null, 2).substring(0, 500))
         } catch (jsonError) {
           // Try URL-encoded form data
           try {
             const urlParams = new URLSearchParams(bodyText)
             body = Object.fromEntries(urlParams.entries())
+            console.log('🔔 Body (parsed form data):', JSON.stringify(body, null, 2))
           } catch (formError) {
             // Try to handle other formats or plain text
             body = { raw_body: bodyText, parse_error: jsonError.message }
+            console.log('🔔 Body (failed to parse):', body)
           }
         }
       }
@@ -130,14 +144,30 @@ export async function POST(request: NextRequest) {
       query
     })
 
-    // Handle WooCommerce ping event
+    // Handle WooCommerce ping event (must be checked BEFORE webhook secret validation)
     const topic = request.headers.get('x-wc-webhook-topic')
+    const userAgent = headers['user-agent'] || ''
 
-    if (topic === 'ping' || body.event === 'ping' || body.webhook_id) {
-      console.log('✅ Received ping from WooCommerce')
+    // Detect ping from multiple sources
+    const isPing =
+      topic === 'ping' ||
+      body.event === 'ping' ||
+      body.webhook_id !== undefined ||
+      body.message?.includes('test') ||
+      body.message?.includes('ping') ||
+      (userAgent.includes('WooCommerce') && !body.id) // WooCommerce request without order ID
+
+    if (isPing) {
+      console.log('✅ Received ping from WooCommerce', {
+        topic,
+        userAgent,
+        body
+      })
+
       webhookLogger.logWebhookProcessing(requestId, {
         processing: 'WooCommerce ping event detected',
         topic,
+        userAgent,
         body
       })
 
@@ -413,7 +443,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 1: Check if order already exists first
-        const externalOrderId = body.id.toString()
+    const externalOrderId = body.id.toString()
+    console.log('🔔 Checking for existing order with external ID:', externalOrderId)
+
     const { data: existingOrder, error: _orderLookupError } = await supabaseAdmin
       .from('orders')
       .select('id, customer_id')
@@ -421,18 +453,25 @@ export async function POST(request: NextRequest) {
       .eq('external_order_id', externalOrderId)
       .single()
 
+    console.log('🔔 Existing order:', existingOrder ? `Found (ID: ${existingOrder.id})` : 'Not found')
+
     let customer
     let isNewOrder = !existingOrder
 
     // Step 2: Handle Customer (only increment total_order for new orders)
-        const { data: existingCustomer, error: _customerLookupError } = await supabaseAdmin
+    console.log('🔔 Looking for customer with email:', customerEmail)
+
+    const { data: existingCustomer, error: _customerLookupError } = await supabaseAdmin
       .from('customers')
       .select('id, total_order')
       .eq('email', customerEmail)
       .eq('user_id', integration.user_id)
       .single()
 
+    console.log('🔔 Existing customer:', existingCustomer ? `Found (ID: ${existingCustomer.id})` : 'Not found')
+
     if (existingCustomer) {
+      console.log('🔔 Updating existing customer...')
       // Update existing customer, increment total_order only for new orders
         const { data: updatedCustomer, error: updateError } = await supabaseAdmin
         .from('customers')
@@ -447,7 +486,9 @@ export async function POST(request: NextRequest) {
         .select()
         .single()
 
-      if (updateError) {        return NextResponse.json(
+      if (updateError) {
+        console.error('🔔 ❌ Failed to update customer:', updateError)
+        return NextResponse.json(
           {
             error: 'Database error',
             message: 'Failed to update customer'
@@ -455,8 +496,10 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         )
       }
+      console.log('🔔 ✅ Customer updated successfully')
       customer = updatedCustomer
     } else {
+      console.log('🔔 Creating new customer...')
       // Create new customer (new customers always start with total_order: 1)
         const { data: newCustomer, error: insertError } = await supabaseAdmin
         .from('customers')
@@ -472,7 +515,9 @@ export async function POST(request: NextRequest) {
         .select()
         .single()
 
-      if (insertError) {        return NextResponse.json(
+      if (insertError) {
+        console.error('🔔 ❌ Failed to create customer:', insertError)
+        return NextResponse.json(
           {
             error: 'Database error',
             message: 'Failed to create customer'
@@ -480,10 +525,12 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         )
       }
+      console.log('🔔 ✅ New customer created successfully')
       customer = newCustomer
     }
 
     // Step 3: Upsert Order
+    console.log('🔔 Processing order...', isNewOrder ? 'Creating new order' : 'Updating existing order')
         const orderCreatedAt = new Date(body.date_created).toISOString()
     const totalAmount = parseFloat(body.total)
 
@@ -504,7 +551,9 @@ export async function POST(request: NextRequest) {
         .select()
         .single()
 
-      if (updateError) {        return NextResponse.json(
+      if (updateError) {
+        console.error('🔔 ❌ Failed to update order:', updateError)
+        return NextResponse.json(
           {
             error: 'Database error',
             message: 'Failed to update order'
@@ -512,6 +561,7 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         )
       }
+      console.log('🔔 ✅ Order updated successfully')
       order = updatedOrder
     } else {
       // Create new order
@@ -529,7 +579,9 @@ export async function POST(request: NextRequest) {
         .select()
         .single()
 
-      if (insertError) {        return NextResponse.json(
+      if (insertError) {
+        console.error('🔔 ❌ Failed to create order:', insertError)
+        return NextResponse.json(
           {
             error: 'Database error',
             message: 'Failed to create order'
@@ -537,10 +589,12 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         )
       }
+      console.log('🔔 ✅ New order created successfully')
       order = newOrder
     }
 
     // Step 4: Handle Order Items
+    console.log('🔔 Processing order items... Count:', body.line_items.length)
     if (existingOrder) {
       // Delete existing order items for updates
         const { error: deleteError } = await supabaseAdmin
@@ -565,7 +619,9 @@ export async function POST(request: NextRequest) {
         .from('order_items')
         .insert(orderItems)
 
-      if (itemsInsertError) {        return NextResponse.json(
+      if (itemsInsertError) {
+        console.error('🔔 ❌ Failed to create order items:', itemsInsertError)
+        return NextResponse.json(
           {
             error: 'Database error',
             message: 'Failed to create order items'
@@ -573,6 +629,7 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         )
       }
+      console.log('🔔 ✅ Order items saved successfully')
     }
     // Step 5: Send Telegram Notification (for both create and update)
     try {
@@ -619,6 +676,12 @@ export async function POST(request: NextRequest) {
         itemsCount: orderItems.length
       }
     }
+
+    console.log('🔔 ✅✅✅ WEBHOOK PROCESSED SUCCESSFULLY ✅✅✅')
+    console.log('🔔 Order ID:', order.id)
+    console.log('🔔 Customer ID:', customer.id)
+    console.log('🔔 Processing Time:', processingTime + 'ms')
+    console.log('🔔 ==========================================')
 
     webhookLogger.logWebhookResponse(requestId, {
       status: 200,
