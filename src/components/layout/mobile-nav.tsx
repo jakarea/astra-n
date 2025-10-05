@@ -60,7 +60,8 @@ export function MobileNav() {
       // Force redirect to login page and reload to clear all client state
       window.location.href = '/login'
 
-    } catch (error) {      // Even if there's an error, try to clear local state and redirect
+    } catch (error) {
+      // Even if there's an error, try to clear local state and redirect
       window.location.href = '/login'
     }
   }

@@ -206,9 +206,10 @@ export default function IntegrationPage() {
 
       const { data, error, count } = await query
         .order('created_at', { ascending: false })
-        .range(from, to)))
+        .range(from, to)
 
-      if (error) {        throw new Error(`Database error: ${error.message}`)
+      if (error) {
+        throw new Error(`Database error: ${error.message}`)
       }
 
       setIntegrations(data || [])

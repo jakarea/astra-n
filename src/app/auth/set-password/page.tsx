@@ -36,7 +36,8 @@ function SetPasswordPageContent() {
       // Get the current session from the URL hash (email confirmation)
         const { data, error } = await supabase.auth.getSession()
 
-      if (error) {        setError('Authentication failed. Please try the invitation link again.')
+      if (error) {
+        setError('Authentication failed. Please try the invitation link again.')
         setLoading(false)
         return
       }
@@ -77,8 +78,13 @@ function SetPasswordPageContent() {
           role: metadata.role || 'seller'
         }])
 
-      if (error && error.code !== '23505') { // Ignore duplicate key errors      }
-    } catch (error) {    }
+      // Ignore duplicate key errors
+      if (error && error.code !== '23505') {
+        throw error
+      }
+    } catch (error) {
+      // Silently handle errors
+    }
   }
 
   const handleSetPassword = async (e: React.FormEvent) => {

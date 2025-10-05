@@ -44,7 +44,8 @@ export async function getUserTelegramSettings(userId: string): Promise<UserTeleg
       .eq('user_id', userId)
       .single()
 
-    if (error) {      return null
+    if (error) {
+      return null
     }
 
     return {
@@ -167,10 +168,9 @@ export async function testTelegramConnection(
 }
 
 // Helper functions for different notification types
-export async function sendOrderNotification(userId: string, orderData: any) {)
-
+export async function sendOrderNotification(userId: string, orderData: any) {
   // Check if user has any Telegram configuration
-        const settings = await getUserTelegramSettings(userId)
+  const settings = await getUserTelegramSettings(userId)
   const itemsList = orderData.items?.map((item: any) =>
     `• ${item.productName} (x${item.quantity}) - $${item.pricePerUnit}`
   ).join('\n') || 'No items'

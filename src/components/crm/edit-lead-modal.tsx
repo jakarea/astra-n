@@ -175,13 +175,16 @@ export function EditLeadModal({ isOpen, onClose, onSuccess, leadId }: EditLeadMo
         .eq('user_id', session.user.id)
         .select()
         .single()
-      if (error) {        throw new Error(error.message)
+
+      if (error) {
+        throw new Error(error.message)
       }
 
       // Pass the updated lead data to parent
       onSuccess(data)
       onClose()
-    } catch (error) {      alert('Failed to update lead. Please try again.')
+    } catch (error) {
+      alert('Failed to update lead. Please try again.')
     } finally {
       setSaving(false)
     }

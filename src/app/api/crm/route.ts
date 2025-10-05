@@ -36,7 +36,8 @@ export async function GET(request: NextRequest) {
       `)
       .order('created_at', { ascending: false })
 
-    if (error) {      return NextResponse.json(
+    if (error) {
+      return NextResponse.json(
         { error: `Database error: ${error.message}` },
         { status: 500 }
       )

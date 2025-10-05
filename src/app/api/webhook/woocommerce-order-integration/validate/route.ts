@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     // Log the validation request details
         const headers = Object.fromEntries(request.headers.entries())
     const url = new URL(request.url)
-    const query = Object.fromEntries(url.searchParams.entries())))
+    const query = Object.fromEntries(url.searchParams.entries())
 
     // Try to read body
     let body = ''

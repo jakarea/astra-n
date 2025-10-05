@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Skeleton } from '@/components/ui/skeleton'
 import { CopyButton } from '@/components/crm/copy-button'
 import { EditOrderModal } from '@/components/orders/edit-order-modal'
-import { ArrowLeft, Edit, Mail, Phone, Calendar, Package, DollarSign, Store } from 'lucide-react'
+import { ArrowLeft, Edit, Mail, Phone, Calendar, Package, DollarSign, Store, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 
 function getStatusBadge(status: string | null) {
@@ -230,6 +230,31 @@ export default function OrderDetailPage() {
                 </div>
               </div>
             </div>
+
+            {order.tracking_id && (
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Tracking ID</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="font-mono">{order.tracking_id}</span>
+                  <CopyButton text={order.tracking_id} />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 gap-1"
+                    asChild
+                  >
+                    <a
+                      href={`https://www.aftership.com/it/track/${order.tracking_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Track
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 

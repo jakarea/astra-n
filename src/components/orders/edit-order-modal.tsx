@@ -33,7 +33,8 @@ export function EditOrderModal({ isOpen, onClose, onSuccess, orderId }: EditOrde
   const [formData, setFormData] = useState({
     status: '',
     totalAmount: '',
-    orderCreatedAt: ''
+    orderCreatedAt: '',
+    trackingId: ''
   })
 
   useEffect(() => {
@@ -70,7 +71,8 @@ export function EditOrderModal({ isOpen, onClose, onSuccess, orderId }: EditOrde
       setFormData({
         status: data.status || '',
         totalAmount: data.total_amount ? Number(data.total_amount).toFixed(2) : '',
-        orderCreatedAt: data.order_created_at ? new Date(data.order_created_at).toISOString().split('T')[0] : ''
+        orderCreatedAt: data.order_created_at ? new Date(data.order_created_at).toISOString().split('T')[0] : '',
+        trackingId: data.tracking_id || ''
       })
     } catch (error: any) {      alert(`Failed to load order: ${error.message}`)
     } finally {
@@ -105,6 +107,7 @@ export function EditOrderModal({ isOpen, onClose, onSuccess, orderId }: EditOrde
         status: formData.status,
         total_amount: parseFloat(formData.totalAmount),
         order_created_at: formData.orderCreatedAt ? new Date(formData.orderCreatedAt).toISOString() : undefined,
+        tracking_id: formData.trackingId || null,
         updated_at: new Date().toISOString()
       }
 
@@ -136,7 +139,8 @@ export function EditOrderModal({ isOpen, onClose, onSuccess, orderId }: EditOrde
     setFormData({
       status: '',
       totalAmount: '',
-      orderCreatedAt: ''
+      orderCreatedAt: '',
+      trackingId: ''
     })
     onClose()
   }
@@ -203,6 +207,17 @@ export function EditOrderModal({ isOpen, onClose, onSuccess, orderId }: EditOrde
                 type="date"
                 value={formData.orderCreatedAt}
                 onChange={(e) => handleInputChange('orderCreatedAt', e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-tracking-id">Tracking ID (Optional)</Label>
+              <Input
+                id="edit-tracking-id"
+                type="text"
+                value={formData.trackingId}
+                onChange={(e) => handleInputChange('trackingId', e.target.value)}
+                placeholder="Enter tracking ID"
               />
             </div>
 

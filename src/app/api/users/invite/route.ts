@@ -124,7 +124,9 @@ export async function POST(request: NextRequest) {
         role: inviteRole
       }])
 
-    if (createError && createError.code !== '23505') { // Ignore duplicate key errors    }
+    if (createError && createError.code !== '23505') { // Ignore duplicate key errors
+      console.warn('User creation error:', createError)
+    }
     return NextResponse.json({
       message: 'Invitation sent successfully',
       user: {

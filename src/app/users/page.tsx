@@ -188,9 +188,14 @@ export default function UsersPage() {
       })
 
       if (response.ok) {
-        const result = await response.json()        setTotalStats(result.stats)
-      } else {      }
-    } catch (error) {    }
+        const result = await response.json()
+        setTotalStats(result.stats)
+      } else {
+        console.error('Failed to fetch stats')
+      }
+    } catch (error) {
+      console.error('Stats error:', error)
+    }
   }
 
   // Debounced search effect

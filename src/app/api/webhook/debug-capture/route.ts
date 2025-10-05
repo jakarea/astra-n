@@ -5,15 +5,15 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
   const timestamp = new Date().toISOString()
-  const requestId = `debug_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`)
+  const requestId = `debug_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
   try {
     // Capture URL and query parameters
-        const url = new URL(request.url)
-    const query = Object.fromEntries(url.searchParams.entries()))
+    const url = new URL(request.url)
+    const query = Object.fromEntries(url.searchParams.entries())
 
     // Capture all headers
-        const headers = Object.fromEntries(request.headers.entries()))
+    const headers = Object.fromEntries(request.headers.entries())
 
     // Capture method
     // Capture raw body
@@ -21,40 +21,49 @@ export async function POST(request: NextRequest) {
     let parsedBody = null
 
     try {
-      bodyText = await request.text():', bodyText.substring(0, 1000))
+      bodyText = await request.text()
+      console.log('Body preview:', bodyText.substring(0, 1000))
 
-      if (bodyText.length > 1000) {')
+      if (bodyText.length > 1000) {
+        console.log('Body is long, truncated for preview')
       }
 
       // Try to parse as JSON
       if (bodyText) {
         try {
-          parsedBody = JSON.parse(bodyText))
+          parsedBody = JSON.parse(bodyText)
         } catch (jsonError) {
           // Try to parse as URL encoded
           try {
             const urlParams = new URLSearchParams(bodyText)
-            const formData = Object.fromEntries(urlParams.entries()))
+            const formData = Object.fromEntries(urlParams.entries())
             parsedBody = formData
-          } catch (formError) {          }
+          } catch (formError) {
+            console.warn('Could not parse body as form data')
+          }
         }
-      } else {      }
+      } else {
+        console.log('Empty body')
+      }
 
-    } catch (bodyError) {    }
+    } catch (bodyError) {
+      console.error('Body parsing error:', bodyError)
+    }
 
     // Extract potential webhook secrets
-        const potentialSecrets = {
+    const potentialSecrets = {
       header_x_webhook_secret: headers['x-webhook-secret'] || null,
       header_x_wc_webhook_signature: headers['x-wc-webhook-signature'] || null,
       header_authorization: headers['authorization'] || null,
       query_webhook_secret: query.webhook_secret || null,
       query_secret: query.secret || null,
       body_webhook_secret: parsedBody?.webhook_secret || null
-    })
+    }
 
     // Log content type analysis
-        const contentType = headers['content-type'] || ''))))
-    // Log user agent and other identifying info)
+    const contentType = headers['content-type'] || ''
+    // Log user agent and other identifying info
+    console.log('Request captured:', requestId)
     // Always return success so WooCommerce doesn't retry
     return NextResponse.json({
       success: true,
@@ -72,7 +81,8 @@ export async function POST(request: NextRequest) {
       }
     }, { status: 200 })
 
-  } catch (error: any) {)
+  } catch (error: any) {
+    console.error('Debug capture error:', error)
 
     // Still return success to avoid WooCommerce retries
     return NextResponse.json({

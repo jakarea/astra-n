@@ -93,7 +93,8 @@ export async function GET(request: NextRequest) {
         .order('created_at', { ascending: false })
         .range(from, to)
 
-      if (error) {        return NextResponse.json({ error: error.message }, { status: 500 })
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 })
       }
 
       return NextResponse.json({
@@ -193,7 +194,8 @@ export async function POST(request: NextRequest) {
       .select()
       .single()
 
-    if (error) {      return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
     return NextResponse.json({ user: data })

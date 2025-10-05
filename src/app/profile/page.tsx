@@ -510,7 +510,8 @@ export default function ProfilePage() {
         isOpen={inviteModalOpen}
         onClose={() => setInviteModalOpen(false)}
         onSuccess={() => {
-          // Handle success if needed - maybe show a toast        }}
+          // Handle success if needed - maybe show a toast
+        }}
       />
 
       {/* Reset Password Confirmation Dialog */}

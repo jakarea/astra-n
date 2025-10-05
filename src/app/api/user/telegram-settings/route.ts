@@ -30,7 +30,8 @@ export async function GET(request: NextRequest) {
       .eq('user_id', user.id)
       .single()
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found      return NextResponse.json(
+    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
+      return NextResponse.json(
         { error: 'Failed to fetch settings' },
         { status: 500 }
       )
@@ -98,7 +99,8 @@ export async function POST(request: NextRequest) {
       .select()
       .single()
 
-    if (error) {      return NextResponse.json(
+    if (error) {
+      return NextResponse.json(
         { error: 'Failed to save settings' },
         { status: 500 }
       )
@@ -144,7 +146,8 @@ export async function DELETE(request: NextRequest) {
       .eq('user_id', user.id)
       .select()
 
-    if (error) {      return NextResponse.json(
+    if (error) {
+      return NextResponse.json(
         { error: 'Failed to remove settings' },
         { status: 500 }
       )
