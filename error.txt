@@ -1,0 +1,476 @@
+2025-10-05T03:17:08.556Z [info] 🔔 ====== WEBHOOK REQUEST RECEIVED ======
+2025-10-05T03:17:08.556Z [info] 🔔 Timestamp: 2025-10-05T03:17:08.555Z
+2025-10-05T03:17:08.556Z [info] 🔔 Method: POST
+2025-10-05T03:17:08.556Z [info] 🔔 URL: https://astra-n.vercel.app/api/webhook/woocommerce-order-integration
+2025-10-05T03:17:08.557Z [info] 🔔 Headers: {
+  "accept": "*/*",
+  "accept-encoding": "deflate, gzip",
+  "connection": "close",
+  "content-length": "4495",
+  "content-type": "application/json",
+  "forwarded": "for=46.17.172.193;host=astra-n.vercel.app;proto=https;sig=0QmVhcmVyIGRiYmNiNWQwM2Q3NGViMjJhZWExYTNjODJmZDJiNjhlODY3ZTliMmEzYTRhYzliNTc3NTFmZDlmNTJlYTExNmY=;exp=1759634527",
+  "host": "astra-n.vercel.app",
+  "user-agent": "WooCommerce/10.2.2 Hookshot (WordPress/6.8.3)",
+  "x-forwarded-for": "46.17.172.193",
+  "x-forwarded-host": "astra-n.vercel.app",
+  "x-forwarded-port": "443",
+  "x-forwarded-proto": "https",
+  "x-matched-path": "/api/webhook/woocommerce-order-integration",
+  "x-real-ip": "46.17.172.193",
+  "x-vercel-deployment-url": "astra-orxv2a8n7-jakareas-projects.vercel.app",
+  "x-vercel-forwarded-for": "46.17.172.193",
+  "x-vercel-function-path": "api/webhook/woocommerce-order-integration",
+  "x-vercel-id": "sin1::2rdmn-1759634227806-05c228f8c350",
+  "x-vercel-internal-bot-check": "skip",
+  "x-vercel-internal-ingress-bucket": "bucket018",
+  "x-vercel-internal-ingress-port": "18444",
+  "x-vercel-ip-as-number": "47583",
+  "x-vercel-ip-city": "Singapore",
+  "x-vercel-ip-continent": "AS",
+  "x-vercel-ip-country": "SG",
+  "x-vercel-ip-latitude": "1.2939",
+  "x-vercel-ip-longitude": "103.8461",
+  "x-vercel-ip-postal-code": "17",
+  "x-vercel-ip-timezone": "Asia/Singapore",
+  "x-vercel-ja4-digest": "t13d3613h1_018971650b2c_0bd43a8060e5",
+  "x-vercel-oidc-token": "eyJraWQiOiJtcmstNDMwMmVjMWI2NzBmNDhhOThhZDYxZGFkZTRhMjNiZTciLCJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYmYiOjE3NTk2MzQyMjgsIm93bmVyX2lkIjoidGVhbV9ITTZ3eklyNGdqN21rbXBqVjJaZ2tVZEciLCJpYXQiOjE3NTk2MzQyMjgsInZlcmNlbF9pZCI6InNpbjE6OjJyZG1uLTE3NTk2MzQyMjc4MDYtMDVjMjI4ZjhjMzUwIiwiYXVkIjoiaHR0cHM6XC9cL3ZlcmNlbC5jb21cL2pha2FyZWFzLXByb2plY3RzIiwib3duZXIiOiJqYWthcmVhcy1wcm9qZWN0cyIsImlzcyI6Imh0dHBzOlwvXC9vaWRjLnZlcmNlbC5jb21cL2pha2FyZWFzLXByb2plY3RzIiwicHJvamVjdF9pZCI6InByal83a0VKQzNRTmhrWkpSemxZSUJNVGNOZW1veXR0IiwiZXhwIjoxNzU5NjM3ODI4LCJlbnZpcm9ubWVudCI6InByb2R1Y3Rpb24iLCJzY29wZSI6Im93bmVyOmpha2FyZWFzLXByb2plY3RzOnByb2plY3Q6YXN0cmEtbjplbnZpcm9ubWVudDpwcm9kdWN0aW9uIiwic3ViIjoib3duZXI6amFrYXJlYXMtcHJvamVjdHM6cHJvamVjdDphc3RyYS1uOmVudmlyb25tZW50OnByb2R1Y3Rpb24iLCJwcm9qZWN0IjoiYXN0cmEtbiJ9.aa-kUVxSLTJqO9IRij1quA7eMx-Nra3hss7FrmCJSxIGtHRIWnvhA3Xe3ZObXP_MIdzcSDpHDiHF6alQFhoMteBVRu3ANLJT2LdngXRuwjjXzCCsWHMSjeYRZhjlDJtsIrvRrT-mg4-ZZ170XwiJ6nZ5xBhRfkOfwtWgIql8tB4hxpdwo0jdItjOsnWfjcwqPVqR2oM4rGR-MZ9PMJ_dHNJyLaLiaj46aznYHVlBeupz1_XPjXn3HYwfd5ckrCkDN5TEcb3KLoHlPFUuMEN8Qqz_zsk9XF5KmwgBnH2bHjvc-AvEj7vM_76xLC6IKYCdrRQRnA-f7NdhLlz5jZMeyw",
+  "x-vercel-proxied-for": "46.17.172.193",
+  "x-vercel-proxy-signature": "Bearer dbbcb5d03d74eb22aea1a3c82fd2b68e867e9b2a3a4ac9b57751fd9f52ea116f",
+  "x-vercel-proxy-signature-ts": "1759634527",
+  "x-vercel-sc-basepath": "",
+  "x-vercel-sc-headers": "{\"x-vercel-function-platform\":\"vercel\\/proxy+serverless\",\"x-vercel-ept\":\"1\",\"Authorization\":\"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkZXBsb3ltZW50SWQiOiJkcGxfNzhReDI1RlR0M0trRjl5VFZwMzlqMXFVRWFwWiIsInVubGltaXRlZCI6ZmFsc2UsInBsYW4iOiJob2JieSIsImlzcyI6InNlcnZlcmxlc3MiLCJkb21haW4iOiJhc3RyYS1uLnZlcmNlbC5hcHAiLCJibG9jayI6ZmFsc2UsImlhdCI6MTc1OTYzNDIyOCwicHJvamVjdElkIjoicHJqXzdrRUpDM1FOaGtaSlJ6bFlJQk1UY05lbW95dHQiLCJleHAiOjE3NTk2MzUxNDgsIm93bmVySWQiOiJ0ZWFtX0hNNnd6SXI0Z2o3bWttcGpWMlpna1VkRyIsInJlcXVlc3RJZCI6IjJyZG1uLTE3NTk2MzQyMjc4MDYtMDVjMjI4ZjhjMzUwIiwiZW52IjoicHJvZHVjdGlvbiJ9.6RjHyumys9_aO1rS-icPtBX0gKQSwmcoPxStkRY9YWU\"}",
+  "x-vercel-sc-host": "iad1.suspense-cache.vercel-infra.com",
+  "x-wc-webhook-delivery-id": "30e95be5503083a68b064e93a2401db1",
+  "x-wc-webhook-event": "created",
+  "x-wc-webhook-id": "1",
+  "x-wc-webhook-resource": "order",
+  "x-wc-webhook-signature": "/ftXJMRvWV/bxsa6L/Mlq10wv0ATpQaO/tkSEBLOhaM=",
+  "x-wc-webhook-source": "https://gohighleveln8n.com/",
+  "x-wc-webhook-topic": "order.created"
+}
+2025-10-05T03:17:08.557Z [info] 🔔 Query Params: {}
+2025-10-05T03:17:08.559Z [info] 🔔 Body Text (raw): {"id":330,"parent_id":0,"status":"processing","currency":"XCD","version":"10.2.2","prices_include_tax":false,"date_created":"2025-10-05T03:14:40","date_modified":"2025-10-05T03:14:47","discount_total":"0","discount_tax":"0","shipping_total":"0","shipping_tax":"0","cart_tax":"0","total":"1251","total_tax":"0","customer_id":1,"order_key":"wc_order_VQ4rt6Q0ADyio","billing":{"first_name":"Acton","last_name":"Blair","company":"","address_1":"22 Cowley Street","address_2":"# 4C","city":"Las Vegas","st
+2025-10-05T03:17:08.562Z [info] 🔔 Body (parsed JSON): {
+  "id": 330,
+  "parent_id": 0,
+  "status": "processing",
+  "currency": "XCD",
+  "version": "10.2.2",
+  "prices_include_tax": false,
+  "date_created": "2025-10-05T03:14:40",
+  "date_modified": "2025-10-05T03:14:47",
+  "discount_total": "0",
+  "discount_tax": "0",
+  "shipping_total": "0",
+  "shipping_tax": "0",
+  "cart_tax": "0",
+  "total": "1251",
+  "total_tax": "0",
+  "customer_id": 1,
+  "order_key": "wc_order_VQ4rt6Q0ADyio",
+  "billing": {
+    "first_name": "Acton",
+    "last_name": "Blair",
+2025-10-05T03:17:08.562Z [info] 🔥 WEBHOOK REQUEST [req_1759634228560_so8u5c81w] 2025-10-05T03:17:08.560Z
+{
+  "timestamp": "2025-10-05T03:17:08.560Z",
+  "method": "POST",
+  "url": "https://astra-n.vercel.app/api/webhook/woocommerce-order-integration",
+  "headers": {
+    "accept": "*/*",
+    "accept-encoding": "deflate, gzip",
+    "connection": "close",
+    "content-length": "4495",
+    "content-type": "application/json",
+    "forwarded": "for=46.17.172.193;host=astra-n.vercel.app;proto=https;sig=0QmVhcmVyIGRiYmNiNWQwM2Q3NGViMjJhZWExYTNjODJmZDJiNjhlODY3ZTliMmEzYTRhYzliNTc3NTFmZDlmNTJlYTExNmY=;exp=1759634527",
+    "host": "astra-n.vercel.app",
+    "user-agent": "WooCommerce/10.2.2 Hookshot (WordPress/6.8.3)",
+    "x-forwarded-for": "46.17.172.193",
+    "x-forwarded-host": "astra-n.vercel.app",
+    "x-forwarded-port": "443",
+    "x-forwarded-proto": "https",
+    "x-matched-path": "/api/webhook/woocommerce-order-integration",
+    "x-real-ip": "46.17.172.193",
+    "x-vercel-deployment-url": "astra-orxv2a8n7-jakareas-projects.vercel.app",
+    "x-vercel-forwarded-for": "46.17.172.193",
+    "x-vercel-function-path": "api/webhook/woocommerce-order-integration",
+    "x-vercel-id": "sin1::2rdmn-1759634227806-05c228f8c350",
+    "x-vercel-internal-bot-check": "skip",
+    "x-vercel-internal-ingress-bucket": "bucket018",
+    "x-vercel-internal-ingress-port": "18444",
+    "x-vercel-ip-as-number": "47583",
+    "x-vercel-ip-city": "Singapore",
+    "x-vercel-ip-continent": "AS",
+    "x-vercel-ip-country": "SG",
+    "x-vercel-ip-latitude": "1.2939",
+    "x-vercel-ip-longitude": "103.8461",
+    "x-vercel-ip-postal-code": "17",
+    "x-vercel-ip-timezone": "Asia/Singapore",
+    "x-vercel-ja4-digest": "t13d3613h1_018971650b2c_0bd43a8060e5",
+    "x-vercel-oidc-token": "eyJraWQiOiJtcmstNDMwMmVjMWI2NzBmNDhhOThhZDYxZGFkZTRhMjNiZTciLCJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYmYiOjE3NTk2MzQyMjgsIm93bmVyX2lkIjoidGVhbV9ITTZ3eklyNGdqN21rbXBqVjJaZ2tVZEciLCJpYXQiOjE3NTk2MzQyMjgsInZlcmNlbF9pZCI6InNpbjE6OjJyZG1uLTE3NTk2MzQyMjc4MDYtMDVjMjI4ZjhjMzUwIiwiYXVkIjoiaHR0cHM6XC9cL3ZlcmNlbC5jb21cL2pha2FyZWFzLXByb2plY3RzIiwib3duZXIiOiJqYWthcmVhcy1wcm9qZWN0cyIsImlzcyI6Imh0dHBzOlwvXC9vaWRjLnZlcmNlbC5jb21cL2pha2FyZWFzLXByb2plY3RzIiwicHJvamVjdF9pZCI6InByal83a0VKQzNRTmhrWkpSemxZSUJNVGNOZW1veXR0IiwiZXhwIjoxNzU5NjM3ODI4LCJlbnZpcm9ubWVudCI6InByb2R1Y3Rpb24iLCJzY29wZSI6Im93bmVyOmpha2FyZWFzLXByb2plY3RzOnByb2plY3Q6YXN0cmEtbjplbnZpcm9ubWVudDpwcm9kdWN0aW9uIiwic3ViIjoib3duZXI6amFrYXJlYXMtcHJvamVjdHM6cHJvamVjdDphc3RyYS1uOmVudmlyb25tZW50OnByb2R1Y3Rpb24iLCJwcm9qZWN0IjoiYXN0cmEtbiJ9.aa-kUVxSLTJqO9IRij1quA7eMx-Nra3hss7FrmCJSxIGtHRIWnvhA3Xe3ZObXP_MIdzcSDpHDiHF6alQFhoMteBVRu3ANLJT2LdngXRuwjjXzCCsWHMSjeYRZhjlDJtsIrvRrT-mg4-ZZ170XwiJ6nZ5xBhRfkOfwtWgIql8tB4hxpdwo0jdItjOsnWfjcwqPVqR2oM4rGR-MZ9PMJ_dHNJyLaLiaj46aznYHVlBeupz1_XPjXn3HYwfd5ckrCkDN5TEcb3KLoHlPFUuMEN8Qqz_zsk9XF5KmwgBnH2bHjvc-AvEj7vM_76xLC6IKYCdrRQRnA-f7NdhLlz5jZMeyw",
+    "x-vercel-proxied-for": "46.17.172.193",
+    "x-vercel-proxy-signature": "Bearer dbbcb5d03d74eb22aea1a3c82fd2b68e867e9b2a3a4ac9b57751fd9f52ea116f",
+    "x-vercel-proxy-signature-ts": "1759634527",
+    "x-vercel-sc-basepath": "",
+    "x-vercel-sc-headers": "{\"x-vercel-function-platform\":\"vercel\\/proxy+serverless\",\"x-vercel-ept\":\"1\",\"Authorization\":\"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkZXBsb3ltZW50SWQiOiJkcGxfNzhReDI1RlR0M0trRjl5VFZwMzlqMXFVRWFwWiIsInVubGltaXRlZCI6ZmFsc2UsInBsYW4iOiJob2JieSIsImlzcyI6InNlcnZlcmxlc3MiLCJkb21haW4iOiJhc3RyYS1uLnZlcmNlbC5hcHAiLCJibG9jayI6ZmFsc2UsImlhdCI6MTc1OTYzNDIyOCwicHJvamVjdElkIjoicHJqXzdrRUpDM1FOaGtaSlJ6bFlJQk1UY05lbW95dHQiLCJleHAiOjE3NTk2MzUxNDgsIm93bmVySWQiOiJ0ZWFtX0hNNnd6SXI0Z2o3bWttcGpWMlpna1VkRyIsInJlcXVlc3RJZCI6IjJyZG1uLTE3NTk2MzQyMjc4MDYtMDVjMjI4ZjhjMzUwIiwiZW52IjoicHJvZHVjdGlvbiJ9.6RjHyumys9_aO1rS-icPtBX0gKQSwmcoPxStkRY9YWU\"}",
+    "x-vercel-sc-host": "iad1.suspense-cache.vercel-infra.com",
+    "x-wc-webhook-delivery-id": "30e95be5503083a68b064e93a2401db1",
+    "x-wc-webhook-event": "created",
+    "x-wc-webhook-id": "1",
+    "x-wc-webhook-resource": "order",
+    "x-wc-webhook-signature": "/ftXJMRvWV/bxsa6... (length: 44)",
+    "x-wc-webhook-source": "https://gohighleveln8n.com/",
+    "x-wc-webhook-topic": "order.created"
+  },
+  "body": {
+    "id": 330,
+    "parent_id": 0,
+    "status": "processing",
+    "currency": "XCD",
+    "version": "10.2.2",
+    "prices_include_tax": false,
+    "date_created": "2025-10-05T03:14:40",
+    "date_modified": "2025-10-05T03:14:47",
+    "discount_total": "0",
+    "discount_tax": "0",
+    "shipping_total": "0",
+    "shipping_tax": "0",
+    "cart_tax": "0",
+    "total": "1251",
+    "total_tax": "0",
+    "customer_id": 1,
+    "order_key": "wc_order_VQ4rt6Q0ADyio",
+    "billing": {
+      "first_name": "Acton",
+      "last_name": "Blair",
+      "company": "",
+      "address_1": "22 Cowley Street",
+      "address_2": "# 4C",
+      "city": "Las Vegas",
+      "state": "BD-05",
+      "postcode": "",
+      "country": "BD",
+      "email": "miquvyk@yopmail.com",
+      "phone": "513521422905"
+    },
+    "shipping": {
+      "first_name": "Acton",
+      "last_name": "Blair",
+      "company": "",
+      "address_1": "22 Cowley Street",
+      "address_2": "# 4C",
+      "city": "Las Vegas",
+      "state": "BD-05",
+      "postcode": "",
+      "country": "BD",
+      "phone": "513521422905"
+    },
+    "payment_method": "cod",
+    "payment_method_title": "Cash on delivery",
+    "transaction_id": "",
+    "customer_ip_address": "103.91.130.1",
+    "customer_user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+    "created_via": "store-api",
+    "customer_note": "",
+    "date_completed": null,
+    "date_paid": null,
+    "cart_hash": "eb16b8267825ef774c4f3d99916a4c20",
+    "number": "330",
+    "meta_data": [
+      {
+        "id": 66,
+        "key": "_coupons_hash",
+        "value": "d751713988987e9331980363e24189ce"
+      },
+      {
+        "id": 67,
+        "key": "_fees_hash",
+        "value": "d751713988987e9331980363e24189ce"
+      },
+      {
+        "id": 65,
+        "key": "_shipping_hash",
+        "value": "2fe8747a16266a87476936d4f9d77337"
+      },
+      {
+        "id": 68,
+        "key": "_taxes_hash",
+        "value": "d751713988987e9331980363e24189ce"
+      },
+      {
+        "id": 80,
+        "key": "_wc_order_attribution_device_type",
+        "value": "Desktop"
+      },
+      {
+        "id": 73,
+        "key": "_wc_order_attribution_referrer",
+        "value": "https://gohighleveln8n.com/wp-admin/admin.php?page=wc-settings&tab=advanced&section=webhooks&edit-webhook=1"
+      },
+      {
+        "id": 78,
+        "key": "_wc_order_attribution_session_count",
+        "value": "1"
+      },
+      {
+        "id": 75,
+        "key": "_wc_order_attribution_session_entry",
+        "value": "https://gohighleveln8n.com/shop/"
+      },
+      {
+        "id": 77,
+        "key": "_wc_order_attribution_session_pages",
+        "value": "18"
+      },
+      {
+        "id": 76,
+        "key": "_wc_order_attribution_session_start_time",
+        "value": "2025-10-05 02:34:13"
+      },
+      {
+        "id": 72,
+        "key": "_wc_order_attribution_source_type",
+        "value": "typein"
+      },
+      {
+        "id": 79,
+        "key": "_wc_order_attribution_user_agent",
+        "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+      },
+      {
+        "id": 74,
+        "key": "_wc_order_attribution_utm_source",
+        "value": "(direct)"
+      },
+      {
+        "id": 69,
+        "key": "is_vat_exempt",
+        "value": "no"
+      }
+    ],
+    "line_items": [
+      {
+        "id": 22,
+        "name": "Automatic Blender",
+        "product_id": 298,
+        "variation_id": 0,
+        "quantity": 1,
+        "tax_class": "",
+        "subtotal": "630",
+        "subtotal_tax": "0",
+        "total": "630",
+        "total_tax": "0",
+        "taxes": [],
+        "meta_data": [
+          {
+            "id": 219,
+            "key": "_reduced_stock",
+            "value": "1",
+            "display_key": "_reduced_stock",
+            "display_value": "1"
+          }
+        ],
+        "sku": "",
+        "global_unique_id": "",
+        "price": 630,
+        "image": {
+          "id": "",
+          "src": ""
+        },
+        "parent_name": null
+      },
+      {
+        "id": 23,
+        "name": "Automatic Speaker Router Lamp Prime",
+        "product_id": 283,
+        "variation_id": 0,
+        "quantity": 1,
+        "tax_class": "",
+        "subtotal": "621",
+        "subtotal_tax": "0",
+        "total": "621",
+        "total_tax": "0",
+        "taxes": [],
+        "meta_data": [
+          {
+            "id": 220,
+            "key": "_reduced_stock",
+            "value": "1",
+            "display_key": "_reduced_stock",
+            "display_value": "1"
+          }
+        ],
+        "sku": "",
+        "global_unique_id": "",
+        "price": 621,
+        "image": {
+          "id": "",
+          "src": ""
+        },
+        "parent_name": null
+      }
+    ],
+    "tax_lines": [],
+    "shipping_lines": [
+      {
+        "id": 24,
+        "method_title": "Free shipping",
+        "method_id": "free_shipping",
+        "instance_id": "4",
+        "total": "0",
+        "total_tax": "0",
+        "taxes": [],
+        "tax_status": "taxable",
+        "meta_data": [
+          {
+            "id": 218,
+            "key": "Items",
+            "value": "Automatic Blender &times; 1, Automatic Speaker Router Lamp Prime &times; 1",
+            "display_key": "Items",
+            "display_value": "Automatic Blender &times; 1, Automatic Speaker Router Lamp Prime &times; 1"
+          }
+        ]
+      }
+    ],
+    "fee_lines": [],
+    "coupon_lines": [],
+    "refunds": [],
+    "payment_url": "https://gohighleveln8n.com/checkout/order-pay/330/?pay_for_order=true&key=wc_order_VQ4rt6Q0ADyio",
+    "is_editable": false,
+    "needs_payment": false,
+    "needs_processing": true,
+    "date_created_gmt": "2025-10-05T03:14:40",
+    "date_modified_gmt": "2025-10-05T03:14:47",
+    "date_completed_gmt": null,
+    "date_paid_gmt": null,
+    "currency_symbol": "$",
+    "_links": {
+      "self": [
+        {
+          "href": "https://gohighleveln8n.com/wp-json/wc/v3/orders/330",
+          "targetHints": {
+            "allow": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ]
+          }
+        }
+      ],
+      "collection": [
+        {
+          "href": "https://gohighleveln8n.com/wp-json/wc/v3/orders"
+        }
+      ],
+      "email_templates": [
+        {
+          "embeddable": true,
+          "href": "https://gohighleveln8n.com/wp-json/wc/v3/orders/330/actions/email_templates"
+        }
+      ],
+      "customer": [
+        {
+          "href": "https://gohighleveln8n.com/wp-json/wc/v3/customers/1"
+        }
+      ]
+    }
+  },
+  "query": {},
+  "userAgent": "WooCommerce/10.2.2 Hookshot (WordPress/6.8.3)",
+  "contentType": "application/json",
+  "contentLength": 4495
+}
+================================================================================
+2025-10-05T03:17:08.562Z [info] 📋 PROCESSING [req_1759634228560_so8u5c81w]
+{
+  "requestId": "req_1759634228560_so8u5c81w",
+  "timestamp": "2025-10-05T03:17:08.561Z",
+  "processing": "Content type validation passed, extracting webhook secret",
+  "contentType": "application/json",
+  "isValidContentType": true
+}
+================================================================================
+2025-10-05T03:17:08.563Z [info] 📋 PROCESSING [req_1759634228560_so8u5c81w]
+{
+  "requestId": "req_1759634228560_so8u5c81w",
+  "timestamp": "2025-10-05T03:17:08.561Z",
+  "processing": "Webhook secret extraction completed",
+  "secretSources": {
+    "header_x_webhook_secret": false,
+    "header_x_wc_webhook_signature": true,
+    "query_webhook_secret": false,
+    "query_secret": false,
+    "body_webhook_secret": false,
+    "final_secret_found": true,
+    "webhook_secret_type": "string",
+    "webhook_secret_length": 44
+  },
+  "all_headers": [
+    "accept",
+    "accept-encoding",
+    "connection",
+    "content-length",
+    "content-type",
+    "forwarded",
+    "host",
+    "user-agent",
+    "x-forwarded-for",
+    "x-forwarded-host",
+    "x-forwarded-port",
+    "x-forwarded-proto",
+    "x-matched-path",
+    "x-real-ip",
+    "x-vercel-deployment-url",
+    "x-vercel-forwarded-for",
+    "x-vercel-function-path",
+    "x-vercel-id",
+    "x-vercel-internal-bot-check",
+    "x-vercel-internal-ingress-bucket",
+    "x-vercel-internal-ingress-port",
+    "x-vercel-ip-as-number",
+    "x-vercel-ip-city",
+    "x-vercel-ip-continent",
+    "x-vercel-ip-country",
+    "x-vercel-ip-latitude",
+    "x-vercel-ip-longitude",
+    "x-vercel-ip-postal-code",
+    "x-vercel-ip-timezone",
+    "x-vercel-ja4-digest",
+    "x-vercel-oidc-token",
+    "x-vercel-proxied-for",
+    "x-vercel-proxy-signature",
+    "x-vercel-proxy-signature-ts",
+    "x-vercel-sc-basepath",
+    "x-vercel-sc-headers",
+    "x-vercel-sc-host",
+    "x-wc-webhook-delivery-id",
+    "x-wc-webhook-event",
+    "x-wc-webhook-id",
+    "x-wc-webhook-resource",
+    "x-wc-webhook-signature",
+    "x-wc-webhook-source",
+    "x-wc-webhook-topic"
+  ],
+  "all_query_params": []
+}
+================================================================================
+2025-10-05T03:17:08.563Z [info] 📋 PROCESSING [req_1759634228560_so8u5c81w]
+{
+  "requestId": "req_1759634228560_so8u5c81w",
+  "timestamp": "2025-10-05T03:17:08.561Z",
+  "processing": "Webhook secret validation passed, looking up integration",
+  "webhookSecret": "/ftXJMRv... (length: 44)"
+}
+================================================================================
+2025-10-05T03:17:08.682Z [info] ❌ ERROR [req_1759634228560_so8u5c81w]
+{
+  "requestId": "req_1759634228560_so8u5c81w",
+  "timestamp": "2025-10-05T03:17:08.681Z",
+  "message": "Unexpected error: integration is not defined",
+  "stack": "ReferenceError: integration is not defined\n    at A (/var/task/.next/server/app/api/webhook/woocommerce-order-integration/route.js:1:5492)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async rN.do (/var/task/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:5:21042)\n    at async rN.handle (/var/task/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:5:25860)\n    at async k (/var/task/.next/server/app/api/webhook/woocommerce-order-integration/route.js:1:16168)\n    at async rN.handleResponse (/var/task/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:1:105630)\n    at async g (/var/task/.next/server/app/api/webhook/woocommerce-order-integration/route.js:1:17171)\n    at async L (/var/task/.next/server/app/api/webhook/woocommerce-order-integration/route.js:1:18293)\n    at async id.renderToResponseWithComponentsImpl (/var/task/node_modules/next/dist/compiled/next-server/server.runtime.prod.js:13:28532)\n    at async id.renderPageComponent (/var/task/node_modules/next/dist/compiled/next-server/server.runtime.prod.js:13:29363)",
+  "status": 500,
+  "processingTime": 125
+}
+================================================================================
