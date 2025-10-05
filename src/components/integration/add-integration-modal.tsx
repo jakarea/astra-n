@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { getAuthenticatedClient, getSession } from '@/lib/auth'
+import { toast } from 'sonner'
 import {
   Dialog,
   DialogContent,
@@ -136,8 +137,10 @@ export function AddIntegrationModal({ isOpen, onClose, onSuccess }: AddIntegrati
 
       // Pass the new integration data to parent
       onSuccess(data)
+      toast.success(`Integration "${formData.name}" created successfully!`)
       onClose()
-    } catch (error) {      alert('Failed to create integration. Please try again.')
+    } catch (error: any) {
+      toast.error(`Failed to create integration: ${error.message}`)
     } finally {
       setLoading(false)
     }

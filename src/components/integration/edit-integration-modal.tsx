@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { getAuthenticatedClient, getSession } from '@/lib/auth'
+import { toast } from 'sonner'
 import {
   Dialog,
   DialogContent,
@@ -119,8 +120,8 @@ export function EditIntegrationModal({ isOpen, onClose, onSuccess, integrationId
         // Set supported actions based on type
         const shopType = SHOP_TYPES.find(t => t.value === integration.type)
         setSupportedActions(shopType?.actions || [])
-      } catch (error) {
-        alert(`Failed to load integration data. Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      } catch (error: any) {
+        toast.error(`Failed to load integration: ${error.message}`)
         onClose()
       } finally {
         setLoadingData(false)
@@ -172,9 +173,10 @@ export function EditIntegrationModal({ isOpen, onClose, onSuccess, integrationId
 
       // Pass the updated integration data to parent
       onSuccess(data)
+      toast.success(`Integration "${formData.name}" updated successfully!`)
       onClose()
-    } catch (_error) {
-      alert('Failed to update integration. Please try again.')
+    } catch (error: any) {
+      toast.error(`Failed to update integration: ${error.message}`)
     } finally {
       setLoading(false)
     }

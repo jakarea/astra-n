@@ -57,377 +57,74 @@ interface WooCommerceOrderPayload {
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
-  let requestId: string
+  const timestamp = new Date().toISOString()
 
-  // 🔥 IMMEDIATE LOG - Catch every request
-  console.log('🔔 ====== WEBHOOK REQUEST RECEIVED ======')
-  console.log('🔔 Timestamp:', new Date().toISOString())
-  console.log('🔔 Method:', request.method)
-  console.log('🔔 URL:', request.url)
+  console.log('🔔 ====== WEBHOOK REQUEST ======')
+  console.log('🔔 Time:', timestamp)
 
   try {
-    // First, capture all raw request data for logging
-    const url = new URL(request.url)
-    const query = Object.fromEntries(url.searchParams.entries())
+    // Capture request details for logging
     const headers = Object.fromEntries(request.headers.entries())
+    const url = request.url
 
-    console.log('🔔 Headers:', JSON.stringify(headers, null, 2))
-    console.log('🔔 Query Params:', JSON.stringify(query, null, 2))
+    // Parse request body
+    const body: WooCommerceOrderPayload = await request.json()
 
-    let body: any
-    let bodyText = ''
-
-    try {
-      bodyText = await request.text()
-
-      console.log('🔔 Body Text (raw):', bodyText.substring(0, 500))
-
-      if (!bodyText) {
-        body = {}
-      } else {
-        // Try multiple parsing methods
-        try {
-          // Try JSON first
-          body = JSON.parse(bodyText)
-          console.log('🔔 Body (parsed JSON):', JSON.stringify(body, null, 2).substring(0, 500))
-        } catch (jsonError) {
-          // Try URL-encoded form data
-          try {
-            const urlParams = new URLSearchParams(bodyText)
-            body = Object.fromEntries(urlParams.entries())
-            console.log('🔔 Body (parsed form data):', JSON.stringify(body, null, 2))
-          } catch (formError) {
-            // Try to handle other formats or plain text
-            body = { raw_body: bodyText, parse_error: jsonError.message }
-            console.log('🔔 Body (failed to parse):', body)
-          }
-        }
-      }
-    } catch (bodyError) {
-      // Log the raw request even if body reading fails
-      requestId = webhookLogger.logWebhookRequest({
-        method: request.method,
-        url: request.url,
-        headers,
-        body: { body_read_error: bodyError.message },
-        query
-      })
-
-      const processingTime = Date.now() - startTime
-      webhookLogger.logWebhookError(requestId, {
-        message: 'Could not read request body',
-        status: 400,
-        processingTime
-      })
-
-      return NextResponse.json(
-        {
-          error: 'Body read error',
-          message: 'Could not read request body',
-          debug: {
-            requestId,
-            error: bodyError.message,
-            content_type: headers['content-type'],
-            content_length: headers['content-length']
-          }
-        },
-        { status: 400 }
-      )
-    }
-
-    // Log the complete request
-    requestId = webhookLogger.logWebhookRequest({
+    // Log complete request to test-logger
+    const requestId = webhookLogger.logWebhookRequest({
       method: request.method,
-      url: request.url,
+      url,
       headers,
       body,
-      query
+      query: {}
     })
 
-    // Handle WooCommerce ping event (must be checked BEFORE webhook secret validation)
+    console.log('🔔 Request ID:', requestId)
+    console.log('🔔 Topic:', request.headers.get('x-wc-webhook-topic'))
+    console.log('🔔 Order ID:', body.id)
+
+    // Handle ping event
     const topic = request.headers.get('x-wc-webhook-topic')
-    const userAgent = headers['user-agent'] || ''
+    if (topic === 'ping' || body.webhook_id || !body.id) {
+      console.log('✅ Ping event received')
 
-    // Detect ping from multiple sources
-    const isPing =
-      topic === 'ping' ||
-      body.event === 'ping' ||
-      body.webhook_id !== undefined ||
-      body.message?.includes('test') ||
-      body.message?.includes('ping') ||
-      (userAgent.includes('WooCommerce') && !body.id) // WooCommerce request without order ID
-
-    if (isPing) {
-      console.log('✅ Received ping from WooCommerce', {
-        topic,
-        userAgent,
-        body
-      })
-
-      webhookLogger.logWebhookProcessing(requestId, {
-        processing: 'WooCommerce ping event detected',
-        topic,
-        userAgent,
-        body
+      webhookLogger.logWebhookResponse(requestId, {
+        status: 200,
+        message: 'Ping event handled',
+        data: { topic, webhook_id: body.webhook_id },
+        processingTime: Date.now() - startTime
       })
 
       return NextResponse.json({
         success: true,
-        message: 'Pong! Webhook endpoint is working',
-        ping_received: true,
-        timestamp: new Date().toISOString()
-      }, {
-        status: 200,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        }
+        message: 'Pong! Webhook endpoint is working'
       })
     }
 
-    const contentType = request.headers.get('content-type') || ''
-
-    // Be very flexible with content types - accept almost anything
-        const isValidContentType = true // Temporarily accept all content types for debugging
-
-    if (!isValidContentType) {
-      const processingTime = Date.now() - startTime
-      webhookLogger.logWebhookError(requestId, {
-        message: `Unsupported content type: ${contentType}`,
-        status: 400,
-        processingTime
-      })
-
-      return NextResponse.json(
-        {
-          error: 'Unsupported content type',
-          message: 'Content-Type must be application/json, application/x-www-form-urlencoded, text/plain, multipart/form-data, or empty',
-          debug: {
-            requestId,
-            received_content_type: contentType,
-            supported_types: ['application/json', 'application/x-www-form-urlencoded', 'text/plain', 'multipart/form-data', '(empty)']
-          }
-        },
-        { status: 400 }
-      )
-    }
-
-    webhookLogger.logWebhookProcessing(requestId, {
-      processing: 'Content type validation passed, extracting webhook secret',
-      contentType,
-      isValidContentType
-    })
-
-    // Validate webhook secret from multiple sources
-    let webhookSecret =
-      request.headers.get('x-webhook-secret') || // Custom header (if supported)
-      request.headers.get('x-wc-webhook-signature') || // WooCommerce signature header
-      query.webhook_secret || // Query parameter
-      query.secret || // Alternative query parameter
-      body?.webhook_secret // In request body
-        const secretSources = {
-      header_x_webhook_secret: !!request.headers.get('x-webhook-secret'),
-      header_x_wc_webhook_signature: !!request.headers.get('x-wc-webhook-signature'),
-      query_webhook_secret: !!query.webhook_secret,
-      query_secret: !!query.secret,
-      body_webhook_secret: !!body?.webhook_secret,
-      final_secret_found: !!webhookSecret,
-      webhook_secret_type: webhookSecret ? typeof webhookSecret : 'undefined',
-      webhook_secret_length: webhookSecret ? webhookSecret.length : 0
-    }
-
-    webhookLogger.logWebhookProcessing(requestId, {
-      processing: 'Webhook secret extraction completed',
-      secretSources,
-      all_headers: Object.keys(headers),
-      all_query_params: Object.keys(query)
-    })
-
-    // If we have WooCommerce signature, extract the secret from it
-    if (request.headers.get('x-wc-webhook-signature') && !webhookSecret) {
-      webhookLogger.logWebhookProcessing(requestId, {
-        processing: 'WooCommerce signature detected, will validate against database'
-      })
-    }
-
-    // Check if this might be a WooCommerce validation request
-        const isValidationRequest =
-      headers['user-agent']?.includes('WordPress') ||
-      headers['user-agent']?.includes('WooCommerce') ||
-      body?.webhook_id ||
-      query.test === '1' ||
-      !body?.id // No order ID suggests validation
-
-    if (!webhookSecret || typeof webhookSecret !== 'string') {
-      // If this looks like a validation request, be more permissive
-      if (isValidationRequest) {
-        webhookLogger.logWebhookProcessing(requestId, {
-          processing: 'Detected WooCommerce validation request - allowing without secret'
-        })
-
-        return NextResponse.json({
-          success: true,
-          message: 'WooCommerce webhook validation successful',
-          validation: true,
-          timestamp: new Date().toISOString()
-        }, { status: 200 })
-      }
-
-      const processingTime = Date.now() - startTime
-      webhookLogger.logWebhookError(requestId, {
-        message: 'Missing webhook secret in all sources',
-        status: 401,
-        processingTime,
-        secretSources
-      })
-
-      return NextResponse.json(
-        {
-          error: 'Missing webhook secret',
-          message: 'Webhook secret is required. Please provide it via x-webhook-secret header, webhook_secret query parameter, or in request body',
-          debug: {
-            requestId,
-            secretSources,
-            available_headers: Object.keys(headers),
-            available_query_params: Object.keys(query),
-            body_keys: Object.keys(body || {}),
-            user_agent: headers['user-agent'],
-            is_validation: isValidationRequest
-          }
-        },
-        { status: 401 }
-      )
-    }
-
-    webhookLogger.logWebhookProcessing(requestId, {
-      processing: 'Webhook secret validation passed, looking up integration',
-      webhookSecret
-    })
-
-    // Find integration by webhook secret    let integration
-    let integrationError
-
-    // Try to find integration with exact webhook secret match
-        const integrationResult = await supabaseAdmin
+    // Get the first active WooCommerce integration
+    const { data: integration } = await supabaseAdmin
       .from('integrations')
-      .select('id, user_id, name, status, is_active, webhook_secret')
-      .eq('webhook_secret', webhookSecret)
+      .select('id, user_id')
       .eq('type', 'woocommerce')
+      .eq('is_active', true)
+      .limit(1)
       .single()
 
-    integration = integrationResult.data
-    integrationError = integrationResult.error
-
-    // If no exact match and we have a WooCommerce signature, validate against all WooCommerce integrations
-    if (!integration && request.headers.get('x-wc-webhook-signature')) {
-      const { data: allIntegrations } = await supabaseAdmin
-        .from('integrations')
-        .select('id, user_id, name, status, is_active, webhook_secret')
-        .eq('type', 'woocommerce')
-        .eq('is_active', true)
-
-      if (allIntegrations) {
-        const signature = request.headers.get('x-wc-webhook-signature')
-        const rawBody = JSON.stringify(body)
-
-        // Try to validate signature against each integration's secret
-        for (const testIntegration of allIntegrations) {
-          if (testIntegration.webhook_secret) {
-            try {
-              const crypto = require('crypto')
-              const expectedSignature = crypto
-                .createHmac('sha256', testIntegration.webhook_secret)
-                .update(rawBody, 'utf8')
-                .digest('base64')
-
-              if (signature === expectedSignature) {                integration = testIntegration
-                break
-              }
-            } catch (error) {            }
-          }
-        }
-      }
-    }
-
-    // FALLBACK: If no integration found, try to get the first active WooCommerce integration
-    if (integrationError || !integration) {
-      console.log('🔔 Integration not found by secret, trying fallback to first WooCommerce integration...')
-
-      const { data: fallbackIntegration } = await supabaseAdmin
-        .from('integrations')
-        .select('id, user_id, name, status, is_active, webhook_secret')
-        .eq('type', 'woocommerce')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
-
-      if (fallbackIntegration) {
-        console.log('🔔 ✅ Found fallback WooCommerce integration:', fallbackIntegration.id)
-        integration = fallbackIntegration
-      } else {
-        const processingTime = Date.now() - startTime
-        webhookLogger.logWebhookError(requestId, {
-          message: 'No WooCommerce integration found',
-          status: 401,
-          processingTime,
-          integrationError: integrationError?.message || 'No integration found',
-          webhookSecret
-        })
-
-        return NextResponse.json(
-          {
-            error: 'No WooCommerce integration configured',
-            message: 'Please create a WooCommerce integration in your dashboard first',
-            debug: {
-              requestId,
-              integration_error: integrationError?.message,
-              webhook_secret_length: webhookSecret?.length,
-              hint: 'Go to /integration page to create a WooCommerce integration'
-            }
-          },
-          { status: 401 }
-        )
-      }
-    }
-
-    webhookLogger.logWebhookProcessing(requestId, {
-      processing: 'Integration found successfully',
-      integration: {
-        id: integration.id,
-        userId: integration.user_id,
-        name: integration.name,
-        status: integration.status,
-        isActive: integration.is_active
-      }
-    })
-    // Validate that we have a valid user_id from webhook secret
-    if (!integration.user_id) {      return NextResponse.json(
-        {
-          error: 'Invalid integration',
-          message: 'Integration does not have a valid user_id'
-        },
-        { status: 400 }
-      )
-    }
-    // Check if this is a validation request (has integration but no real order data)
-    if (isValidationRequest || !body?.id || !body?.billing?.email) {
-      webhookLogger.logWebhookProcessing(requestId, {
-        processing: 'Detected WooCommerce validation request with valid integration'
-      })
-
-      return NextResponse.json({
-        success: true,
-        message: 'WooCommerce webhook validation successful',
-        validation: true,
-        integration: {
-          id: integration.id,
-          name: integration.name,
-          status: integration.status
-        },
+    if (!integration) {
+      webhookLogger.logWebhookError(requestId, {
+        error: 'No active WooCommerce integration found',
         timestamp: new Date().toISOString()
-      }, { status: 200 })
+      })
+      return NextResponse.json({
+        error: 'No active WooCommerce integration found'
+      }, { status: 404 })
     }
+
+    console.log('🔔 Integration found:', integration.id)
+    webhookLogger.logWebhookProcessing(requestId, 'integration_found', {
+      integration_id: integration.id,
+      user_id: integration.user_id
+    })
 
     // Extract customer data
         const customerName = `${body.billing.first_name} ${body.billing.last_name}`.trim()
@@ -505,6 +202,11 @@ export async function POST(request: NextRequest) {
 
       if (updateError) {
         console.error('🔔 ❌ Failed to update customer:', updateError)
+        webhookLogger.logWebhookError(requestId, {
+          error: 'Failed to update customer',
+          details: updateError,
+          customer_email: customerEmail
+        })
         return NextResponse.json(
           {
             error: 'Database error',
@@ -514,6 +216,11 @@ export async function POST(request: NextRequest) {
         )
       }
       console.log('🔔 ✅ Customer updated successfully')
+      webhookLogger.logWebhookProcessing(requestId, 'customer_updated', {
+        customer_id: updatedCustomer.id,
+        customer_email: customerEmail,
+        total_order: updatedCustomer.total_order
+      })
       customer = updatedCustomer
     } else {
       console.log('🔔 Creating new customer...')
@@ -534,6 +241,11 @@ export async function POST(request: NextRequest) {
 
       if (insertError) {
         console.error('🔔 ❌ Failed to create customer:', insertError)
+        webhookLogger.logWebhookError(requestId, {
+          error: 'Failed to create customer',
+          details: insertError,
+          customer_email: customerEmail
+        })
         return NextResponse.json(
           {
             error: 'Database error',
@@ -543,6 +255,11 @@ export async function POST(request: NextRequest) {
         )
       }
       console.log('🔔 ✅ New customer created successfully')
+      webhookLogger.logWebhookProcessing(requestId, 'customer_created', {
+        customer_id: newCustomer.id,
+        customer_email: customerEmail,
+        total_order: newCustomer.total_order
+      })
       customer = newCustomer
     }
 
@@ -570,6 +287,11 @@ export async function POST(request: NextRequest) {
 
       if (updateError) {
         console.error('🔔 ❌ Failed to update order:', updateError)
+        webhookLogger.logWebhookError(requestId, {
+          error: 'Failed to update order',
+          details: updateError,
+          external_order_id: externalOrderId
+        })
         return NextResponse.json(
           {
             error: 'Database error',
@@ -579,6 +301,12 @@ export async function POST(request: NextRequest) {
         )
       }
       console.log('🔔 ✅ Order updated successfully')
+      webhookLogger.logWebhookProcessing(requestId, 'order_updated', {
+        order_id: updatedOrder.id,
+        external_order_id: externalOrderId,
+        status: updatedOrder.status,
+        total_amount: updatedOrder.total_amount
+      })
       order = updatedOrder
     } else {
       // Create new order
@@ -598,6 +326,11 @@ export async function POST(request: NextRequest) {
 
       if (insertError) {
         console.error('🔔 ❌ Failed to create order:', insertError)
+        webhookLogger.logWebhookError(requestId, {
+          error: 'Failed to create order',
+          details: insertError,
+          external_order_id: externalOrderId
+        })
         return NextResponse.json(
           {
             error: 'Database error',
@@ -607,6 +340,12 @@ export async function POST(request: NextRequest) {
         )
       }
       console.log('🔔 ✅ New order created successfully')
+      webhookLogger.logWebhookProcessing(requestId, 'order_created', {
+        order_id: newOrder.id,
+        external_order_id: externalOrderId,
+        status: newOrder.status,
+        total_amount: newOrder.total_amount
+      })
       order = newOrder
     }
 
@@ -638,6 +377,11 @@ export async function POST(request: NextRequest) {
 
       if (itemsInsertError) {
         console.error('🔔 ❌ Failed to create order items:', itemsInsertError)
+        webhookLogger.logWebhookError(requestId, {
+          error: 'Failed to create order items',
+          details: itemsInsertError,
+          order_id: order.id
+        })
         return NextResponse.json(
           {
             error: 'Database error',
@@ -647,19 +391,16 @@ export async function POST(request: NextRequest) {
         )
       }
       console.log('🔔 ✅ Order items saved successfully')
+      webhookLogger.logWebhookProcessing(requestId, 'order_items_saved', {
+        order_id: order.id,
+        items_count: orderItems.length
+      })
     }
-    // Step 5: Send Telegram Notification (for both create and update)
+    // Send Telegram notification (non-blocking)
     try {
-      // User identified from webhook secret -> integration lookup
-        const notificationUserId = integration.user_id
-
-      // Send Telegram notification (non-blocking)
-        const orderData = {
+      const orderData = {
         externalOrderId,
-        customer: {
-          name: customerName,
-          email: customerEmail
-        },
+        customer: { name: customerName, email: customerEmail },
         totalAmount: body.total,
         status: body.status,
         orderCreatedAt: body.date_created,
@@ -670,73 +411,56 @@ export async function POST(request: NextRequest) {
         })),
         isUpdate: !isNewOrder
       }
+      sendOrderNotification(integration.user_id, orderData).catch(() => {})
+    } catch {}
 
-      sendOrderNotification(notificationUserId, orderData).then((result) => {
-        if (!result.success) {
-        }
-      }).catch((error) => {
-      })
-    } catch (telegramError) {
-      // Don't fail the webhook if Telegram notification fails
-    }
-
-    const processingTime = Date.now() - startTime
-    const responseData = {
-      success: true,
-      message: 'WooCommerce order processed successfully',
-      data: {
-        orderId: order.id,
-        customerId: customer.id,
-        externalOrderId,
-        status: body.status,
-        totalAmount,
-        itemsCount: orderItems.length
-      }
-    }
-
-    console.log('🔔 ✅✅✅ WEBHOOK PROCESSED SUCCESSFULLY ✅✅✅')
-    console.log('🔔 Order ID:', order.id)
-    console.log('🔔 Customer ID:', customer.id)
-    console.log('🔔 Processing Time:', processingTime + 'ms')
-    console.log('🔔 ==========================================')
+    console.log('✅ Order processed:', order.id, 'Customer:', customer.id, 'Time:', Date.now() - startTime + 'ms')
 
     webhookLogger.logWebhookResponse(requestId, {
       status: 200,
       message: 'Order processed successfully',
-      data: responseData.data,
-      processingTime
+      data: {
+        order_id: order.id,
+        customer_id: customer.id,
+        external_order_id: externalOrderId,
+        is_new_order: isNewOrder
+      },
+      processingTime: Date.now() - startTime
     })
 
-    return NextResponse.json(responseData, {
-      status: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      }
+    return NextResponse.json({
+      success: true,
+      message: 'Order processed successfully',
+      orderId: order.id,
+      customerId: customer.id
     })
 
   } catch (error: any) {
-    const processingTime = Date.now() - startTime
+    console.error('❌ Webhook error:', error.message)
 
-    webhookLogger.logWebhookError(requestId || 'unknown', {
-      message: `Unexpected error: ${error.message}`,
-      stack: error.stack,
-      status: 500,
-      processingTime
-    })
+    // Log error if requestId exists
+    try {
+      const headers = Object.fromEntries(request.headers.entries())
+      const url = request.url
+      const requestId = webhookLogger.logWebhookRequest({
+        method: request.method,
+        url,
+        headers,
+        body: {},
+        query: {}
+      })
 
-    return NextResponse.json(
-      {
+      webhookLogger.logWebhookError(requestId, {
         error: 'Internal server error',
-        message: 'An unexpected error occurred while processing the webhook',
-        debug: {
-          requestId: requestId || 'unknown',
-          error_message: error.message,
-          processing_time: processingTime
-        }
-      },
-      { status: 500 }
-    )
+        message: error.message,
+        stack: error.stack
+      })
+    } catch {}
+
+    return NextResponse.json({
+      error: 'Internal server error',
+      message: error.message
+    }, { status: 500 })
   }
 }
 

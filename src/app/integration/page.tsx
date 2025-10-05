@@ -410,9 +410,11 @@ export default function IntegrationPage() {
       }
 
       handleIntegrationDeleted(integrationId)
+      toast.success('Integration deleted successfully!')
       // Close dialog
       setDeleteDialog({ isOpen: false, integrationId: '', integrationName: '' })
-    } catch (error) {      alert('Failed to delete integration. Please try again.')
+    } catch (error: any) {
+      toast.error(`Failed to delete integration: ${error.message}`)
       setDeleteDialog({ isOpen: false, integrationId: '', integrationName: '' })
     }
   }
