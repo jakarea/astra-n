@@ -152,7 +152,8 @@ class WebhookLogger {
     try {
       const logLine = `${prefix}\n${JSON.stringify(data, null, 2)}\n${'='.repeat(80)}\n`
 
-      // Always console log for immediate debugging)
+      // Always console log for immediate debugging
+      console.log(logLine)
 
       // Try to write to file if possible
       if (this.logFile) {
