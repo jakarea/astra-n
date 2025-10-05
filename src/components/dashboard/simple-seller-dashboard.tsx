@@ -7,6 +7,15 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   ShoppingCart,
   Package,
@@ -22,10 +31,13 @@ import {
   Eye,
   Settings,
   AlertTriangle,
-  Users
+  Users,
+  CalendarIcon
 } from 'lucide-react'
+import { format, subMonths, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns'
 import { getSession } from '@/lib/auth'
 import { getSellerDashboardAction } from '@/app/actions/seller-dashboard'
+import { cn } from "@/lib/utils"
 
 interface SimpleSellerDashboardData {
   summary: {
@@ -54,10 +66,54 @@ interface SimpleSellerDashboardData {
   }
 }
 
+type DateRange = {
+  from: Date
+  to: Date
+}
+
 export function SimpleSellerDashboard() {
   const [data, setData] = useState<SimpleSellerDashboardData | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [dateRangeType, setDateRangeType] = useState<string>('all-time')
+  const [dateRange, setDateRange] = useState<DateRange | null>(null)
+  const [customDate, setCustomDate] = useState<{ from?: Date; to?: Date }>({})
+
+  // Update date range when preset changes
+  useEffect(() => {
+    const now = new Date()
+    switch (dateRangeType) {
+      case 'all-time':
+        setDateRange(null) // No filter
+        break
+      case 'this-month':
+        setDateRange({
+          from: startOfMonth(now),
+          to: endOfMonth(now)
+        })
+        break
+      case 'last-3-months':
+        setDateRange({
+          from: startOfMonth(subMonths(now, 2)),
+          to: endOfMonth(now)
+        })
+        break
+      case 'this-year':
+        setDateRange({
+          from: startOfYear(now),
+          to: endOfYear(now)
+        })
+        break
+      case 'custom':
+        if (customDate.from && customDate.to) {
+          setDateRange({
+            from: customDate.from,
+            to: customDate.to
+          })
+        }
+        break
+    }
+  }, [dateRangeType, customDate])
 
   const fetchDashboardData = async () => {
     try {
@@ -112,37 +168,10 @@ export function SimpleSellerDashboard() {
 
   useEffect(() => {
     fetchDashboardData()
-  }, [])
+  }, [dateRange])
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <Skeleton className="h-8 w-64 mb-2" />
-            <Skeleton className="h-4 w-96" />
-          </div>
-          <Skeleton className="h-10 w-32" />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-4 w-4" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-8 w-16 mb-1" />
-                <Skeleton className="h-3 w-20" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    )
-  }
 
-  if (error || !data) {
+  if (error) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -157,7 +186,7 @@ export function SimpleSellerDashboard() {
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            {error || 'Failed to load dashboard data'}
+            {error}
             <Button variant="outline" size="sm" onClick={fetchDashboardData} className="ml-4">
               <RefreshCw className="h-4 w-4 mr-2" />
               Retry
@@ -166,6 +195,10 @@ export function SimpleSellerDashboard() {
         </Alert>
       </div>
     )
+  }
+
+  if (!data) {
+    return null
   }
 
   const formatCurrency = (amount: number) => {
@@ -207,6 +240,100 @@ export function SimpleSellerDashboard() {
           </Badge>
         </div>
       </div>
+
+      {/* Date Range Filter */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="flex-1">
+              <label className="text-sm font-medium mb-2 block">Date Range</label>
+              <Select value={dateRangeType} onValueChange={setDateRangeType}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Select range" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all-time">All Time</SelectItem>
+                  <SelectItem value="this-month">This Month</SelectItem>
+                  <SelectItem value="last-3-months">Last 3 Months</SelectItem>
+                  <SelectItem value="this-year">This Year</SelectItem>
+                  <SelectItem value="custom">Custom Range</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {dateRangeType === 'custom' && (
+              <div className="flex items-center gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-[240px] justify-start text-left font-normal",
+                        !customDate.from && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {customDate.from ? (
+                        format(customDate.from, "PPP")
+                      ) : (
+                        <span>Pick start date</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={customDate.from}
+                      onSelect={(date) => setCustomDate(prev => ({ ...prev, from: date }))}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+
+                <span className="text-muted-foreground">to</span>
+
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-[240px] justify-start text-left font-normal",
+                        !customDate.to && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {customDate.to ? (
+                        format(customDate.to, "PPP")
+                      ) : (
+                        <span>Pick end date</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={customDate.to}
+                      onSelect={(date) => setCustomDate(prev => ({ ...prev, to: date }))}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )}
+
+            {dateRange && (
+              <div className="text-sm text-muted-foreground">
+                Showing data from {format(dateRange.from, 'MMM dd, yyyy')} to {format(dateRange.to, 'MMM dd, yyyy')}
+              </div>
+            )}
+            {!dateRange && (
+              <div className="text-sm text-muted-foreground">
+                Showing all-time data
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     }
     const { data, error } = await supabase
       .from('user_settings')
-      .select('telegram_bot_token, telegram_chat_id')
+      .select('telegram_chat_id')
       .eq('user_id', user.id)
       .single()
 
@@ -40,9 +40,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       settings: {
-        telegramBotToken: data?.telegram_bot_token ? '***CONFIGURED***' : null,
         telegramChatId: data?.telegram_chat_id || null,
-        isConfigured: !!(data?.telegram_bot_token && data?.telegram_chat_id)
+        isConfigured: !!data?.telegram_chat_id
       }
     })
 
@@ -66,16 +65,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { botToken, chatId, testConnection } = await request.json()
+    const { chatId, testConnection } = await request.json()
 
-    if (!botToken || !chatId) {
+    if (!chatId) {
       return NextResponse.json(
-        { error: 'Bot token and chat ID are required' },
+        { error: 'Chat ID is required' },
         { status: 400 }
       )
     }
+
     // Test connection if requested
-    if (testConnection) {      const testResult = await testTelegramConnection(botToken, chatId)
+    if (testConnection) {
+      const testResult = await testTelegramConnection(chatId)
 
       if (!testResult.success) {
         return NextResponse.json(
@@ -86,11 +87,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Upsert user settings
-        const { data, error } = await supabase
+    const { data, error } = await supabase
       .from('user_settings')
       .upsert({
         user_id: user.id,
-        telegram_bot_token: botToken,
         telegram_chat_id: chatId,
         updated_at: new Date().toISOString()
       }, {
@@ -105,13 +105,13 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       )
     }
+
     return NextResponse.json({
       success: true,
       message: testConnection ?
         'Telegram settings saved and test message sent successfully!' :
         'Telegram settings saved successfully!',
       settings: {
-        telegramBotToken: '***CONFIGURED***',
         telegramChatId: chatId,
         isConfigured: true
       }
@@ -139,7 +139,6 @@ export async function DELETE(request: NextRequest) {
     const { data, error } = await supabase
       .from('user_settings')
       .update({
-        telegram_bot_token: null,
         telegram_chat_id: null,
         updated_at: new Date().toISOString()
       })

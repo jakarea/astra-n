@@ -14,12 +14,16 @@ datasource db {
 // Core Tables: Users & Integrations
 
 model User {
-  id        String   @id @db.Uuid
-  name      String
-  email     String?  @unique
-  role      String   @default("seller") // 'admin' or 'seller'
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id               String   @id @db.Uuid
+  name             String
+  email            String?  @unique
+  role             String   @default("seller") // 'admin' or 'seller'
+  accountStatus    String   @default("pending") @map("account_status") // 'pending', 'approved', 'rejected', 'suspended'
+  approvedAt       DateTime? @map("approved_at")
+  approvedBy       String?  @map("approved_by") @db.Uuid
+  rejectionReason  String?  @map("rejection_reason")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
   // Relations
   settings           UserSettings?
@@ -32,12 +36,14 @@ model User {
   assignedProducts   SellerProduct[] @relation("SellerProducts") // Products assigned to this seller
   productAssignments SellerProduct[] @relation("ProductAssignments") // Assignments made by this admin
 
+  @@index([role])
+  @@index([accountStatus])
+  @@index([createdAt])
   @@map("users")
 }
 
 model UserSettings {
   userId           String   @id @map("user_id") @db.Uuid
-  telegramBotToken String?  @map("telegram_bot_token")
   telegramChatId   String?  @map("telegram_chat_id")
   updatedAt        DateTime @updatedAt @map("updated_at")
 

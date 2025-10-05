@@ -406,8 +406,9 @@ export async function POST(request: NextRequest) {
         items_count: orderItems.length
       })
     }
-    // Send Telegram notification (non-blocking)
+    // Send Telegram notification to integration owner (non-blocking)
     try {
+      console.log('🔔 Sending Telegram notification to user:', integration.user_id)
       const orderData = {
         externalOrderId,
         customer: { name: customerName, email: customerEmail },
@@ -421,8 +422,20 @@ export async function POST(request: NextRequest) {
         })),
         isUpdate: !isNewOrder
       }
-      sendOrderNotification(integration.user_id, orderData).catch(() => {})
-    } catch {}
+      sendOrderNotification(integration.user_id, orderData)
+        .then((result) => {
+          if (result.success) {
+            console.log('✅ Telegram notification sent successfully')
+          } else {
+            console.log('⚠️ Telegram notification failed:', result.error)
+          }
+        })
+        .catch((error) => {
+          console.log('⚠️ Telegram notification error:', error)
+        })
+    } catch (error) {
+      console.log('⚠️ Telegram notification exception:', error)
+    }
 
     console.log('✅ Order processed:', order.id, 'Customer:', customer.id, 'Time:', Date.now() - startTime + 'ms')
 

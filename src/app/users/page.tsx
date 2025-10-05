@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   AlertDialog,
@@ -18,7 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Plus, Eye, Edit, Trash2, Search, ChevronLeft, ChevronRight, Users, UserCheck, UserX, Shield, Download, RotateCcw } from 'lucide-react'
+import { Plus, Eye, Edit, Trash2, Search, ChevronLeft, ChevronRight, Users, UserCheck, UserX, Shield, Download, RotateCcw, CheckCircle, XCircle, Clock } from 'lucide-react'
 import { toast } from 'sonner'
 import { useSessionExpired } from '@/components/ui/session-expired-modal'
 
@@ -83,8 +84,15 @@ export default function UsersPage() {
     total: 0,
     active: 0,
     inactive: 0,
-    admins: 0
+    admins: 0,
+    pending: 0
   })
+  const [rejectDialog, setRejectDialog] = useState<{ isOpen: boolean; userId: string; userName: string }>({
+    isOpen: false,
+    userId: '',
+    userName: ''
+  })
+  const [rejectionReason, setRejectionReason] = useState('')
 
   // Session expired modal hook
         const { triggerSessionExpired, SessionExpiredComponent } = useSessionExpired()
@@ -331,6 +339,107 @@ export default function UsersPage() {
     }
   }
 
+  const handleApproveUser = async (userId: string, userName: string) => {
+    try {
+      const session = getSession()
+      if (!session) {
+        toast.error('Authentication required')
+        return
+      }
+
+      const response = await fetch(`/api/users/${userId}/approve`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.token}`
+        }
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to approve user')
+      }
+
+      const result = await response.json()
+      toast.success('User approved', {
+        description: `${userName} has been approved successfully`
+      })
+
+      // Update user in the list
+      setUsers(prev => prev.map(user =>
+        user.id === userId ? { ...user, account_status: 'approved' } : user
+      ))
+
+      // Refresh stats
+      loadStats()
+    } catch (error: any) {
+      toast.error('Failed to approve user', {
+        description: error.message
+      })
+    }
+  }
+
+  const openRejectDialog = (userId: string, userName: string) => {
+    setRejectDialog({ isOpen: true, userId, userName })
+    setRejectionReason('')
+  }
+
+  const handleRejectUser = async () => {
+    const { userId, userName } = rejectDialog
+
+    if (!rejectionReason || rejectionReason.trim() === '') {
+      toast.error('Rejection reason required', {
+        description: 'Please provide a reason for rejecting this user'
+      })
+      return
+    }
+
+    try {
+      const session = getSession()
+      if (!session) {
+        toast.error('Authentication required')
+        return
+      }
+
+      const response = await fetch(`/api/users/${userId}/reject`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.token}`
+        },
+        body: JSON.stringify({ rejection_reason: rejectionReason })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to reject user')
+      }
+
+      const result = await response.json()
+      toast.success('User rejected', {
+        description: `${userName} has been rejected`
+      })
+
+      // Update user in the list
+      setUsers(prev => prev.map(user =>
+        user.id === userId ? { ...user, account_status: 'rejected', rejection_reason: rejectionReason } : user
+      ))
+
+      // Refresh stats
+      loadStats()
+
+      // Close dialog
+      setRejectDialog({ isOpen: false, userId: '', userName: '' })
+      setRejectionReason('')
+    } catch (error: any) {
+      toast.error('Failed to reject user', {
+        description: error.message
+      })
+    }
+  }
+
   const handleExportCSV = async () => {
     try {
       const session = getSession()
@@ -456,7 +565,7 @@ export default function UsersPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Users</CardTitle>
@@ -468,6 +577,21 @@ export default function UsersPage() {
             </div>
             <p className="text-xs text-muted-foreground">
               All registered users
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending</CardTitle>
+            <Clock className="h-4 w-4 text-yellow-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-yellow-600">
+              <AnimatedCounter value={totalStats.pending} duration={1000} />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Awaiting approval
             </p>
           </CardContent>
         </Card>
@@ -546,7 +670,7 @@ export default function UsersPage() {
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>Account Status</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -556,7 +680,7 @@ export default function UsersPage() {
                       <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-48" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                      <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
+                      <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
                       <TableCell>
                         <div className="flex gap-2">
                           <Skeleton className="h-8 w-8 rounded" />
@@ -589,7 +713,7 @@ export default function UsersPage() {
                       <TableHead>Name</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>Role</TableHead>
-                      <TableHead>Status</TableHead>
+                      <TableHead>Account Status</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -615,33 +739,83 @@ export default function UsersPage() {
                         </TableCell>
 
                         <TableCell>
-                          <Badge variant="default">Active</Badge>
+                          {user.account_status === 'pending' && (
+                            <Badge variant="outline" className="border-yellow-500 text-yellow-700">
+                              <Clock className="h-3 w-3 mr-1" />
+                              Pending
+                            </Badge>
+                          )}
+                          {user.account_status === 'approved' && (
+                            <Badge variant="outline" className="border-green-500 text-green-700">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Approved
+                            </Badge>
+                          )}
+                          {user.account_status === 'rejected' && (
+                            <Badge variant="outline" className="border-red-500 text-red-700">
+                              <XCircle className="h-3 w-3 mr-1" />
+                              Rejected
+                            </Badge>
+                          )}
+                          {user.account_status === 'suspended' && (
+                            <Badge variant="outline" className="border-orange-500 text-orange-700">
+                              <XCircle className="h-3 w-3 mr-1" />
+                              Suspended
+                            </Badge>
+                          )}
                         </TableCell>
 
                         <TableCell>
                           <div className="flex gap-1">
-                            <Button variant="ghost" size="sm" onClick={() => handleViewUser(user.id)}>
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={() => handleEditUser(user.id)}>
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleResetPassword(user.email)}
-                              title="Send password reset"
-                            >
-                              <RotateCcw className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openDeleteDialog(user.id, user.name)}
-                              className="text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            {user.account_status === 'pending' ? (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleApproveUser(user.id, user.name)}
+                                  className="text-green-600 hover:text-green-700"
+                                  title="Approve user"
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openRejectDialog(user.id, user.name)}
+                                  className="text-red-600 hover:text-red-700"
+                                  title="Reject user"
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <Button variant="ghost" size="sm" onClick={() => handleViewUser(user.id)}>
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="sm" onClick={() => handleEditUser(user.id)}>
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                {user.account_status === 'approved' && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleResetPassword(user.email)}
+                                    title="Send password reset"
+                                  >
+                                    <RotateCcw className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openDeleteDialog(user.id, user.name)}
+                                  className="text-destructive hover:text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -768,6 +942,43 @@ export default function UsersPage() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reject User Dialog */}
+      <AlertDialog
+        open={rejectDialog.isOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRejectDialog({ isOpen: false, userId: '', userName: '' })
+            setRejectionReason('')
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reject User</AlertDialogTitle>
+            <AlertDialogDescription>
+              Please provide a reason for rejecting "{rejectDialog.userName}". This will be displayed to the user.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <Textarea
+              placeholder="Enter rejection reason..."
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              className="min-h-[100px]"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRejectUser}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Reject User
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

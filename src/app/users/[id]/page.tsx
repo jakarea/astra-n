@@ -449,22 +449,35 @@ export default function UserDetailPage() {
               <CardContent className="space-y-4">
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Telegram Notifications</label>
-                  <div className="mt-1 flex items-center gap-2">
-                    {userData.settings?.telegram_chat_id ? (
-                      <>
-                        <CheckCircle className="h-4 w-4 text-green-500" />
-                        <span className="text-sm">Configured</span>
-                        <Badge variant="outline" className="font-mono text-xs">
-                          {userData.settings.telegram_chat_id}
-                        </Badge>
-                      </>
-                    ) : (
-                      <>
-                        <XCircle className="h-4 w-4 text-red-500" />
-                        <span className="text-sm">Not configured</span>
-                      </>
-                    )}
+                  <div className="mt-2 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {userData.settings?.telegram_chat_id ? (
+                        <>
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                          <span className="text-sm">Configured</span>
+                          <Badge variant="outline" className="font-mono text-xs">
+                            {userData.settings.telegram_chat_id}
+                          </Badge>
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="h-4 w-4 text-red-500" />
+                          <span className="text-sm">Not configured</span>
+                        </>
+                      )}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => router.push(`/users/${userId}/telegram-settings`)}
+                    >
+                      <Settings className="h-3 w-3 mr-1" />
+                      Configure
+                    </Button>
                   </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Configure Telegram bot settings to receive order notifications for this user
+                  </p>
                 </div>
 
               </CardContent>
