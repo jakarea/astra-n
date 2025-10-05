@@ -1,5 +1,7 @@
 // Centralized cache manager for all modules
 export const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+export const USER_CACHE_DURATION = 10 * 60 * 1000 // 10 minutes for user data (changes less frequently)
+export const SHORT_CACHE_DURATION = 2 * 60 * 1000 // 2 minutes for frequently changing data
 
 // Cache stores
 export let dashboardCache: { data: any; timestamp: number } | null = null
@@ -7,6 +9,7 @@ export let crmLeadsCache: { data: any; timestamp: number } | null = null
 export let usersCache: { data: any; timestamp: number } | null = null
 export let sellerDashboardCache: Map<string, { data: any; timestamp: number }> = new Map()
 export let userStatsCache: { data: any; timestamp: number } | null = null
+export let userDataCache: Map<string, { data: any; timestamp: number }> = new Map() // User-specific data cache
 
 // Function to clear all caches
 export function clearAllCaches() {
@@ -15,6 +18,13 @@ export function clearAllCaches() {
   usersCache = null
   sellerDashboardCache.clear()
   userStatsCache = null
+  userDataCache.clear()
+}
+
+// Function to clear user-specific caches
+export function clearUserCache(userId: string) {
+  userDataCache.delete(userId)
+  sellerDashboardCache.delete(userId)
 }
 
 // Function to set dashboard cache
@@ -83,6 +93,24 @@ export function setUserStatsCache(data: any) {
 export function getUserStatsCache() {
   if (userStatsCache && Date.now() - userStatsCache.timestamp < CACHE_DURATION) {
     return userStatsCache.data
+  }
+  return null
+}
+
+// Function to set User Data cache (per user) - for role, account_status, etc.
+export function setUserDataCache(userId: string, data: any) {
+  userDataCache.set(userId, { data, timestamp: Date.now() })
+}
+
+// Function to get User Data cache (per user)
+export function getUserDataCache(userId: string) {
+  const cached = userDataCache.get(userId)
+  if (cached && Date.now() - cached.timestamp < USER_CACHE_DURATION) {
+    return cached.data
+  }
+  // Clean up expired cache
+  if (cached) {
+    userDataCache.delete(userId)
   }
   return null
 }

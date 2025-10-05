@@ -304,7 +304,7 @@ export async function getSessionUser(request?: Request): Promise<AuthUser | null
     const token = authorization.substring(7) // Remove 'Bearer ' prefix
 
     // Create a Supabase client with the token
-        const supabaseWithAuth = createClient(supabaseUrl, supabaseAnonKey, {
+    const supabaseWithAuth = createClient(supabaseUrl, supabaseAnonKey, {
       global: {
         headers: {
           Authorization: `Bearer ${token}`
@@ -313,20 +313,40 @@ export async function getSessionUser(request?: Request): Promise<AuthUser | null
     })
 
     // Get the user from the token
-        const { data: { user }, error } = await supabaseWithAuth.auth.getUser(token)
+    const { data: { user }, error } = await supabaseWithAuth.auth.getUser(token)
 
     if (error || !user) {
       return null
     }
 
-    // Fetch user role from database
-        const { data: userData, error: userError } = await supabaseWithAuth
+    // Check cache first
+    const { getUserDataCache, setUserDataCache } = await import('./cache-manager')
+    const cachedUserData = getUserDataCache(user.id)
+
+    if (cachedUserData) {
+      return {
+        id: user.id,
+        email: user.email!,
+        name: cachedUserData.name || user.user_metadata?.name || user.email?.split('@')[0],
+        role: cachedUserData.role || 'seller'
+      }
+    }
+
+    // Fetch user role and data from database
+    const { data: userData, error: userError } = await supabaseWithAuth
       .from('users')
-      .select('name, role')
+      .select('name, role, account_status')
       .eq('id', user.id)
       .single()
 
-    if (userError) {    }
+    if (userError) {
+      return null
+    }
+
+    // Cache the user data
+    if (userData) {
+      setUserDataCache(user.id, userData)
+    }
 
     return {
       id: user.id,

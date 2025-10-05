@@ -17,7 +17,6 @@ interface TelegramMessage {
 }
 
 export interface UserTelegramSettings {
-  telegramBotToken: string | null
   telegramChatId: string | null
 }
 
@@ -40,7 +39,7 @@ export async function getUserTelegramSettings(userId: string): Promise<UserTeleg
   try {
     const { data, error } = await supabase
       .from('user_settings')
-      .select('telegram_bot_token, telegram_chat_id')
+      .select('telegram_chat_id')
       .eq('user_id', userId)
       .single()
 
@@ -49,7 +48,6 @@ export async function getUserTelegramSettings(userId: string): Promise<UserTeleg
     }
 
     return {
-      telegramBotToken: data?.telegram_bot_token || null,
       telegramChatId: data?.telegram_chat_id || null
     }
   } catch (error) {
@@ -63,30 +61,30 @@ export async function sendTelegramNotification(
   parseMode: 'HTML' | 'Markdown' = 'HTML'
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // Get user's telegram settings
-        const settings = await getUserTelegramSettings(userId)
+    // Get bot token from environment variable
+    const botToken = process.env.TELEGRAM_BOT_TOKEN
 
-    // Use user settings if available, otherwise fallback to environment variables
-    let botToken = settings?.telegramBotToken
-    let chatId = settings?.telegramChatId
-
-    // Fallback to environment variables if user doesn't have individual settings
     if (!botToken) {
-      botToken = process.env.TELEGRAM_BOT_TOKEN    }
-
-    if (!chatId) {
-      chatId = settings?.telegramChatId // Still try to get chat ID from user settings
+      return {
+        success: false,
+        error: 'Missing TELEGRAM_BOT_TOKEN in environment variables'
+      }
     }
 
-    if (!botToken || !chatId) {      return {
+    // Get user's telegram chat ID from settings
+    const settings = await getUserTelegramSettings(userId)
+    const chatId = settings?.telegramChatId
+
+    if (!chatId) {
+      return {
         success: false,
-        error: `Missing Telegram configuration. Bot token: ${!!botToken}, Chat ID: ${!!chatId}`
+        error: `User ${userId} does not have a Telegram chat ID configured`
       }
     }
 
     // Send message via Telegram Bot API
-        const telegramApiUrl = `https://api.telegram.org/bot${botToken}/sendMessage`
-        const payload: TelegramMessage = {
+    const telegramApiUrl = `https://api.telegram.org/bot${botToken}/sendMessage`
+    const payload: TelegramMessage = {
       text: message,
       parse_mode: parseMode,
       disable_web_page_preview: true
@@ -98,18 +96,21 @@ export async function sendTelegramNotification(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        chat_id: settings.telegramChatId,
+        chat_id: chatId,
         ...payload
       })
     })
 
     const result = await response.json()
 
-    if (!response.ok) {      return {
+    if (!response.ok) {
+      return {
         success: false,
         error: result.description || 'Failed to send telegram message'
       }
-    }    return { success: true }
+    }
+
+    return { success: true }
 
   } catch (error: any) {
     return {
@@ -120,23 +121,34 @@ export async function sendTelegramNotification(
 }
 
 export async function testTelegramConnection(
-  botToken: string,
   chatId: string
 ): Promise<{ success: boolean; error?: string; botInfo?: any }> {
   try {
+    // Get bot token from environment
+    const botToken = process.env.TELEGRAM_BOT_TOKEN
+
+    if (!botToken) {
+      return {
+        success: false,
+        error: 'Missing TELEGRAM_BOT_TOKEN in environment variables'
+      }
+    }
+
     // First, get bot info to verify token
-        const botInfoUrl = `https://api.telegram.org/bot${botToken}/getMe`
-        const botResponse = await fetch(botInfoUrl)
+    const botInfoUrl = `https://api.telegram.org/bot${botToken}/getMe`
+    const botResponse = await fetch(botInfoUrl)
     const botResult = await botResponse.json()
-    if (!botResponse.ok) {      return {
+
+    if (!botResponse.ok) {
+      return {
         success: false,
         error: botResult.description || 'Invalid bot token'
       }
     }
 
     // Then, send a test message
-        const messageUrl = `https://api.telegram.org/bot${botToken}/sendMessage`
-        const messageResponse = await fetch(messageUrl, {
+    const messageUrl = `https://api.telegram.org/bot${botToken}/sendMessage`
+    const messageResponse = await fetch(messageUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -150,11 +162,15 @@ export async function testTelegramConnection(
     })
 
     const messageResult = await messageResponse.json()
-    if (!messageResponse.ok) {      return {
+
+    if (!messageResponse.ok) {
+      return {
         success: false,
         error: messageResult.description || 'Failed to send test message'
       }
-    }    return {
+    }
+
+    return {
       success: true,
       botInfo: botResult.result
     }
