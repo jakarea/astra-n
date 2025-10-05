@@ -146,7 +146,13 @@ export async function POST(request: NextRequest) {
         message: 'Pong! Webhook endpoint is working',
         ping_received: true,
         timestamp: new Date().toISOString()
-      }, { status: 200 })
+      }, {
+        status: 200,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        }
+      })
     }
 
     const contentType = request.headers.get('content-type') || ''
@@ -621,7 +627,13 @@ export async function POST(request: NextRequest) {
       processingTime
     })
 
-    return NextResponse.json(responseData, { status: 200 })
+    return NextResponse.json(responseData, {
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      }
+    })
 
   } catch (error: any) {
     const processingTime = Date.now() - startTime
@@ -648,12 +660,31 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// Handle OPTIONS requests (CORS preflight)
+export async function OPTIONS() {
+  return NextResponse.json(
+    {
+      success: true,
+      message: 'CORS preflight successful'
+    },
+    {
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, x-wc-webhook-signature, x-wc-webhook-topic, x-webhook-secret',
+      }
+    }
+  )
+}
+
 // Handle unsupported HTTP methods
 export async function GET() {
   return NextResponse.json(
     {
       error: 'Method not allowed',
-      message: 'Only POST method is supported for this webhook endpoint'
+      message: 'Only POST method is supported for this webhook endpoint. Use POST to send webhook data.',
+      accepted_methods: ['POST', 'OPTIONS']
     },
     { status: 405 }
   )
