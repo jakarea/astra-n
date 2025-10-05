@@ -102,7 +102,7 @@ const copyToClipboard = async (text: string, label: string = 'Text') => {
 const getDeliveryUrl = (integration: any) => {
   if (typeof window !== 'undefined' && integration.type) {
     const baseUrl = window.location.origin
-    return `${baseUrl}/api/webhooks/${integration.type}-order-integration`
+    return `${baseUrl}/api/webhook/${integration.type}-order-integration`
   }
   return ''
 }
@@ -460,7 +460,7 @@ export default function IntegrationPage() {
       if (isAdmin) {
         headers = ['Created', 'Name', 'Type', 'Domain', 'Delivery URL', 'Actions', 'Status', 'Webhook Secret', 'Owner']
         rows = (data || []).map(integration => {
-          const deliveryUrl = integration.type ? `${typeof window !== 'undefined' ? window.location.origin : ''}/api/webhooks/${integration.type}-order-integration` : '-'
+          const deliveryUrl = integration.type ? `${typeof window !== 'undefined' ? window.location.origin : ''}/api/webhook/${integration.type}-order-integration` : '-'
           const actions = getSupportedActions(integration.type || '').join(', ') || '-'
           const status = integration.is_active ? 'Active' : 'Inactive'
 
@@ -479,7 +479,7 @@ export default function IntegrationPage() {
       } else {
         headers = ['Created', 'Name', 'Type', 'Domain', 'Delivery URL', 'Actions', 'Status', 'Webhook Secret']
         rows = (data || []).map(integration => {
-          const deliveryUrl = integration.type ? `${typeof window !== 'undefined' ? window.location.origin : ''}/api/webhooks/${integration.type}-order-integration` : '-'
+          const deliveryUrl = integration.type ? `${typeof window !== 'undefined' ? window.location.origin : ''}/api/webhook/${integration.type}-order-integration` : '-'
           const actions = getSupportedActions(integration.type || '').join(', ') || '-'
           const status = integration.is_active ? 'Active' : 'Inactive'
 
