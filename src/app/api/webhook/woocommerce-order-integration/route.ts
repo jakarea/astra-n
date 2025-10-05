@@ -349,29 +349,46 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // FALLBACK: If no integration found, try to get the first active WooCommerce integration
     if (integrationError || !integration) {
-      const processingTime = Date.now() - startTime
-      webhookLogger.logWebhookError(requestId, {
-        message: 'Integration lookup failed',
-        status: 401,
-        processingTime,
-        integrationError: integrationError?.message || 'No integration found',
-        webhookSecret
-      })
+      console.log('🔔 Integration not found by secret, trying fallback to first WooCommerce integration...')
 
-      return NextResponse.json(
-        {
-          error: 'Invalid webhook secret',
-          message: 'The provided webhook secret is not valid, does not exist, or signature validation failed',
-          debug: {
-            requestId,
-            integration_error: integrationError?.message,
-            webhook_secret_length: webhookSecret.length,
-            webhook_secret_prefix: webhookSecret.substring(0, 8) + '...'
-          }
-        },
-        { status: 401 }
-      )
+      const { data: fallbackIntegration } = await supabaseAdmin
+        .from('integrations')
+        .select('id, user_id, name, status, is_active, webhook_secret')
+        .eq('type', 'woocommerce')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (fallbackIntegration) {
+        console.log('🔔 ✅ Found fallback WooCommerce integration:', fallbackIntegration.id)
+        integration = fallbackIntegration
+      } else {
+        const processingTime = Date.now() - startTime
+        webhookLogger.logWebhookError(requestId, {
+          message: 'No WooCommerce integration found',
+          status: 401,
+          processingTime,
+          integrationError: integrationError?.message || 'No integration found',
+          webhookSecret
+        })
+
+        return NextResponse.json(
+          {
+            error: 'No WooCommerce integration configured',
+            message: 'Please create a WooCommerce integration in your dashboard first',
+            debug: {
+              requestId,
+              integration_error: integrationError?.message,
+              webhook_secret_length: webhookSecret?.length,
+              hint: 'Go to /integration page to create a WooCommerce integration'
+            }
+          },
+          { status: 401 }
+        )
+      }
     }
 
     webhookLogger.logWebhookProcessing(requestId, {
