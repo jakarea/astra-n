@@ -71,7 +71,7 @@ interface ShopifyOrderPayload {
 }
 
 export async function POST(request: NextRequest) {
-  try {))
+  try {
 
     const contentType = request.headers.get('content-type')
     if (!contentType || !contentType.includes('application/json')) {      return NextResponse.json(
@@ -325,7 +325,7 @@ export async function POST(request: NextRequest) {
     // Step 5: Send Telegram Notification (for both create and update)
     try {
       // User identified from webhook secret -> integration lookup
-        const notificationUserId = integration.user_id:', notificationUserId)
+        const notificationUserId = integration.user_id
 
       // Send Telegram notification (non-blocking)
         const orderData = {
@@ -343,10 +343,13 @@ export async function POST(request: NextRequest) {
           pricePerUnit: item.price
         })),
         isUpdate: !isNewOrder
-      })
+      }
 
-      sendOrderNotification(notificationUserId, orderData).then((result) => {        if (!result.success) {        }
-      }).catch((error) => {      })
+      sendOrderNotification(notificationUserId, orderData).then((result) => {
+        if (!result.success) {
+        }
+      }).catch((error) => {
+      })
     } catch (telegramError) {
       // Don't fail the webhook if Telegram notification fails
     }

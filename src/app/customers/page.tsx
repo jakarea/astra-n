@@ -151,7 +151,8 @@ export default function CustomersPage() {
 
       const { data, error, count } = await query.range(from, to)
 
-      if (error) {        throw new Error(`Database error: ${error.message}`)
+      if (error) {
+        throw new Error(`Database error: ${error.message}`)
       }
 
       // Use the total_order field from database

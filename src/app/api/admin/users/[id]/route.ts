@@ -61,7 +61,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         .eq('id', id)
         .single()
 
-      if (error) {        return NextResponse.json({ error: error.message }, { status: 500 })
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 })
       }
 
       return NextResponse.json({ user: data })
@@ -76,7 +77,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .select('*')
       .eq('id', id)
       .single()
-    if (error) {      return NextResponse.json({ error: error.message }, { status: 500 })
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
     return NextResponse.json({ user: data })
@@ -135,7 +138,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       .select()
       .single()
 
-    if (error) {      return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
     return NextResponse.json({ user: data })
@@ -208,7 +212,9 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       .eq('id', id)
 
     if (deleteError) {
-      // Auth user is already deleted, log warning but still return success    }
+      // Auth user is already deleted, log warning but still return success
+      console.warn('Failed to delete user from database:', deleteError)
+    }
 
     return NextResponse.json({
       success: true,

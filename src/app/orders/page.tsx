@@ -21,7 +21,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 
-import { Eye, Edit, Trash2, ShoppingCart, Users, DollarSign, TrendingUp, Search, ChevronLeft, ChevronRight, Download, Truck, Check, Loader2 } from 'lucide-react'
+import { Eye, Edit, Trash2, ShoppingCart, Users, DollarSign, TrendingUp, Search, ChevronLeft, ChevronRight, Download, ExternalLink } from 'lucide-react'
+import { toast } from 'sonner'
 
 // Lazy load heavy components
 const EditOrderModal = lazy(() => import('@/components/orders/edit-order-modal').then(module => ({ default: module.EditOrderModal })))
@@ -119,8 +120,6 @@ export default function OrdersPage() {
   const [userRole, setUserRole] = useState<string | null>(null)
   const [trackingInputs, setTrackingInputs] = useState<Record<string, string>>({})
   const [savingTracking, setSavingTracking] = useState<Record<string, boolean>>({})
-  const [trackingStatuses, setTrackingStatuses] = useState<Record<string, any>>({})
-  const [loadingTracking, setLoadingTracking] = useState<Record<string, boolean>>({})
 
   const ITEMS_PER_PAGE = 10
 
@@ -195,7 +194,8 @@ export default function OrdersPage() {
 
       const { data, error, count } = await query.range(from, to)
 
-      if (error) {        throw new Error(`Database error: ${error.message}`)
+      if (error) {
+        throw new Error(`Database error: ${error.message}`)
       }
 
       setOrders(data || [])
@@ -365,19 +365,14 @@ export default function OrdersPage() {
 
     try {
       setSavingTracking(prev => ({ ...prev, [orderId]: true }))
-      const session = getSession()
-      if (!session) return
+      const supabase = getAuthenticatedClient()
 
-      const response = await fetch(`/api/orders/${orderId}/tracking`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.token}`
-        },
-        body: JSON.stringify({ tracking_id: trackingId })
-      })
+      const { error } = await supabase
+        .from('orders')
+        .update({ tracking_id: trackingId })
+        .eq('id', orderId)
 
-      if (!response.ok) {
+      if (error) {
         throw new Error('Failed to save tracking ID')
       }
 
@@ -388,39 +383,11 @@ export default function OrdersPage() {
           : order
       ))
 
-      alert('Tracking ID saved successfully')
+      toast.success('Tracking ID saved successfully')
     } catch (error) {
-      alert('Failed to save tracking ID')
+      toast.error('Failed to save tracking ID')
     } finally {
       setSavingTracking(prev => ({ ...prev, [orderId]: false }))
-    }
-  }
-
-  const handleTrackOrder = async (orderId: string) => {
-    try {
-      setLoadingTracking(prev => ({ ...prev, [orderId]: true }))
-      const session = getSession()
-      if (!session) return
-
-      const response = await fetch(`/api/orders/${orderId}/tracking-status`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${session.token}`
-        }
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.details || 'Failed to fetch tracking status')
-      }
-
-      const data = await response.json()
-      setTrackingStatuses(prev => ({ ...prev, [orderId]: data.tracking }))
-
-    } catch (error: any) {
-      alert(error.message || 'Failed to fetch tracking status')
-    } finally {
-      setLoadingTracking(prev => ({ ...prev, [orderId]: false }))
     }
   }
 
@@ -780,70 +747,36 @@ export default function OrdersPage() {
                         )}
 
                         <TableCell>
-                          <div className="flex items-center gap-2 min-w-[280px]">
-                            <Input
-                              placeholder="Enter tracking ID"
-                              value={trackingInputs[order.id] ?? order.tracking_id ?? ''}
-                              onChange={(e) => handleTrackingInputChange(order.id.toString(), e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  handleSaveTracking(order.id.toString())
-                                }
-                              }}
-                              className="h-8 text-xs"
-                              disabled={savingTracking[order.id]}
-                            />
-                            {(trackingInputs[order.id] && trackingInputs[order.id] !== order.tracking_id) ? (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleSaveTracking(order.id.toString())}
+                          {order.tracking_id ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 gap-1"
+                              asChild
+                            >
+                              <a
+                                href={`https://www.aftership.com/it/track/${order.tracking_id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                Track
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            </Button>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <Input
+                                placeholder="Enter tracking ID"
+                                value={trackingInputs[order.id] ?? ''}
+                                onChange={(e) => handleTrackingInputChange(order.id.toString(), e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    handleSaveTracking(order.id.toString())
+                                  }
+                                }}
+                                className="h-8 text-xs"
                                 disabled={savingTracking[order.id]}
-                                className="h-8 px-2"
-                              >
-                                {savingTracking[order.id] ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  <Check className="h-3 w-3" />
-                                )}
-                              </Button>
-                            ) : order.tracking_id || trackingInputs[order.id] ? (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleTrackOrder(order.id.toString())}
-                                disabled={loadingTracking[order.id]}
-                                className="h-8 px-2"
-                                title="Track shipment"
-                              >
-                                {loadingTracking[order.id] ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  <Truck className="h-3 w-3" />
-                                )}
-                              </Button>
-                            ) : null}
-                          </div>
-                          {trackingStatuses[order.id] && (
-                            <div className="mt-2 text-xs">
-                              <Badge variant={
-                                trackingStatuses[order.id].tag === 'Delivered' ? 'default' :
-                                trackingStatuses[order.id].tag === 'InTransit' ? 'secondary' :
-                                trackingStatuses[order.id].tag === 'Exception' ? 'destructive' :
-                                'outline'
-                              }>
-                                {trackingStatuses[order.id].statusLabel}
-                              </Badge>
-                              {trackingStatuses[order.id].lastCheckpoint && (
-                                <p className="mt-1 text-muted-foreground">
-                                  {trackingStatuses[order.id].lastCheckpoint}
-                                </p>
-                              )}
-                              {trackingStatuses[order.id].lastLocation && (
-                                <p className="text-muted-foreground">
-                                  📍 {trackingStatuses[order.id].lastLocation}
-                                </p>
-                              )}
+                              />
                             </div>
                           )}
                         </TableCell>

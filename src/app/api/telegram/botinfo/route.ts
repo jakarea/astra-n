@@ -10,10 +10,9 @@ export async function GET() {
     })
   }
 
-  try {)
-
+  try {
     const response = await fetch(`https://api.telegram.org/bot${botToken}/getMe`)
-        const data = await response.json()
+    const data = await response.json()
     if (data.ok) {
       return NextResponse.json({
         success: true,

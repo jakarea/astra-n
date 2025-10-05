@@ -33,7 +33,8 @@ export default function ResetPasswordPage() {
       // Get the current session from the password reset callback
         const { data, error } = await supabase.auth.getSession()
 
-      if (error) {        setError('Invalid or expired reset link. Please request a new password reset.')
+      if (error) {
+        setError('Invalid or expired reset link. Please request a new password reset.')
         setLoading(false)
         return
       }

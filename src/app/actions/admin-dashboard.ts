@@ -5,12 +5,14 @@ import { getAdminDashboardData } from '@/lib/admin-data'
 export async function getAdminDashboardAction(): Promise<any> {
   try {
     // Get real data from database
-        const data = await getAdminDashboardData())
+    const data = await getAdminDashboardData()
 
     return { success: true, data }
   } catch (error) {
     // More detailed error logging
-    if (error instanceof Error) {    }
+    if (error instanceof Error) {
+      console.error('Dashboard error:', error.message)
+    }
 
     return {
       success: false,

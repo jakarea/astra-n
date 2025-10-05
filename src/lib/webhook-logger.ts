@@ -35,7 +35,8 @@ class WebhookLogger {
 
       this.logFile = path.join(this.logDir, `webhook-debug-${new Date().toISOString().split('T')[0]}.log`)
       this.ensureLogDirectory()
-    } catch (error) {      // Fallback to console-only logging
+    } catch (error) {
+      // Fallback to console-only logging
       this.logDir = ''
       this.logFile = ''
     }

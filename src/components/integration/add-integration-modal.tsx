@@ -98,11 +98,14 @@ export function AddIntegrationModal({ isOpen, onClose, onSuccess }: AddIntegrati
         .insert([integrationData])
         .select()
         .single()
-      if (error) {        throw new Error(error.message)
+
+      if (error) {
+        throw new Error(error.message)
       }
 
       // Generate unique webhook secret for the newly created integration
-      if (!session?.token) {        throw new Error('Authentication required')
+      if (!session?.token) {
+        throw new Error('Authentication required')
       }
 
       const webhookResponse = await fetch(`/api/integrations/${data.id}/generate-webhook-secret`, {

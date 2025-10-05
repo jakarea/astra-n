@@ -36,7 +36,8 @@ function AuthCallbackContent() {
       // Handle Supabase auth callback first
         const { data, error } = await supabase.auth.getSession()
 
-      if (error) {        setError('Authentication failed. Please try again.')
+      if (error) {
+        setError('Authentication failed. Please try again.')
         setLoading(false)
         return
       }

@@ -123,7 +123,9 @@ export function AddLeadModal({ isOpen, onClose, onSuccess }: AddLeadModalProps) 
         .insert([leadData])
         .select()
         .single()
-      if (error) {        throw new Error(error.message)
+
+      if (error) {
+        throw new Error(error.message)
       }
 
       // Reset form

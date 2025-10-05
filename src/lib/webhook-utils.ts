@@ -38,13 +38,18 @@ export async function generateUniqueWebhookSecret(): Promise<string> {
         .eq('webhook_secret', webhookSecret)
         .maybeSingle()
 
-      if (error) {        throw error
+      if (error) {
+        throw error
       }
 
       // If no existing integration found, this secret is unique
-      if (!existingIntegration) {        return webhookSecret
-      }      attempts++
-    } catch (error) {      throw error
+      if (!existingIntegration) {
+        return webhookSecret
+      }
+
+      attempts++
+    } catch (error) {
+      throw error
     }
   }
 

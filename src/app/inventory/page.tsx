@@ -164,7 +164,9 @@ export default function InventoryPage() {
       const { data, error, count } = await query
         .order('created_at', { ascending: false })
         .range(from, to)
-      if (error) {        throw new Error(`Database error: ${error.message}`)
+
+      if (error) {
+        throw new Error(`Database error: ${error.message}`)
       }
 
       let processedProducts = []

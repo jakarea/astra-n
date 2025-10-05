@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     let bodyText = ''
     try {
       bodyText = await request.text()
-      if (bodyText.length > 0) {)
+      if (bodyText.length > 0) {
       }
     } catch (e) {    }
 
@@ -37,8 +37,7 @@ export async function POST(request: NextRequest) {
       }
     })
 
-  } catch (error: any) {:', error)
-
+  } catch (error: any) {
     // Even on error, return success to allow WooCommerce config
     return NextResponse.json({
       success: true,

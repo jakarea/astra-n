@@ -60,23 +60,10 @@ export async function POST(request: NextRequest) {
   let requestId: string
 
   try {
-      // EMERGENCY FIX: Always return success for now to allow WooCommerce config save
-        const headers = Object.fromEntries(request.headers.entries())
-    const userAgent = headers['user-agent'] || ''
-
-    // If this looks like WooCommerce, return immediate success
-    if (userAgent.includes('WordPress') || userAgent.includes('WooCommerce') || userAgent.includes('Hookshot')) {
-      return NextResponse.json({
-        success: true,
-        message: 'WooCommerce webhook accepted',
-        emergency_mode: true,
-        timestamp: new Date().toISOString(),
-        user_agent: userAgent
-      }, { status: 200 })
-    }
     // First, capture all raw request data for logging
-        const url = new URL(request.url)
+    const url = new URL(request.url)
     const query = Object.fromEntries(url.searchParams.entries())
+    const headers = Object.fromEntries(request.headers.entries())
 
     let body: any
     let bodyText = ''
@@ -87,16 +74,18 @@ export async function POST(request: NextRequest) {
       if (!bodyText) {
         body = {}
       } else {
-      // Try multiple parsing methods
+        // Try multiple parsing methods
         try {
-      // Try JSON first
+          // Try JSON first
           body = JSON.parse(bodyText)
         } catch (jsonError) {
-      // Try URL-encoded form data
+          // Try URL-encoded form data
           try {
             const urlParams = new URLSearchParams(bodyText)
-            body = Object.fromEntries(urlParams.entries())          } catch (formError) {
-      // Try to handle other formats or plain text            body = { raw_body: bodyText, parse_error: jsonError.message }
+            body = Object.fromEntries(urlParams.entries())
+          } catch (formError) {
+            // Try to handle other formats or plain text
+            body = { raw_body: bodyText, parse_error: jsonError.message }
           }
         }
       }
@@ -140,6 +129,25 @@ export async function POST(request: NextRequest) {
       body,
       query
     })
+
+    // Handle WooCommerce ping event
+    const topic = request.headers.get('x-wc-webhook-topic')
+
+    if (topic === 'ping' || body.event === 'ping' || body.webhook_id) {
+      console.log('✅ Received ping from WooCommerce')
+      webhookLogger.logWebhookProcessing(requestId, {
+        processing: 'WooCommerce ping event detected',
+        topic,
+        body
+      })
+
+      return NextResponse.json({
+        success: true,
+        message: 'Pong! Webhook endpoint is working',
+        ping_received: true,
+        timestamp: new Date().toISOString()
+      }, { status: 200 })
+    }
 
     const contentType = request.headers.get('content-type') || ''
 
@@ -563,7 +571,7 @@ export async function POST(request: NextRequest) {
     // Step 5: Send Telegram Notification (for both create and update)
     try {
       // User identified from webhook secret -> integration lookup
-        const notificationUserId = integration.user_id:', notificationUserId)
+        const notificationUserId = integration.user_id
 
       // Send Telegram notification (non-blocking)
         const orderData = {
@@ -581,10 +589,13 @@ export async function POST(request: NextRequest) {
           pricePerUnit: item.total
         })),
         isUpdate: !isNewOrder
-      })
+      }
 
-      sendOrderNotification(notificationUserId, orderData).then((result) => {        if (!result.success) {        }
-      }).catch((error) => {      })
+      sendOrderNotification(notificationUserId, orderData).then((result) => {
+        if (!result.success) {
+        }
+      }).catch((error) => {
+      })
     } catch (telegramError) {
       // Don't fail the webhook if Telegram notification fails
     }
