@@ -106,7 +106,12 @@ function DashboardSkeleton() {
 }
 
 export default function DashboardPage() {
-  const [userRole, setUserRole] = useState<string | null>(null)
+  // Initialize with cached role if available to avoid blank screen
+  const [userRole, setUserRole] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null
+    const session = getSession()
+    return session?.user?.role || null
+  })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -179,7 +184,8 @@ export default function DashboardPage() {
     checkAccountStatus()
   }, [])
 
-  if (loading) {
+  // Show skeleton while loading OR if no role yet
+  if (loading || !userRole) {
     return <DashboardSkeleton />
   }
 
