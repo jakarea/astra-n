@@ -73,10 +73,6 @@ interface ShopifyOrderPayload {
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
-  const timestamp = new Date().toISOString()
-
-  console.log('🔔 ====== SHOPIFY WEBHOOK REQUEST ======')
-  console.log('🔔 Time:', timestamp)
 
   try {
     // Capture request details for logging
@@ -84,7 +80,7 @@ export async function POST(request: NextRequest) {
     const url = request.url
     const body = await request.json()
 
-    // Log complete request to test-logger
+    // Log complete request to test-logger (for debugging when needed)
     const requestId = webhookLogger.logWebhookRequest({
       method: request.method,
       url,
@@ -92,11 +88,6 @@ export async function POST(request: NextRequest) {
       body,
       query: {}
     })
-
-    console.log('🔔 Request ID:', requestId)
-    console.log('🔔 Topic:', request.headers.get('x-shopify-topic'))
-    console.log('🔔 Order ID:', body.id)
-    console.log('🔔 Shop Domain:', request.headers.get('x-shopify-shop-domain'))
 
     // Get shop domain from header
     const shopDomain = request.headers.get('x-shopify-shop-domain')
@@ -114,8 +105,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-
-    console.log('🔔 Looking for integration with domain:', shopDomain)
 
     // For Shopify webhooks, just get the first active Shopify integration
     // Since Shopify always sends *.myshopify.com domain
@@ -141,8 +130,6 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       )
     }
-
-    console.log('✅ Found integration:', integration.id, integration.name, 'for shop:', shopDomain)
 
     webhookLogger.logWebhookProcessing(requestId, {
       integration: {
@@ -397,7 +384,6 @@ export async function POST(request: NextRequest) {
     }
 
     const processingTime = Date.now() - startTime
-    console.log(`✅ Order processed successfully in ${processingTime}ms`)
 
     webhookLogger.logWebhookResponse('request-id', {
       status: 200,
@@ -410,7 +396,6 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     const processingTime = Date.now() - startTime
-    console.error('❌ Error processing webhook:', error)
 
     webhookLogger.logWebhookError('request-id', {
       message: error.message || 'Unknown error',
@@ -422,8 +407,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: 'Internal server error',
-        message: 'An unexpected error occurred while processing the webhook',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        message: 'An unexpected error occurred while processing the webhook'
       },
       { status: 500 }
     )

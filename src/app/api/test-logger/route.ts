@@ -92,14 +92,13 @@ export async function GET(request: NextRequest) {
     <div class="info">
       <strong>📊 Log Information:</strong><br>
       • Showing last 500 log lines<br>
-      • Auto-refresh: <span id="refresh-status">Enabled (5s)</span><br>
+      • Auto-refresh: <span id="refresh-status">Disabled</span><br>
       • Timestamp: <span id="current-time">${new Date().toISOString()}</span><br>
       • Log File: ${webhookLogger.getLogFilePath() || 'Console only (Vercel /tmp)'}
     </div>
 
     <div class="controls">
       <button onclick="location.reload()">🔄 Refresh Now</button>
-      <button onclick="toggleAutoRefresh()">⏸️ Toggle Auto-Refresh</button>
       <button onclick="clearLogs()">🗑️ Clear Logs</button>
       <button onclick="copyLogs()">📋 Copy to Clipboard</button>
     </div>
@@ -108,23 +107,8 @@ export async function GET(request: NextRequest) {
   </div>
 
   <script>
-    let autoRefreshEnabled = true;
-    let refreshInterval = null;
-
-    function startAutoRefresh() {
-      if (refreshInterval) clearInterval(refreshInterval);
-      refreshInterval = setInterval(() => {
-        if (autoRefreshEnabled) {
-          location.reload();
-        }
-      }, 5000);
-    }
-
-    function toggleAutoRefresh() {
-      autoRefreshEnabled = !autoRefreshEnabled;
-      document.getElementById('refresh-status').textContent =
-        autoRefreshEnabled ? 'Enabled (5s)' : 'Disabled';
-    }
+    // Auto-refresh disabled for production
+    let autoRefreshEnabled = false;
 
     async function clearLogs() {
       if (confirm('Are you sure you want to clear all logs?')) {
@@ -139,15 +123,6 @@ export async function GET(request: NextRequest) {
         alert('Logs copied to clipboard!');
       });
     }
-
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
-    }
-
-    // Start auto-refresh
-    startAutoRefresh();
 
     // Update current time every second
     setInterval(() => {
