@@ -1,17 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { getSessionUser } from '@/lib/auth'
 import crypto from 'crypto'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  }
-})
 
 // Generate a secure random webhook secret
 function generateWebhookSecret(): string {
@@ -23,14 +15,23 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await getSessionUser(request)
+    // Get user ID from request body or header
+    const body = await request.json().catch(() => ({}))
+    const userId = body.user_id
 
-    if (!user) {
+    if (!userId) {
       return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
+        { error: 'User ID is required' },
+        { status: 400 }
       )
     }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    })
 
     const integrationId = parseInt(params.id)
     if (isNaN(integrationId)) {
@@ -39,13 +40,28 @@ export async function POST(
         { status: 400 }
       )
     }
-    // Check if integration exists and belongs to user
-        const { data: integration, error: fetchError } = await supabase
+
+    // Get user info to check role
+    const { data: userData } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', userId)
+      .single()
+
+    const userRole = userData?.role
+
+    // Check if integration exists and belongs to user (or user is admin)
+    let integrationQuery = supabase
       .from('integrations')
       .select('id, name, type, user_id, webhook_secret')
       .eq('id', integrationId)
-      .eq('user_id', user.id)
-      .single()
+
+    // Non-admin users can only access their own integrations
+    if (userRole !== 'admin') {
+      integrationQuery = integrationQuery.eq('user_id', userId)
+    }
+
+    const { data: integration, error: fetchError } = await integrationQuery.single()
 
     if (fetchError || !integration) {      return NextResponse.json(
         { error: 'Integration not found or access denied' },
@@ -54,17 +70,23 @@ export async function POST(
     }
 
     // Generate new webhook secret
-        const newWebhookSecret = generateWebhookSecret()
+    const newWebhookSecret = generateWebhookSecret()
 
     // Update integration with new webhook secret
-        const { data: updatedIntegration, error: updateError } = await supabase
+    let updateQuery = supabase
       .from('integrations')
       .update({
         webhook_secret: newWebhookSecret,
         updated_at: new Date().toISOString()
       })
       .eq('id', integrationId)
-      .eq('user_id', user.id)
+
+    // Non-admin users can only update their own integrations
+    if (userRole !== 'admin') {
+      updateQuery = updateQuery.eq('user_id', userId)
+    }
+
+    const { data: updatedIntegration, error: updateError } = await updateQuery
       .select('id, name, type, webhook_secret, updated_at')
       .single()
 
@@ -103,14 +125,22 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await getSessionUser(request)
+    const { searchParams } = new URL(request.url)
+    const userId = searchParams.get('user_id')
 
-    if (!user) {
+    if (!userId) {
       return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
+        { error: 'User ID is required' },
+        { status: 400 }
       )
     }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    })
 
     const integrationId = parseInt(params.id)
     if (isNaN(integrationId)) {
@@ -120,13 +150,27 @@ export async function GET(
       )
     }
 
+    // Get user info to check role
+    const { data: userData } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', userId)
+      .single()
+
+    const userRole = userData?.role
+
     // Get integration webhook info
-        const { data: integration, error: fetchError } = await supabase
+    let integrationQuery = supabase
       .from('integrations')
       .select('id, name, type, webhook_secret')
       .eq('id', integrationId)
-      .eq('user_id', user.id)
-      .single()
+
+    // Non-admin users can only access their own integrations
+    if (userRole !== 'admin') {
+      integrationQuery = integrationQuery.eq('user_id', userId)
+    }
+
+    const { data: integration, error: fetchError } = await integrationQuery.single()
 
     if (fetchError || !integration) {
       return NextResponse.json(
