@@ -72,73 +72,79 @@ interface ShopifyOrderPayload {
 }
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now()
+  const timestamp = new Date().toISOString()
+
+  console.log('🔔 ====== SHOPIFY WEBHOOK REQUEST ======')
+  console.log('🔔 Time:', timestamp)
+
   try {
-    // Log incoming webhook request
-    const headers: Record<string, string> = {}
-    request.headers.forEach((value, key) => {
-      headers[key] = value
+    // Capture request details for logging
+    const headers = Object.fromEntries(request.headers.entries())
+    const url = request.url
+    const body = await request.json()
+
+    // Log complete request to test-logger
+    const requestId = webhookLogger.logWebhookRequest({
+      method: request.method,
+      url,
+      headers,
+      body,
+      query: {}
     })
 
-    webhookLogger.log('========== INCOMING SHOPIFY WEBHOOK ==========')
-    webhookLogger.log(`Timestamp: ${new Date().toISOString()}`)
-    webhookLogger.log(`URL: ${request.url}`)
-    webhookLogger.log(`Method: ${request.method}`)
-    webhookLogger.log('Headers:', JSON.stringify(headers, null, 2))
+    console.log('🔔 Request ID:', requestId)
+    console.log('🔔 Topic:', request.headers.get('x-shopify-topic'))
+    console.log('🔔 Order ID:', body.id)
+    console.log('🔔 Shop Domain:', request.headers.get('x-shopify-shop-domain'))
 
-    const contentType = request.headers.get('content-type')
-    if (!contentType || !contentType.includes('application/json')) {
-      webhookLogger.log('ERROR: Invalid content type')
+    // Get shop domain from header
+    const shopDomain = request.headers.get('x-shopify-shop-domain')
+    if (!shopDomain) {
+      webhookLogger.logWebhookError(requestId, {
+        message: 'Missing x-shopify-shop-domain header',
+        status: 400,
+        processingTime: Date.now() - startTime
+      })
       return NextResponse.json(
         {
-          error: 'Invalid content type',
-          message: 'Content-Type must be application/json'
+          error: 'Invalid webhook',
+          message: 'x-shopify-shop-domain header is required'
         },
         { status: 400 }
       )
     }
 
-    let body: ShopifyOrderPayload
-    try {
-      body = await request.json()
-      webhookLogger.log('Request Body:', JSON.stringify(body, null, 2))
-    } catch (_error) {
-      webhookLogger.log('ERROR: Invalid JSON in request body')
-      return NextResponse.json(
-        {
-          error: 'Invalid JSON',
-          message: 'Request body must be valid JSON'
-        },
-        { status: 400 }
-      )
-    }
-
-    // Validate webhook secret from header
-        const webhookSecret = request.headers.get('x-webhook-secret')
-    if (!webhookSecret || typeof webhookSecret !== 'string') {      return NextResponse.json(
-        {
-          error: 'Missing webhook secret',
-          message: 'x-webhook-secret header is required'
-        },
-        { status: 401 }
-      )
-    }
-
-    // Find integration by webhook secret  
-        const { data: integration, error: integrationError } = await supabaseAdmin
+    // Find integration by domain
+    const { data: integration, error: integrationError } = await supabaseAdmin
       .from('integrations')
-      .select('id, user_id, name, status, is_active')
-      .eq('webhook_secret', webhookSecret)
+      .select('id, user_id, name, status, is_active, domain')
+      .eq('domain', shopDomain)
       .eq('type', 'shopify')
       .single()
 
-    if (integrationError || !integration) {      return NextResponse.json(
+    if (integrationError || !integration) {
+      webhookLogger.logWebhookError(requestId, {
+        message: `No integration found for shop domain: ${shopDomain}`,
+        status: 404,
+        processingTime: Date.now() - startTime
+      })
+      return NextResponse.json(
         {
-          error: 'Invalid webhook secret',
-          message: 'The provided webhook secret is not valid or does not exist'
+          error: 'Integration not found',
+          message: `No Shopify integration found for domain: ${shopDomain}`
         },
-        { status: 401 }
+        { status: 404 }
       )
     }
+
+    webhookLogger.logWebhookProcessing(requestId, {
+      integration: {
+        id: integration.id,
+        name: integration.name,
+        domain: integration.domain
+      }
+    })
     // Validate that we have a valid user_id from webhook secret
     if (!integration.user_id) {      return NextResponse.json(
         {
@@ -379,26 +385,39 @@ export async function POST(request: NextRequest) {
         externalOrderId,
         status: body.financial_status,
         totalAmount,
-        itemsCount: orderItems.length
+        itemsCount: orderItems.length,
+        isNewOrder
       }
     }
 
-    webhookLogger.log('SUCCESS: Order processed successfully')
-    webhookLogger.log('Response:', JSON.stringify(response, null, 2))
-    webhookLogger.log('================================================\n')
+    const processingTime = Date.now() - startTime
+    console.log(`✅ Order processed successfully in ${processingTime}ms`)
+
+    webhookLogger.logWebhookResponse('request-id', {
+      status: 200,
+      message: 'Order processed successfully',
+      data: response.data,
+      processingTime
+    })
 
     return NextResponse.json(response, { status: 200 })
 
   } catch (error: any) {
-    webhookLogger.log('ERROR: Unexpected error occurred')
-    webhookLogger.log('Error Details:', error.message || error.toString())
-    webhookLogger.log('Error Stack:', error.stack || 'No stack trace')
-    webhookLogger.log('================================================\n')
+    const processingTime = Date.now() - startTime
+    console.error('❌ Error processing webhook:', error)
+
+    webhookLogger.logWebhookError('request-id', {
+      message: error.message || 'Unknown error',
+      stack: error.stack,
+      status: 500,
+      processingTime
+    })
 
     return NextResponse.json(
       {
         error: 'Internal server error',
-        message: 'An unexpected error occurred while processing the webhook'
+        message: 'An unexpected error occurred while processing the webhook',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
       },
       { status: 500 }
     )
