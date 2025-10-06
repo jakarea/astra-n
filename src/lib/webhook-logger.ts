@@ -191,6 +191,31 @@ class WebhookLogger {
         fs.unlinkSync(this.logFile)      }
     } catch (error) {    }
   }
+
+  // Simple log method for general logging
+  public log(...args: any[]) {
+    try {
+      const message = args.map(arg =>
+        typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+      ).join(' ')
+
+      const logLine = `${new Date().toISOString()} - ${message}\n`
+
+      // Always console log for immediate debugging
+      console.log(logLine)
+
+      // Try to write to file if possible
+      if (this.logFile) {
+        try {
+          fs.appendFileSync(this.logFile, logLine, 'utf8')
+        } catch (fileError) {
+          // Ignore file write errors
+        }
+      }
+    } catch (error) {
+      // Ignore logging errors
+    }
+  }
 }
 
 export const webhookLogger = new WebhookLogger()
