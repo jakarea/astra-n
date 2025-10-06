@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendOrderNotification } from '@/lib/telegram'
+import { webhookLogger } from '@/lib/webhook-logger'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -72,9 +73,22 @@ interface ShopifyOrderPayload {
 
 export async function POST(request: NextRequest) {
   try {
+    // Log incoming webhook request
+    const headers: Record<string, string> = {}
+    request.headers.forEach((value, key) => {
+      headers[key] = value
+    })
+
+    webhookLogger.log('========== INCOMING SHOPIFY WEBHOOK ==========')
+    webhookLogger.log(`Timestamp: ${new Date().toISOString()}`)
+    webhookLogger.log(`URL: ${request.url}`)
+    webhookLogger.log(`Method: ${request.method}`)
+    webhookLogger.log('Headers:', JSON.stringify(headers, null, 2))
 
     const contentType = request.headers.get('content-type')
-    if (!contentType || !contentType.includes('application/json')) {      return NextResponse.json(
+    if (!contentType || !contentType.includes('application/json')) {
+      webhookLogger.log('ERROR: Invalid content type')
+      return NextResponse.json(
         {
           error: 'Invalid content type',
           message: 'Content-Type must be application/json'
@@ -86,8 +100,10 @@ export async function POST(request: NextRequest) {
     let body: ShopifyOrderPayload
     try {
       body = await request.json()
+      webhookLogger.log('Request Body:', JSON.stringify(body, null, 2))
     } catch (_error) {
-    return NextResponse.json(
+      webhookLogger.log('ERROR: Invalid JSON in request body')
+      return NextResponse.json(
         {
           error: 'Invalid JSON',
           message: 'Request body must be valid JSON'
@@ -354,23 +370,31 @@ export async function POST(request: NextRequest) {
       // Don't fail the webhook if Telegram notification fails
     }
 
-    return NextResponse.json(
-      {
-        success: true,
-        message: 'Shopify order processed successfully',
-        data: {
-          orderId: order.id,
-          customerId: customer.id,
-          externalOrderId,
-          status: body.financial_status,
-          totalAmount,
-          itemsCount: orderItems.length
-        }
-      },
-      { status: 200 }
-    )
+    const response = {
+      success: true,
+      message: 'Shopify order processed successfully',
+      data: {
+        orderId: order.id,
+        customerId: customer.id,
+        externalOrderId,
+        status: body.financial_status,
+        totalAmount,
+        itemsCount: orderItems.length
+      }
+    }
 
-  } catch (error) {
+    webhookLogger.log('SUCCESS: Order processed successfully')
+    webhookLogger.log('Response:', JSON.stringify(response, null, 2))
+    webhookLogger.log('================================================\n')
+
+    return NextResponse.json(response, { status: 200 })
+
+  } catch (error: any) {
+    webhookLogger.log('ERROR: Unexpected error occurred')
+    webhookLogger.log('Error Details:', error.message || error.toString())
+    webhookLogger.log('Error Stack:', error.stack || 'No stack trace')
+    webhookLogger.log('================================================\n')
+
     return NextResponse.json(
       {
         error: 'Internal server error',

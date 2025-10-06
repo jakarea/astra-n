@@ -346,19 +346,27 @@ export default function IntegrationPage() {
 
   const handleGenerateWebhookSecret = async (integrationId: string) => {
     try {
+      const session = getSession()
+      if (!session) {
+        toast.error('Please log in to regenerate webhook secret')
+        return
+      }
+
       const response = await fetch(`/api/integrations/${integrationId}/generate-webhook-secret`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          user_id: session.user.id
+        }),
       })
 
-      if (!response.ok) {
-        const errorData = await response.json()
-          throw new Error(errorData.error || 'Failed to generate webhook secret')
-      }
-
       const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to generate webhook secret')
+      }
 
       if (result.success) {
         toast.success('Webhook secret generated successfully!')
@@ -375,7 +383,8 @@ export default function IntegrationPage() {
       } else {
         throw new Error(result.error || 'Unknown error occurred')
       }
-    } catch (error: any) {      toast.error(`Failed to generate webhook secret: ${error.message}`)
+    } catch (error: any) {
+      toast.error(`Failed to generate webhook secret: ${error.message}`)
     }
   }
 

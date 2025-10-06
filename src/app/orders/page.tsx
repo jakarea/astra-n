@@ -365,11 +365,35 @@ export default function OrdersPage() {
 
     try {
       setSavingTracking(prev => ({ ...prev, [orderId]: true }))
+
+      // Create tracking in AfterShip with auto-detect courier
+      const aftershipResponse = await fetch('/api/aftership/create-tracking', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          tracking_number: trackingId,
+          order_id: orderId,
+        }),
+      })
+
+      const aftershipData = await aftershipResponse.json()
+
+      if (!aftershipResponse.ok) {
+        throw new Error(aftershipData.error || 'Failed to create tracking in AfterShip')
+      }
+
+      // Save tracking ID and slug to database
       const supabase = getAuthenticatedClient()
+      const trackingSlug = aftershipData.data?.tracking?.slug || null
 
       const { error } = await supabase
         .from('orders')
-        .update({ tracking_id: trackingId })
+        .update({
+          tracking_id: trackingId,
+          tracking_slug: trackingSlug
+        })
         .eq('id', orderId)
 
       if (error) {
@@ -379,13 +403,13 @@ export default function OrdersPage() {
       // Update the orders list
       setOrders(prev => prev.map(order =>
         order.id === parseInt(orderId)
-          ? { ...order, tracking_id: trackingId }
+          ? { ...order, tracking_id: trackingId, tracking_slug: trackingSlug }
           : order
       ))
 
       toast.success('Tracking ID saved successfully')
-    } catch (error) {
-      toast.error('Failed to save tracking ID')
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to save tracking ID')
     } finally {
       setSavingTracking(prev => ({ ...prev, [orderId]: false }))
     }
@@ -748,21 +772,18 @@ export default function OrdersPage() {
 
                         <TableCell>
                           {order.tracking_id ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-8 gap-1"
-                              asChild
+                            <Link
+                              href={`/orders/${order.id}/tracking`}
                             >
-                              <a
-                                href={`https://www.aftership.com/it/track/${order.tracking_id}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 gap-1"
                               >
                                 Track
                                 <ExternalLink className="h-3 w-3" />
-                              </a>
-                            </Button>
+                              </Button>
+                            </Link>
                           ) : (
                             <div className="flex items-center gap-2">
                               <Input

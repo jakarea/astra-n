@@ -105,20 +105,22 @@ export function AddIntegrationModal({ isOpen, onClose, onSuccess }: AddIntegrati
       }
 
       // Generate unique webhook secret for the newly created integration
-      if (!session?.token) {
-        throw new Error('Authentication required')
-      }
-
       const webhookResponse = await fetch(`/api/integrations/${data.id}/generate-webhook-secret`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.token}`,
         },
+        body: JSON.stringify({
+          user_id: session.user.id
+        }),
       })
 
       if (!webhookResponse.ok) {
-        const webhookError = await webhookResponse.json()        // Don't fail the integration creation, just log the error      } else {
+        const webhookError = await webhookResponse.json()
+        console.error('Failed to generate webhook secret:', webhookError)
+        // Don't fail the integration creation, just show warning
+        toast.warning('Integration created, but webhook secret generation failed. Click regenerate to try again.')
+      } else {
         const webhookResult = await webhookResponse.json()
         // Update the local data with the generated webhook secret
         data.webhook_secret = webhookResult.data?.webhook_secret
