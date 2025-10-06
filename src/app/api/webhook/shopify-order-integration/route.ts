@@ -115,28 +115,56 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Find integration by domain
-    const { data: integration, error: integrationError } = await supabaseAdmin
+    console.log('🔔 Looking for integration with domain:', shopDomain)
+
+    // Find integration by Shopify domain (.myshopify.com)
+    // First try to find by exact domain match
+    let { data: integration, error: integrationError } = await supabaseAdmin
       .from('integrations')
-      .select('id, user_id, name, status, is_active, domain')
-      .eq('domain', shopDomain)
+      .select('id, user_id, name, status, is_active, domain, base_url')
       .eq('type', 'shopify')
+      .or(`domain.eq.${shopDomain},base_url.ilike.%${shopDomain}%`)
       .single()
 
+    // If not found, try to find any Shopify integration and check if domain contains the shop name
     if (integrationError || !integration) {
+      // Extract shop name from myshopify.com domain (e.g., "i51err-f0" from "i51err-f0.myshopify.com")
+      const shopName = shopDomain.replace('.myshopify.com', '')
+
+      console.log('🔔 Trying to match by shop name:', shopName)
+
+      const { data: allShopifyIntegrations } = await supabaseAdmin
+        .from('integrations')
+        .select('id, user_id, name, status, is_active, domain, base_url')
+        .eq('type', 'shopify')
+
+      if (allShopifyIntegrations && allShopifyIntegrations.length > 0) {
+        // Try to find integration where domain or base_url contains shop name
+        integration = allShopifyIntegrations.find(int =>
+          int.domain?.includes(shopName) ||
+          int.base_url?.includes(shopName) ||
+          int.domain === shopDomain ||
+          int.base_url?.includes(shopDomain)
+        ) || null
+      }
+    }
+
+    if (!integration) {
       webhookLogger.logWebhookError(requestId, {
-        message: `No integration found for shop domain: ${shopDomain}`,
+        message: `No integration found for shop domain: ${shopDomain}. Please create a Shopify integration with domain: ${shopDomain}`,
         status: 404,
         processingTime: Date.now() - startTime
       })
       return NextResponse.json(
         {
           error: 'Integration not found',
-          message: `No Shopify integration found for domain: ${shopDomain}`
+          message: `No Shopify integration found for domain: ${shopDomain}. Please add the Shopify domain (${shopDomain}) in your integration settings.`
         },
         { status: 404 }
       )
     }
+
+    console.log('✅ Found integration:', integration.id, integration.name)
 
     webhookLogger.logWebhookProcessing(requestId, {
       integration: {
