@@ -80,7 +80,8 @@ export async function GET(request: NextRequest) {
       total: statsData?.length || 0,
       active: statsData?.length || 0, // All users in DB are considered active
       inactive: 0, // We don't have inactive status in current schema
-      admins: statsData?.filter(u => u.role === 'admin').length || 0
+      admins: statsData?.filter(u => u.role === 'admin').length || 0,
+      pending: 0 // We don't have pending status in current schema, but include for consistency
     }
 
     const responseData = { stats }
