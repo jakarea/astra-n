@@ -11,42 +11,17 @@ export async function GET(request: NextRequest) {
     const lines = parseInt(url.searchParams.get('lines') || '200')
     const format = url.searchParams.get('format') || 'text'
 
+    // Since we're using console-only logging, return a helpful message
     const logs = webhookLogger.getRecentLogs(lines)
 
     if (format === 'json') {
-      const logLines = logs.split('\n')
-      const logEntries = []
-      let currentEntry = ''
-
-      for (const line of logLines) {
-        if (line.startsWith('🔥 WEBHOOK REQUEST') ||
-            line.startsWith('📋 PROCESSING') ||
-            line.startsWith('✅ RESPONSE') ||
-            line.startsWith('❌ ERROR')) {
-          if (currentEntry) {
-            logEntries.push(currentEntry.trim())
-          }
-          currentEntry = line
-        } else if (line === '='.repeat(80)) {
-          if (currentEntry) {
-            logEntries.push(currentEntry.trim())
-            currentEntry = ''
-          }
-        } else {
-          currentEntry += '\n' + line
-        }
-      }
-
-      if (currentEntry) {
-        logEntries.push(currentEntry.trim())
-      }
-
       return NextResponse.json({
         success: true,
-        logs: logEntries.reverse(), // Most recent first
-        total_entries: logEntries.length,
-        log_file_path: webhookLogger.getLogFilePath(),
-        timestamp: new Date().toISOString()
+        logs: [logs],
+        total_entries: 1,
+        log_file_path: 'console-only',
+        timestamp: new Date().toISOString(),
+        message: 'Console-only logging enabled. Check Vercel function logs for webhook details.'
       })
     }
 

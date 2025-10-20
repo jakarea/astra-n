@@ -27,27 +27,9 @@ class WebhookLogger {
   private logFile: string
 
   constructor() {
-    try {
-      // Use a temp directory that works both locally and in production
-      // Skip file logging during build process
-      if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
-        this.logDir = '/tmp/webhook-logs'
-        this.logFile = path.join(this.logDir, `webhook-debug-${new Date().toISOString().split('T')[0]}.log`)
-        this.ensureLogDirectory()
-      } else if (process.env.NODE_ENV === 'development') {
-        this.logDir = path.join(process.cwd(), 'logs')
-        this.logFile = path.join(this.logDir, `webhook-debug-${new Date().toISOString().split('T')[0]}.log`)
-        this.ensureLogDirectory()
-      } else {
-        // Vercel or build environment - console only
-        this.logDir = ''
-        this.logFile = ''
-      }
-    } catch (error) {
-      // Fallback to console-only logging
-      this.logDir = ''
-      this.logFile = ''
-    }
+    // Simplified constructor - console only for now
+    this.logDir = ''
+    this.logFile = ''
   }
 
   private ensureLogDirectory() {
@@ -55,7 +37,9 @@ class WebhookLogger {
       if (!fs.existsSync(this.logDir)) {
         fs.mkdirSync(this.logDir, { recursive: true })
       }
-    } catch (error) {    }
+    } catch (error) {
+      // Ignore directory creation errors
+    }
   }
 
   private sanitizeHeaders(headers: Record<string, string | string[]>): Record<string, string | string[]> {
@@ -223,14 +207,10 @@ class WebhookLogger {
       // Always console log for immediate debugging
       console.log(logLine)
 
-      // Try to write to file if possible
-      if (this.logFile) {
-        try {
-          fs.appendFileSync(this.logFile, logLine, 'utf8')
-        } catch (fileError) {        }
-      }
-
-    } catch (error) {    }
+      // Skip file operations for now to avoid Vercel issues
+    } catch (error) {
+      // Ignore logging errors
+    }
   }
 
   public getLogFilePath(): string {
@@ -238,22 +218,12 @@ class WebhookLogger {
   }
 
   public getRecentLogs(lines: number = 100): string {
-    try {
-      if (fs.existsSync(this.logFile)) {
-        const content = fs.readFileSync(this.logFile, 'utf8')
-        return content.split('\n').slice(-lines).join('\n')
-      }
-      return 'No logs found'
-    } catch (error) {
-    return `Error reading logs: ${error.message}`
-    }
+    // Return a simple message since we're not using file logging
+    return 'Console-only logging enabled. Check Vercel function logs for webhook details.'
   }
 
   public clearLogs() {
-    try {
-      if (fs.existsSync(this.logFile)) {
-        fs.unlinkSync(this.logFile)      }
-    } catch (error) {    }
+    // No-op since we're not using file logging
   }
 
   // Simple log method for general logging
@@ -267,15 +237,6 @@ class WebhookLogger {
 
       // Always console log for immediate debugging
       console.log(logLine)
-
-      // Try to write to file if possible
-      if (this.logFile) {
-        try {
-          fs.appendFileSync(this.logFile, logLine, 'utf8')
-        } catch (fileError) {
-          // Ignore file write errors
-        }
-      }
     } catch (error) {
       // Ignore logging errors
     }
