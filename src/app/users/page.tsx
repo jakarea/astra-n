@@ -38,13 +38,21 @@ function AnimatedCounter({ value, duration = 1000 }: { value: number; duration?:
       clearInterval(countRef.current)
     }
 
-    const increment = value / (duration / 16) // 60fps
+    // Ensure value is a valid number, default to 0 if NaN or undefined
+    const safeValue = typeof value === 'number' && !isNaN(value) ? value : 0
+    
+    if (safeValue === 0) {
+      setCount(0)
+      return
+    }
+
+    const increment = safeValue / (duration / 16) // 60fps
     let current = 0
 
     countRef.current = setInterval(() => {
       current += increment
-      if (current >= value) {
-        setCount(value)
+      if (current >= safeValue) {
+        setCount(safeValue)
         clearInterval(countRef.current!)
       } else {
         setCount(Math.floor(current))
@@ -197,7 +205,15 @@ export default function UsersPage() {
 
       if (response.ok) {
         const result = await response.json()
-        setTotalStats(result.stats)
+        // Ensure all stats values are valid numbers
+        const safeStats = {
+          total: typeof result.stats?.total === 'number' && !isNaN(result.stats.total) ? result.stats.total : 0,
+          active: typeof result.stats?.active === 'number' && !isNaN(result.stats.active) ? result.stats.active : 0,
+          inactive: typeof result.stats?.inactive === 'number' && !isNaN(result.stats.inactive) ? result.stats.inactive : 0,
+          admins: typeof result.stats?.admins === 'number' && !isNaN(result.stats.admins) ? result.stats.admins : 0,
+          pending: typeof result.stats?.pending === 'number' && !isNaN(result.stats.pending) ? result.stats.pending : 0
+        }
+        setTotalStats(safeStats)
       } else {
         console.error('Failed to fetch stats')
       }

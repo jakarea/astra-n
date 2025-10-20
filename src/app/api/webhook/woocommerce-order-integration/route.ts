@@ -398,15 +398,43 @@ export async function POST(request: NextRequest) {
         })),
         isUpdate: !isNewOrder
       }
+      
+      webhookLogger.logWebhookProcessing(requestId, 'sending_telegram_notification', {
+        user_id: integration.user_id,
+        order_id: order.id
+      })
+      
       sendOrderNotification(integration.user_id, orderData)
         .then((result) => {
           if (result.success) {
+            webhookLogger.logWebhookProcessing(requestId, 'telegram_notification_sent', {
+              user_id: integration.user_id,
+              order_id: order.id
+            })
           } else {
+            webhookLogger.logWebhookError(requestId, {
+              error: 'Telegram notification failed',
+              message: result.error || 'Unknown telegram error',
+              user_id: integration.user_id,
+              order_id: order.id
+            })
           }
         })
         .catch((error) => {
+          webhookLogger.logWebhookError(requestId, {
+            error: 'Telegram notification exception',
+            message: error.message || 'Unknown telegram exception',
+            user_id: integration.user_id,
+            order_id: order.id
+          })
         })
     } catch (error) {
+      webhookLogger.logWebhookError(requestId, {
+        error: 'Telegram notification setup failed',
+        message: error.message || 'Failed to setup telegram notification',
+        user_id: integration.user_id,
+        order_id: order.id
+      })
     }
 
 

@@ -58,8 +58,12 @@ export async function getUserTelegramSettings(userId: string): Promise<UserTeleg
 export async function sendTelegramNotification(
   userId: string,
   message: string,
-  parseMode: 'HTML' | 'Markdown' = 'HTML'
+  parseMode: 'HTML' | 'Markdown' = 'HTML',
+  retryCount: number = 0
 ): Promise<{ success: boolean; error?: string }> {
+  const maxRetries = 3
+  const retryDelay = 1000 * Math.pow(2, retryCount) // Exponential backoff
+
   try {
     // Get bot token from environment variable
     const botToken = process.env.TELEGRAM_BOT_TOKEN
@@ -104,6 +108,19 @@ export async function sendTelegramNotification(
     const result = await response.json()
 
     if (!response.ok) {
+      // Retry on temporary failures
+      if (retryCount < maxRetries && (
+        response.status === 429 || // Rate limited
+        response.status >= 500 || // Server errors
+        result.error_code === 5 || // Internal server error
+        result.error_code === 6 || // Too many requests
+        result.error_code === 14 // Flood control
+      )) {
+        console.log(`Telegram notification retry ${retryCount + 1}/${maxRetries} for user ${userId}, waiting ${retryDelay}ms`)
+        await new Promise(resolve => setTimeout(resolve, retryDelay))
+        return sendTelegramNotification(userId, message, parseMode, retryCount + 1)
+      }
+
       return {
         success: false,
         error: result.description || 'Failed to send telegram message'
@@ -113,6 +130,18 @@ export async function sendTelegramNotification(
     return { success: true }
 
   } catch (error: any) {
+    // Retry on network errors
+    if (retryCount < maxRetries && (
+      error.code === 'ECONNRESET' ||
+      error.code === 'ETIMEDOUT' ||
+      error.code === 'ENOTFOUND' ||
+      error.message?.includes('fetch')
+    )) {
+      console.log(`Telegram notification network retry ${retryCount + 1}/${maxRetries} for user ${userId}, waiting ${retryDelay}ms`)
+      await new Promise(resolve => setTimeout(resolve, retryDelay))
+      return sendTelegramNotification(userId, message, parseMode, retryCount + 1)
+    }
+
     return {
       success: false,
       error: error.message || 'Unknown error occurred'
