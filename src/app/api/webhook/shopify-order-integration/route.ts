@@ -73,12 +73,21 @@ interface ShopifyOrderPayload {
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
+  
+  // Immediate console log for debugging
+  console.log('🚨 WEBHOOK RECEIVED - Shopify Order Integration')
+  console.log('⏰ Time:', new Date().toLocaleString())
+  console.log('🌐 URL:', request.url)
+  console.log('🔗 Method:', request.method)
 
   try {
     // Capture request details for logging
     const headers = Object.fromEntries(request.headers.entries())
     const url = request.url
     const body = await request.json()
+    
+    console.log('📋 Headers:', JSON.stringify(headers, null, 2))
+    console.log('📋 Body:', JSON.stringify(body, null, 2))
 
     // Log complete request to test-logger (for debugging when needed)
     const requestId = webhookLogger.logWebhookRequest({

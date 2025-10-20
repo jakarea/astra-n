@@ -57,12 +57,21 @@ interface WooCommerceOrderPayload {
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
+  
+  // Immediate console log for debugging
+  console.log('🚨 WEBHOOK RECEIVED - WooCommerce Order Integration')
+  console.log('⏰ Time:', new Date().toLocaleString())
+  console.log('🌐 URL:', request.url)
+  console.log('🔗 Method:', request.method)
 
   try {
     // Capture request details for logging
     const headers = Object.fromEntries(request.headers.entries())
     const url = request.url
     const contentType = request.headers.get('content-type') || ''
+
+    console.log('📋 Content-Type:', contentType)
+    console.log('📋 Headers:', JSON.stringify(headers, null, 2))
 
     // Parse request body based on content type
     let body: any
@@ -71,9 +80,11 @@ export async function POST(request: NextRequest) {
       const text = await request.text()
       const params = new URLSearchParams(text)
       body = Object.fromEntries(params.entries())
+      console.log('📋 Form Data:', body)
     } else {
       // Handle JSON (actual order webhooks)
       body = await request.json()
+      console.log('📋 JSON Body:', JSON.stringify(body, null, 2))
     }
 
     // Log complete request to test-logger (for debugging when needed)
