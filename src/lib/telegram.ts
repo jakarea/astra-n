@@ -214,8 +214,22 @@ export async function testTelegramConnection(
 
 // Helper functions for different notification types
 export async function sendOrderNotification(userId: string, orderData: any) {
+  console.log('🤖 SENDING TELEGRAM NOTIFICATION')
+  console.log('👤 User ID:', userId)
+  console.log('📦 Order Data:', JSON.stringify(orderData, null, 2))
+  
   // Check if user has any Telegram configuration
   const settings = await getUserTelegramSettings(userId)
+  console.log('⚙️ Telegram Settings:', settings)
+  
+  if (!settings?.telegramChatId) {
+    console.log('❌ No Telegram chat ID configured for user:', userId)
+    return {
+      success: false,
+      error: `User ${userId} does not have a Telegram chat ID configured`
+    }
+  }
+  
   const itemsList = orderData.items?.map((item: any) =>
     `• ${item.productName} (x${item.quantity}) - $${item.pricePerUnit}`
   ).join('\n') || 'No items'
@@ -238,7 +252,11 @@ ${itemsList}
 
 📅 <b>Order Date:</b> ${new Date(orderData.orderCreatedAt).toLocaleDateString()}
 `
+  
+  console.log('📱 Telegram Message:', message)
   const result = await sendTelegramNotification(userId, message)
+  console.log('📱 Telegram Result:', result)
+  
   return result
 }
 

@@ -104,14 +104,11 @@ class WebhookLogger {
     return requestId
   }
 
-  public logWebhookProcessing(requestId: string, data: {
-    webhookSecret?: string
-    integration?: any
-    processing?: string
-  }) {
+  public logWebhookProcessing(requestId: string, step: string, data: any = {}) {
     const logData = {
       requestId,
       timestamp: new Date().toISOString(),
+      step: step,
       ...data
     }
 

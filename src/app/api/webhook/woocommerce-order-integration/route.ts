@@ -420,14 +420,16 @@ export async function POST(request: NextRequest) {
           if (result.success) {
             webhookLogger.logWebhookProcessing(requestId, 'telegram_notification_sent', {
               user_id: integration.user_id,
-              order_id: order.id
+              order_id: order.id,
+              message: 'Telegram notification sent successfully'
             })
           } else {
             webhookLogger.logWebhookError(requestId, {
               error: 'Telegram notification failed',
               message: result.error || 'Unknown telegram error',
               user_id: integration.user_id,
-              order_id: order.id
+              order_id: order.id,
+              telegram_error_details: result
             })
           }
         })
@@ -436,7 +438,8 @@ export async function POST(request: NextRequest) {
             error: 'Telegram notification exception',
             message: error.message || 'Unknown telegram exception',
             user_id: integration.user_id,
-            order_id: order.id
+            order_id: order.id,
+            telegram_exception_details: error
           })
         })
     } catch (error) {
@@ -449,6 +452,30 @@ export async function POST(request: NextRequest) {
     }
 
 
+    // Verify order was created in CRM
+    const { data: verifyOrder, error: verifyError } = await supabaseAdmin
+      .from('orders')
+      .select('id, external_order_id, status, total_amount, customer_id')
+      .eq('id', order.id)
+      .single()
+
+    if (verifyError || !verifyOrder) {
+      webhookLogger.logWebhookError(requestId, {
+        error: 'Order verification failed',
+        message: 'Order was not found in CRM after creation',
+        order_id: order.id,
+        verification_error: verifyError
+      })
+    } else {
+      webhookLogger.logWebhookProcessing(requestId, 'order_verified_in_crm', {
+        order_id: verifyOrder.id,
+        external_order_id: verifyOrder.external_order_id,
+        status: verifyOrder.status,
+        total_amount: verifyOrder.total_amount,
+        customer_id: verifyOrder.customer_id
+      })
+    }
+
     webhookLogger.logWebhookResponse(requestId, {
       status: 200,
       message: 'Order processed successfully',
@@ -456,7 +483,8 @@ export async function POST(request: NextRequest) {
         order_id: order.id,
         customer_id: customer.id,
         external_order_id: externalOrderId,
-        is_new_order: isNewOrder
+        is_new_order: isNewOrder,
+        crm_verified: !!verifyOrder
       },
       processingTime: Date.now() - startTime
     })
@@ -465,7 +493,8 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'Order processed successfully',
       orderId: order.id,
-      customerId: customer.id
+      customerId: customer.id,
+      crmVerified: !!verifyOrder
     })
 
   } catch (error: any) {
