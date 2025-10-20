@@ -29,12 +29,20 @@ class WebhookLogger {
   constructor() {
     try {
       // Use a temp directory that works both locally and in production
-      this.logDir = process.env.NODE_ENV === 'production'
-        ? '/tmp/webhook-logs'
-        : path.join(process.cwd(), 'logs')
-
-      this.logFile = path.join(this.logDir, `webhook-debug-${new Date().toISOString().split('T')[0]}.log`)
-      this.ensureLogDirectory()
+      // Skip file logging during build process
+      if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
+        this.logDir = '/tmp/webhook-logs'
+        this.logFile = path.join(this.logDir, `webhook-debug-${new Date().toISOString().split('T')[0]}.log`)
+        this.ensureLogDirectory()
+      } else if (process.env.NODE_ENV === 'development') {
+        this.logDir = path.join(process.cwd(), 'logs')
+        this.logFile = path.join(this.logDir, `webhook-debug-${new Date().toISOString().split('T')[0]}.log`)
+        this.ensureLogDirectory()
+      } else {
+        // Vercel or build environment - console only
+        this.logDir = ''
+        this.logFile = ''
+      }
     } catch (error) {
       // Fallback to console-only logging
       this.logDir = ''
