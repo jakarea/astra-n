@@ -3,6 +3,9 @@ import { createClient } from '@supabase/supabase-js'
 import { sendOrderNotification } from '@/lib/telegram'
 import { webhookLogger } from '@/lib/webhook-logger'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
@@ -73,12 +76,21 @@ interface ShopifyOrderPayload {
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
+  
+  // Immediate console log for debugging
+  console.log('🚨 WEBHOOK RECEIVED - Shopify Order Integration')
+  console.log('⏰ Time:', new Date().toLocaleString())
+  console.log('🌐 URL:', request.url)
+  console.log('🔗 Method:', request.method)
 
   try {
     // Capture request details for logging
     const headers = Object.fromEntries(request.headers.entries())
     const url = request.url
     const body = await request.json()
+    
+    console.log('📋 Headers:', JSON.stringify(headers, null, 2))
+    console.log('📋 Body:', JSON.stringify(body, null, 2))
 
     // Log complete request to test-logger (for debugging when needed)
     const requestId = webhookLogger.logWebhookRequest({
@@ -210,7 +222,13 @@ export async function POST(request: NextRequest) {
         .select()
         .single()
 
-      if (updateError) {        return NextResponse.json(
+      if (updateError) {
+        webhookLogger.logWebhookError(requestId, {
+          error: 'Failed to update customer',
+          details: updateError,
+          customer_email: customerEmail
+        })
+        return NextResponse.json(
           {
             error: 'Database error',
             message: 'Failed to update customer'
@@ -235,7 +253,13 @@ export async function POST(request: NextRequest) {
         .select()
         .single()
 
-      if (insertError) {        return NextResponse.json(
+      if (insertError) {
+        webhookLogger.logWebhookError(requestId, {
+          error: 'Failed to create customer',
+          details: insertError,
+          customer_email: customerEmail
+        })
+        return NextResponse.json(
           {
             error: 'Database error',
             message: 'Failed to create customer'
@@ -267,7 +291,13 @@ export async function POST(request: NextRequest) {
         .select()
         .single()
 
-      if (updateError) {        return NextResponse.json(
+      if (updateError) {
+        webhookLogger.logWebhookError(requestId, {
+          error: 'Failed to update order',
+          details: updateError,
+          external_order_id: externalOrderId
+        })
+        return NextResponse.json(
           {
             error: 'Database error',
             message: 'Failed to update order'
@@ -292,7 +322,13 @@ export async function POST(request: NextRequest) {
         .select()
         .single()
 
-      if (insertError) {        return NextResponse.json(
+      if (insertError) {
+        webhookLogger.logWebhookError(requestId, {
+          error: 'Failed to create order',
+          details: insertError,
+          external_order_id: externalOrderId
+        })
+        return NextResponse.json(
           {
             error: 'Database error',
             message: 'Failed to create order'
@@ -328,7 +364,13 @@ export async function POST(request: NextRequest) {
         .from('order_items')
         .insert(orderItems)
 
-      if (itemsInsertError) {        return NextResponse.json(
+      if (itemsInsertError) {
+        webhookLogger.logWebhookError(requestId, {
+          error: 'Failed to create order items',
+          details: itemsInsertError,
+          order_id: order.id
+        })
+        return NextResponse.json(
           {
             error: 'Database error',
             message: 'Failed to create order items'
@@ -341,6 +383,11 @@ export async function POST(request: NextRequest) {
     try {
       // User identified from webhook secret -> integration lookup
         const notificationUserId = integration.user_id
+
+      webhookLogger.logWebhookProcessing(requestId, 'sending_telegram_notification', {
+        user_id: notificationUserId,
+        order_id: order.id
+      })
 
       // Send Telegram notification (non-blocking)
         const orderData = {
@@ -361,12 +408,34 @@ export async function POST(request: NextRequest) {
       }
 
       sendOrderNotification(notificationUserId, orderData).then((result) => {
-        if (!result.success) {
+        if (result.success) {
+          webhookLogger.logWebhookProcessing(requestId, 'telegram_notification_sent', {
+            user_id: notificationUserId,
+            order_id: order.id
+          })
+        } else {
+          webhookLogger.logWebhookError(requestId, {
+            error: 'Telegram notification failed',
+            message: result.error || 'Unknown telegram error',
+            user_id: notificationUserId,
+            order_id: order.id
+          })
         }
       }).catch((error) => {
+        webhookLogger.logWebhookError(requestId, {
+          error: 'Telegram notification exception',
+          message: error.message || 'Unknown telegram exception',
+          user_id: notificationUserId,
+          order_id: order.id
+        })
       })
     } catch (telegramError) {
-      // Don't fail the webhook if Telegram notification fails
+      webhookLogger.logWebhookError(requestId, {
+        error: 'Telegram notification setup failed',
+        message: telegramError.message || 'Failed to setup telegram notification',
+        user_id: integration.user_id,
+        order_id: order.id
+      })
     }
 
     const response = {
@@ -385,7 +454,7 @@ export async function POST(request: NextRequest) {
 
     const processingTime = Date.now() - startTime
 
-    webhookLogger.logWebhookResponse('request-id', {
+    webhookLogger.logWebhookResponse(requestId, {
       status: 200,
       message: 'Order processed successfully',
       data: response.data,
@@ -397,7 +466,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     const processingTime = Date.now() - startTime
 
-    webhookLogger.logWebhookError('request-id', {
+    webhookLogger.logWebhookError(requestId, {
       message: error.message || 'Unknown error',
       stack: error.stack,
       status: 500,

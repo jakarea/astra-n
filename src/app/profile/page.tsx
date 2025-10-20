@@ -204,13 +204,14 @@ export default function ProfilePage() {
 
     setTelegramTesting(true)
     try {
-      const response = await fetch('/api/telegram/test', {
+      const response = await fetch('/api/user/telegram-settings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          chatId: tempTelegramChatId.trim()
+          chatId: tempTelegramChatId.trim(),
+          testConnection: true
         }),
       })
 

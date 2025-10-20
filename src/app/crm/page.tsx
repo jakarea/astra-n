@@ -52,7 +52,7 @@ function getStatusBadge(status: string | null, type: 'cod' | 'logistic' | 'kpi')
     }
   }
 
-  const config = variants[type][status as keyof typeof variants[typeof type]]
+  const config = variants[type][status as keyof typeof variants[typeof type]] as { variant: any; label: string } | undefined
   return config ? (
     <Badge variant={config.variant}>
       {config.label}
@@ -220,7 +220,6 @@ export default function CRMPage() {
             )
           )
         `, { count: 'exact' })
-
       // Apply role-based filtering for non-admin users
       if (!isAdmin) {
         query = query.eq('user_id', session.user.id)
@@ -431,7 +430,14 @@ export default function CRMPage() {
           .from('crm_leads')
           .select(`
             *,
-            user:users!crm_leads_user_id_fkey(name)
+            user:users!crm_leads_user_id_fkey(name),
+            tags:crm_lead_tags(
+              tag:crm_tags(
+                id,
+                name,
+                color
+              )
+            )
           `)
           .eq('user_id', session.user.id)
           .order('created_at', { ascending: false })

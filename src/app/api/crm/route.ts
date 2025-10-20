@@ -32,7 +32,14 @@ export async function GET(request: NextRequest) {
         cod_status,
         kpi_status,
         created_at,
-        user:users(id, name, email, role)
+        user:users(id, name, email, role),
+        tags:crm_lead_tags(
+          tag:crm_tags(
+            id,
+            name,
+            color
+          )
+        )
       `)
       .order('created_at', { ascending: false })
 
