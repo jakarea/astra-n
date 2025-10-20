@@ -57,6 +57,7 @@ interface WooCommerceOrderPayload {
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
+  let requestId = ''
   
   // Immediate console log for debugging
   console.log('🚨 WEBHOOK RECEIVED - WooCommerce Order Integration')
@@ -249,7 +250,6 @@ export async function POST(request: NextRequest) {
       })
     }
 
-
     if (existingCustomer) {
       console.log('👤 Updating existing customer:', {
         customerId: existingCustomer.id,
@@ -362,8 +362,8 @@ export async function POST(request: NextRequest) {
     console.log('📦 Processing order:', {
       externalOrderId,
       status: body.status,
-      totalAmount,
-      orderCreatedAt,
+      totalAmount: parseFloat(body.total),
+      orderCreatedAt: new Date(body.date_created).toISOString(),
       isNewOrder
     })
 
@@ -555,15 +555,15 @@ export async function POST(request: NextRequest) {
         items_count: orderItems.length
       })
     }
-    // Send Telegram notification to integration owner (non-blocking)
-    console.log('📱 Sending Telegram notification:', {
-      orderId: order.id,
-      customerEmail: customerEmail,
-      totalAmount: body.total,
-      isNewOrder
-    })
 
-    try {
+    // Step 5: Send Telegram Notification (only for new orders)
+    if (isNewOrder) {
+      console.log('📱 Sending Telegram notification for new order:', {
+        orderId: order.id,
+        customerEmail: customerEmail,
+        totalAmount: body.total
+      })
+
       const orderData = {
         externalOrderId,
         customer: { name: customerName, email: customerEmail },
@@ -577,72 +577,51 @@ export async function POST(request: NextRequest) {
         })),
         isUpdate: !isNewOrder
       }
-      
-      webhookLogger.logWebhookProcessing(requestId, 'sending_telegram_notification', {
-        user_id: integration.user_id,
-        order_id: order.id
+
+      webhookLogger.logTelegramOperation('send_notification', {
+        userId: integration.user_id,
+        orderId: order.id,
+        customerEmail: customerEmail,
+        totalAmount: body.total
       })
-      
+
       sendOrderNotification(integration.user_id, orderData)
         .then((result) => {
           if (result.success) {
-            webhookLogger.logWebhookProcessing(requestId, 'telegram_notification_sent', {
-              user_id: integration.user_id,
-              order_id: order.id,
-              message: 'Telegram notification sent successfully'
+            console.log('✅ Telegram notification sent successfully')
+            webhookLogger.logTelegramOperation('notification_sent', {
+              userId: integration.user_id,
+              orderId: order.id,
+              success: true
             })
           } else {
-            webhookLogger.logWebhookError(requestId, {
-              error: 'Telegram notification failed',
-              message: result.error || 'Unknown telegram error',
-              user_id: integration.user_id,
-              order_id: order.id,
-              telegram_error_details: result
+            console.error('❌ Telegram notification failed:', result.error)
+            webhookLogger.logTelegramOperation('notification_failed', {
+              userId: integration.user_id,
+              orderId: order.id,
+              error: result.error
             })
           }
         })
         .catch((error) => {
-          webhookLogger.logWebhookError(requestId, {
-            error: 'Telegram notification exception',
-            message: error.message || 'Unknown telegram exception',
-            user_id: integration.user_id,
-            order_id: order.id,
-            telegram_exception_details: error
+          console.error('❌ Telegram notification error:', error)
+          webhookLogger.logTelegramOperation('notification_error', {
+            userId: integration.user_id,
+            orderId: order.id,
+            error: error.message
           })
         })
-    } catch (error) {
-      webhookLogger.logWebhookError(requestId, {
-        error: 'Telegram notification setup failed',
-        message: error.message || 'Failed to setup telegram notification',
-        user_id: integration.user_id,
-        order_id: order.id
-      })
-    }
-
-
-    // Verify order was created in CRM
-    const { data: verifyOrder, error: verifyError } = await supabaseAdmin
-      .from('orders')
-      .select('id, external_order_id, status, total_amount, customer_id')
-      .eq('id', order.id)
-      .single()
-
-    if (verifyError || !verifyOrder) {
-      webhookLogger.logWebhookError(requestId, {
-        error: 'Order verification failed',
-        message: 'Order was not found in CRM after creation',
-        order_id: order.id,
-        verification_error: verifyError
-      })
     } else {
-      webhookLogger.logWebhookProcessing(requestId, 'order_verified_in_crm', {
-        order_id: verifyOrder.id,
-        external_order_id: verifyOrder.external_order_id,
-        status: verifyOrder.status,
-        total_amount: verifyOrder.total_amount,
-        customer_id: verifyOrder.customer_id
-      })
+      console.log('📱 Skipping Telegram notification for order update')
     }
+
+    console.log('✅ Webhook processing completed successfully:', {
+      orderId: order.id,
+      customerId: customer.id,
+      externalOrderId,
+      isNewOrder,
+      processingTime: Date.now() - startTime
+    })
 
     webhookLogger.logWebhookResponse(requestId, {
       status: 200,
@@ -651,8 +630,7 @@ export async function POST(request: NextRequest) {
         order_id: order.id,
         customer_id: customer.id,
         external_order_id: externalOrderId,
-        is_new_order: isNewOrder,
-        crm_verified: !!verifyOrder
+        is_new_order: isNewOrder
       },
       processingTime: Date.now() - startTime
     })
@@ -661,8 +639,7 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'Order processed successfully',
       orderId: order.id,
-      customerId: customer.id,
-      crmVerified: !!verifyOrder
+      customerId: customer.id
     })
 
   } catch (error: any) {

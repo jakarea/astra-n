@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-export const runtime = 'nodejs'
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
 import { webhookLogger } from '@/lib/webhook-logger'
 import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@supabase/supabase-js'
+
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -15,9 +16,6 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
     persistSession: false
   }
 })
-
-export const runtime = 'nodejs'
-export const dynamic = 'force-dynamic'
 
 // GET - Retrieve webhook logs
 export async function GET(request: NextRequest) {
