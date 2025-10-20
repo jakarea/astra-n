@@ -154,7 +154,12 @@ export default function InventoryPage() {
 
       // Add search filters if search query exists and has 3+ characters
       if (search && search.length >= 3) {
-        query = query.or(`name.ilike.%${search}%,sku.ilike.%${search}%`)
+        if (session.user.role === 'admin') {
+          query = query.or(`name.ilike.%${search}%,sku.ilike.%${search}%`)
+        } else {
+          // For sellers, fields are nested under product.
+          query = query.or(`product.name.ilike.%${search}%,product.sku.ilike.%${search}%`)
+        }
       }
 
       // Add pagination
@@ -162,7 +167,7 @@ export default function InventoryPage() {
       const to = from + ITEMS_PER_PAGE - 1
 
       const { data, error, count } = await query
-        .order('created_at', { ascending: false })
+        .order(session.user.role === 'admin' ? 'created_at' : 'assigned_at', { ascending: false })
         .range(from, to)
 
       if (error) {
@@ -175,7 +180,7 @@ export default function InventoryPage() {
         processedProducts = data || []
       } else {
       // For sellers, extract product data and add assignment info
-        processedProducts = (data || []).map(item => ({
+        processedProducts = (data || []).map((item: any) => ({
           ...item.product,
           assignedAt: item.assignedAt
         }))

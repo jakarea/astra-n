@@ -80,28 +80,27 @@ class WebhookLogger {
   }): string {
     const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
-    // DISABLED: Logging temporarily disabled
-    // const logEntry: WebhookLog = {
-    //   timestamp: new Date().toISOString(),
-    //   method: request.method,
-    //   url: request.url,
-    //   headers: this.sanitizeHeaders(request.headers),
-    //   body: request.body,
-    //   query: request.query || {},
-    //   userAgent: Array.isArray(request.headers['user-agent'])
-    //     ? request.headers['user-agent'][0]
-    //     : request.headers['user-agent'],
-    //   contentType: Array.isArray(request.headers['content-type'])
-    //     ? request.headers['content-type'][0]
-    //     : request.headers['content-type'],
-    //   contentLength: request.headers['content-length']
-    //     ? parseInt(Array.isArray(request.headers['content-length'])
-    //       ? request.headers['content-length'][0]
-    //       : request.headers['content-length'])
-    //     : undefined
-    // }
+    const logEntry: WebhookLog = {
+      timestamp: new Date().toISOString(),
+      method: request.method,
+      url: request.url,
+      headers: this.sanitizeHeaders(request.headers),
+      body: request.body,
+      query: request.query || {},
+      userAgent: Array.isArray(request.headers['user-agent'])
+        ? request.headers['user-agent'][0]
+        : request.headers['user-agent'],
+      contentType: Array.isArray(request.headers['content-type'])
+        ? request.headers['content-type'][0]
+        : request.headers['content-type'],
+      contentLength: request.headers['content-length']
+        ? parseInt(Array.isArray(request.headers['content-length'])
+          ? request.headers['content-length'][0]
+          : request.headers['content-length'])
+        : undefined
+    }
 
-    // this.writeLog(`\n🔥 WEBHOOK REQUEST [${requestId}] ${logEntry.timestamp}`, logEntry)
+    this.writeLog(`\n🔥 WEBHOOK REQUEST [${requestId}] ${logEntry.timestamp}`, logEntry)
     return requestId
   }
 
@@ -110,18 +109,17 @@ class WebhookLogger {
     integration?: any
     processing?: string
   }) {
-    // DISABLED: Logging temporarily disabled
-    // const logData = {
-    //   requestId,
-    //   timestamp: new Date().toISOString(),
-    //   ...data
-    // }
+    const logData = {
+      requestId,
+      timestamp: new Date().toISOString(),
+      ...data
+    }
 
-    // if (logData.webhookSecret) {
-    //   logData.webhookSecret = `${logData.webhookSecret.substring(0, 8)}... (length: ${logData.webhookSecret.length})`
-    // }
+    if (logData.webhookSecret) {
+      logData.webhookSecret = `${logData.webhookSecret.substring(0, 8)}... (length: ${logData.webhookSecret.length})`
+    }
 
-    // this.writeLog(`📋 PROCESSING [${requestId}]`, logData)
+    this.writeLog(`📋 PROCESSING [${requestId}]`, logData)
   }
 
   public logWebhookResponse(requestId: string, response: {
@@ -130,12 +128,11 @@ class WebhookLogger {
     data?: any
     processingTime: number
   }) {
-    // DISABLED: Logging temporarily disabled
-    // this.writeLog(`✅ RESPONSE [${requestId}]`, {
-    //   requestId,
-    //   timestamp: new Date().toISOString(),
-    //   ...response
-    // })
+    this.writeLog(`✅ RESPONSE [${requestId}]`, {
+      requestId,
+      timestamp: new Date().toISOString(),
+      ...response
+    })
   }
 
   public logWebhookError(requestId: string, error: {
@@ -144,12 +141,11 @@ class WebhookLogger {
     status?: number
     processingTime?: number
   }) {
-    // DISABLED: Logging temporarily disabled
-    // this.writeLog(`❌ ERROR [${requestId}]`, {
-    //   requestId,
-    //   timestamp: new Date().toISOString(),
-    //   ...error
-    // })
+    this.writeLog(`❌ ERROR [${requestId}]`, {
+      requestId,
+      timestamp: new Date().toISOString(),
+      ...error
+    })
   }
 
   private writeLog(prefix: string, data: any) {
@@ -190,6 +186,54 @@ class WebhookLogger {
       if (fs.existsSync(this.logFile)) {
         fs.unlinkSync(this.logFile)      }
     } catch (error) {    }
+  }
+
+  // Enhanced logging methods for comprehensive operation tracking
+  public logOperation(operation: string, data: any) {
+    const logData = {
+      operation,
+      timestamp: new Date().toISOString(),
+      ...data
+    }
+    this.writeLog(`🔧 OPERATION [${operation}]`, logData)
+  }
+
+  public logDatabaseOperation(operation: string, table: string, data: any) {
+    const logData = {
+      operation,
+      table,
+      timestamp: new Date().toISOString(),
+      ...data
+    }
+    this.writeLog(`🗄️ DATABASE [${operation}] ${table}`, logData)
+  }
+
+  public logTelegramOperation(operation: string, data: any) {
+    const logData = {
+      operation,
+      timestamp: new Date().toISOString(),
+      ...data
+    }
+    this.writeLog(`📱 TELEGRAM [${operation}]`, logData)
+  }
+
+  public logIntegrationOperation(integration: string, operation: string, data: any) {
+    const logData = {
+      integration,
+      operation,
+      timestamp: new Date().toISOString(),
+      ...data
+    }
+    this.writeLog(`🔗 INTEGRATION [${integration}] ${operation}`, logData)
+  }
+
+  public logSecurityEvent(event: string, data: any) {
+    const logData = {
+      event,
+      timestamp: new Date().toISOString(),
+      ...data
+    }
+    this.writeLog(`🔒 SECURITY [${event}]`, logData)
   }
 
   // Simple log method for general logging

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getAuthenticatedClient, getSession, resetUserPassword } from '@/lib/auth'
+import { getAuthenticatedClient, getSession, resetUserPassword, clearSession } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -60,9 +60,11 @@ export default function ProfilePage() {
       setLoading(true)
       const session = getSession()
       if (!session) {
-        setHasError(true)
-        setErrorMessage('You must be logged in to view your profile.')
-        setLoading(false)
+        // Force logout and redirect to login with session expired reason
+        try { clearSession() } catch {}
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login?reason=session_expired'
+        }
         return
       }
 

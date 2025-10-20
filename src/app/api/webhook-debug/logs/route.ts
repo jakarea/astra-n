@@ -1,11 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { webhookLogger } from '@/lib/webhook-logger'
 import { getSessionUser } from '@/lib/auth'
+import { createClient } from '@supabase/supabase-js'
 
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+})
+
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
+// GET - Retrieve webhook logs
 export async function GET(request: NextRequest) {
   try {
-    // Check authentication
-        const user = await getSessionUser(request)
+    const user = await getSessionUser(request)
+
     if (!user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -13,76 +28,75 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Check if user is admin
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (userError || !userData || userData.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Admin role required' },
+        { status: 403 }
+      )
+    }
+
     const url = new URL(request.url)
-    const lines = parseInt(url.searchParams.get('lines') || '200')
-    const format = url.searchParams.get('format') || 'json'
+    const lines = parseInt(url.searchParams.get('lines') || '100')
+    const clear = url.searchParams.get('clear') === 'true'
 
-    const logs = webhookLogger.getRecentLogs(lines)
-
-    if (format === 'text') {
-      return new Response(logs, {
-        status: 200,
-        headers: {
-          'Content-Type': 'text/plain',
-          'Cache-Control': 'no-cache, no-store, must-revalidate'
-        }
+    if (clear) {
+      webhookLogger.clearLogs()
+      return NextResponse.json({
+        success: true,
+        message: 'Logs cleared successfully',
+        logs: ''
       })
     }
 
-    const logLines = logs.split('\n')
-    const logEntries = []
-    let currentEntry = ''
-
-    for (const line of logLines) {
-      if (line.startsWith('🔥 WEBHOOK REQUEST') ||
-          line.startsWith('📋 PROCESSING') ||
-          line.startsWith('✅ RESPONSE') ||
-          line.startsWith('❌ ERROR')) {
-        if (currentEntry) {
-          logEntries.push(currentEntry.trim())
-        }
-        currentEntry = line
-      } else if (line === '='.repeat(80)) {
-        if (currentEntry) {
-          logEntries.push(currentEntry.trim())
-          currentEntry = ''
-        }
-      } else {
-        currentEntry += '\n' + line
-      }
-    }
-
-    if (currentEntry) {
-      logEntries.push(currentEntry.trim())
-    }
+    const logs = webhookLogger.getRecentLogs(lines)
+    const logFilePath = webhookLogger.getLogFilePath()
 
     return NextResponse.json({
       success: true,
-      logs: logEntries.reverse(), // Most recent first
-      total_entries: logEntries.length,
-      log_file_path: webhookLogger.getLogFilePath(),
-      timestamp: new Date().toISOString()
+      logs,
+      logFilePath,
+      totalLines: logs.split('\n').length
     })
 
   } catch (error: any) {
+    console.error('Error retrieving webhook logs:', error)
     return NextResponse.json(
-      {
-        error: 'Failed to retrieve logs',
-        message: error.message
-      },
+      { error: error.message || 'Internal server error' },
       { status: 500 }
     )
   }
 }
 
-export async function DELETE(request: NextRequest) {
+// POST - Clear logs
+export async function POST(request: NextRequest) {
   try {
-    // Check authentication
-        const user = await getSessionUser(request)
+    const user = await getSessionUser(request)
+
     if (!user) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
+      )
+    }
+
+    // Check if user is admin
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (userError || !userData || userData.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Admin role required' },
+        { status: 403 }
       )
     }
 
@@ -90,15 +104,13 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Webhook logs cleared successfully'
+      message: 'Logs cleared successfully'
     })
 
   } catch (error: any) {
+    console.error('Error clearing webhook logs:', error)
     return NextResponse.json(
-      {
-        error: 'Failed to clear logs',
-        message: error.message
-      },
+      { error: error.message || 'Internal server error' },
       { status: 500 }
     )
   }

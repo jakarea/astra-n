@@ -28,7 +28,7 @@ const navigation = [
   { name: "Inventory", href: "/inventory", icon: Package, adminOnly: false, sellerOnly: false },
   { name: "Integration", href: "/integration", icon: Puzzle, adminOnly: false, sellerOnly: false },
   { name: "User Management", href: "/users", icon: UserCog, adminOnly: true, sellerOnly: false },
-  { name: "Profile", href: "/profile", icon: User, adminOnly: false, sellerOnly: true },
+  { name: "Profile", href: "/profile", icon: User, adminOnly: false, sellerOnly: false },
   { name: "Settings", href: "/settings", icon: Settings, adminOnly: false, sellerOnly: false }
 ]
 

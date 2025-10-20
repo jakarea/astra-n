@@ -67,7 +67,7 @@ function getStatusBadge(status: string | null, type: 'cod' | 'logistic' | 'kpi')
 // Animated counter component
 function AnimatedCounter({ value, duration = 1000 }: { value: number; duration?: number }) {
   const [count, setCount] = useState(0)
-  const countRef = useRef<NodeJS.Timeout>()
+  const countRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
   useEffect(() => {
     if (countRef.current) {
@@ -210,9 +210,15 @@ export default function CRMPage() {
           logistic_status,
           cod_status,
           kpi_status,
-          tags,
           created_at,
-          user:users(name)
+          user:users(name),
+          tags:crm_lead_tags(
+            tag:crm_tags(
+              id,
+              name,
+              color
+            )
+          )
         `, { count: 'exact' })
 
       // Apply role-based filtering for non-admin users
@@ -457,7 +463,7 @@ export default function CRMPage() {
           `"${getStatusLabel(lead.logistic_status)}"`,
           `"${getStatusLabel(lead.cod_status)}"`,
           `"${getStatusLabel(lead.kpi_status)}"`,
-          `"${lead.tags || '-'}"`
+          `"${lead.tags && lead.tags.length > 0 ? lead.tags.map((t: any) => t.tag.name).join(', ') : '-'}"`
         ].join(','))
       } else {
         headers = ['Created', 'Name', 'Contact', 'Source', 'Logistics', 'COD', 'KPI', 'Tags']
@@ -469,7 +475,7 @@ export default function CRMPage() {
           `"${getStatusLabel(lead.logistic_status)}"`,
           `"${getStatusLabel(lead.cod_status)}"`,
           `"${getStatusLabel(lead.kpi_status)}"`,
-          `"${lead.tags || '-'}"`
+          `"${lead.tags && lead.tags.length > 0 ? lead.tags.map((t: any) => t.tag.name).join(', ') : '-'}"`
         ].join(','))
       }
 
