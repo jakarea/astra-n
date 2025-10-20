@@ -157,7 +157,6 @@ export default function InventoryPage() {
         if (session.user.role === 'admin') {
           query = query.or(`name.ilike.%${search}%,sku.ilike.%${search}%`)
         } else {
-          // For sellers, fields are nested under product.
           query = query.or(`product.name.ilike.%${search}%,product.sku.ilike.%${search}%`)
         }
       }
@@ -749,10 +748,10 @@ export default function InventoryPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {products.map((product) => {
+                    {products.map((product, index) => {
                       const stockStatus = product.stock === 0 ? 'out' : product.stock <= LOW_STOCK_THRESHOLD ? 'low' : 'good'
                       return (
-                        <TableRow key={product.id}>
+                        <TableRow key={`product-${product.id || index}`}>
                           <TableCell>
                             <div>
                               <div className="font-medium">{product.name}</div>

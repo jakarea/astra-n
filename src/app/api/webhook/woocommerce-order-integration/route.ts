@@ -57,7 +57,12 @@ interface WooCommerceOrderPayload {
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
-  let requestId = ''
+  
+  // Immediate console log for debugging
+  console.log('🚨 WEBHOOK RECEIVED - WooCommerce Order Integration')
+  console.log('⏰ Time:', new Date().toLocaleString())
+  console.log('🌐 URL:', request.url)
+  console.log('🔗 Method:', request.method)
 
   try {
     // Capture request details for logging
@@ -65,12 +70,8 @@ export async function POST(request: NextRequest) {
     const url = request.url
     const contentType = request.headers.get('content-type') || ''
 
-    console.log('🔥 WooCommerce Webhook Request Started:', {
-      url,
-      contentType,
-      timestamp: new Date().toISOString(),
-      userAgent: headers['user-agent']
-    })
+    console.log('📋 Content-Type:', contentType)
+    console.log('📋 Headers:', JSON.stringify(headers, null, 2))
 
     // Parse request body based on content type
     let body: any
@@ -79,11 +80,11 @@ export async function POST(request: NextRequest) {
       const text = await request.text()
       const params = new URLSearchParams(text)
       body = Object.fromEntries(params.entries())
-      console.log('📝 Parsed form-urlencoded body:', body)
+      console.log('📋 Form Data:', body)
     } else {
       // Handle JSON (actual order webhooks)
       body = await request.json()
-      console.log('📝 Parsed JSON body - Order ID:', body.id, 'Status:', body.status)
+      console.log('📋 JSON Body:', JSON.stringify(body, null, 2))
     }
 
     // Log complete request to test-logger (for debugging when needed)
@@ -576,57 +577,72 @@ export async function POST(request: NextRequest) {
         })),
         isUpdate: !isNewOrder
       }
-
-      webhookLogger.logTelegramOperation('send_notification', {
-        userId: integration.user_id,
-        orderId: order.id,
-        customerEmail: customerEmail,
-        totalAmount: body.total
+      
+      webhookLogger.logWebhookProcessing(requestId, 'sending_telegram_notification', {
+        user_id: integration.user_id,
+        order_id: order.id
       })
-
+      
       sendOrderNotification(integration.user_id, orderData)
         .then((result) => {
           if (result.success) {
-            console.log('✅ Telegram notification sent successfully')
-            webhookLogger.logTelegramOperation('notification_sent', {
-              userId: integration.user_id,
-              orderId: order.id,
-              success: true
+            webhookLogger.logWebhookProcessing(requestId, 'telegram_notification_sent', {
+              user_id: integration.user_id,
+              order_id: order.id,
+              message: 'Telegram notification sent successfully'
             })
           } else {
-            console.error('❌ Telegram notification failed:', result.error)
-            webhookLogger.logTelegramOperation('notification_failed', {
-              userId: integration.user_id,
-              orderId: order.id,
-              error: result.error
+            webhookLogger.logWebhookError(requestId, {
+              error: 'Telegram notification failed',
+              message: result.error || 'Unknown telegram error',
+              user_id: integration.user_id,
+              order_id: order.id,
+              telegram_error_details: result
             })
           }
         })
         .catch((error) => {
-          console.error('❌ Telegram notification error:', error)
-          webhookLogger.logTelegramOperation('notification_error', {
-            userId: integration.user_id,
-            orderId: order.id,
-            error: error.message
+          webhookLogger.logWebhookError(requestId, {
+            error: 'Telegram notification exception',
+            message: error.message || 'Unknown telegram exception',
+            user_id: integration.user_id,
+            order_id: order.id,
+            telegram_exception_details: error
           })
         })
     } catch (error) {
-      console.error('❌ Telegram notification setup error:', error)
-      webhookLogger.logTelegramOperation('notification_setup_error', {
-        userId: integration.user_id,
-        orderId: order.id,
-        error: error.message
+      webhookLogger.logWebhookError(requestId, {
+        error: 'Telegram notification setup failed',
+        message: error.message || 'Failed to setup telegram notification',
+        user_id: integration.user_id,
+        order_id: order.id
       })
     }
 
 
-    console.log('✅ Webhook processing completed successfully:', {
-      orderId: order.id,
-      customerId: customer.id,
-      externalOrderId,
-      isNewOrder,
-      processingTime: Date.now() - startTime
-    })
+    // Verify order was created in CRM
+    const { data: verifyOrder, error: verifyError } = await supabaseAdmin
+      .from('orders')
+      .select('id, external_order_id, status, total_amount, customer_id')
+      .eq('id', order.id)
+      .single()
+
+    if (verifyError || !verifyOrder) {
+      webhookLogger.logWebhookError(requestId, {
+        error: 'Order verification failed',
+        message: 'Order was not found in CRM after creation',
+        order_id: order.id,
+        verification_error: verifyError
+      })
+    } else {
+      webhookLogger.logWebhookProcessing(requestId, 'order_verified_in_crm', {
+        order_id: verifyOrder.id,
+        external_order_id: verifyOrder.external_order_id,
+        status: verifyOrder.status,
+        total_amount: verifyOrder.total_amount,
+        customer_id: verifyOrder.customer_id
+      })
+    }
 
     webhookLogger.logWebhookResponse(requestId, {
       status: 200,
@@ -635,7 +651,8 @@ export async function POST(request: NextRequest) {
         order_id: order.id,
         customer_id: customer.id,
         external_order_id: externalOrderId,
-        is_new_order: isNewOrder
+        is_new_order: isNewOrder,
+        crm_verified: !!verifyOrder
       },
       processingTime: Date.now() - startTime
     })
@@ -644,7 +661,8 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'Order processed successfully',
       orderId: order.id,
-      customerId: customer.id
+      customerId: customer.id,
+      crmVerified: !!verifyOrder
     })
 
   } catch (error: any) {

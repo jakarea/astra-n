@@ -104,14 +104,11 @@ class WebhookLogger {
     return requestId
   }
 
-  public logWebhookProcessing(requestId: string, data: {
-    webhookSecret?: string
-    integration?: any
-    processing?: string
-  }) {
+  public logWebhookProcessing(requestId: string, step: string, data: any = {}) {
     const logData = {
       requestId,
       timestamp: new Date().toISOString(),
+      step: step,
       ...data
     }
 
@@ -150,7 +147,70 @@ class WebhookLogger {
 
   private writeLog(prefix: string, data: any) {
     try {
-      const logLine = `${prefix}\n${JSON.stringify(data, null, 2)}\n${'='.repeat(80)}\n`
+      // Create human-readable log format
+      let logLine = `${prefix}\n`
+      
+      // Add timestamp
+      logLine += `⏰ Time: ${new Date().toLocaleString()}\n`
+      
+      // Format data in human-readable way
+      if (data.timestamp) {
+        logLine += `📅 Timestamp: ${data.timestamp}\n`
+      }
+      if (data.method) {
+        logLine += `🔗 Method: ${data.method}\n`
+      }
+      if (data.url) {
+        logLine += `🌐 URL: ${data.url}\n`
+      }
+      if (data.status) {
+        logLine += `📊 Status: ${data.status}\n`
+      }
+      if (data.message) {
+        logLine += `💬 Message: ${data.message}\n`
+      }
+      if (data.error) {
+        logLine += `❌ Error: ${data.error}\n`
+      }
+      if (data.processingTime) {
+        logLine += `⏱️ Processing Time: ${data.processingTime}ms\n`
+      }
+      if (data.user_id) {
+        logLine += `👤 User ID: ${data.user_id}\n`
+      }
+      if (data.order_id) {
+        logLine += `📦 Order ID: ${data.order_id}\n`
+      }
+      if (data.customer_email) {
+        logLine += `📧 Customer Email: ${data.customer_email}\n`
+      }
+      if (data.external_order_id) {
+        logLine += `🆔 External Order ID: ${data.external_order_id}\n`
+      }
+      if (data.integration_id) {
+        logLine += `🔌 Integration ID: ${data.integration_id}\n`
+      }
+      
+      // Add any additional data
+      const additionalData = { ...data }
+      delete additionalData.timestamp
+      delete additionalData.method
+      delete additionalData.url
+      delete additionalData.status
+      delete additionalData.message
+      delete additionalData.error
+      delete additionalData.processingTime
+      delete additionalData.user_id
+      delete additionalData.order_id
+      delete additionalData.customer_email
+      delete additionalData.external_order_id
+      delete additionalData.integration_id
+      
+      if (Object.keys(additionalData).length > 0) {
+        logLine += `📋 Additional Data:\n${JSON.stringify(additionalData, null, 2)}\n`
+      }
+      
+      logLine += `${'='.repeat(80)}\n`
 
       // Always console log for immediate debugging
       console.log(logLine)
