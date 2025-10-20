@@ -154,7 +154,11 @@ export default function InventoryPage() {
 
       // Add search filters if search query exists and has 3+ characters
       if (search && search.length >= 3) {
-        query = query.or(`name.ilike.%${search}%,sku.ilike.%${search}%`)
+        if (session.user.role === 'admin') {
+          query = query.or(`name.ilike.%${search}%,sku.ilike.%${search}%`)
+        } else {
+          query = query.or(`product.name.ilike.%${search}%,product.sku.ilike.%${search}%`)
+        }
       }
 
       // Add pagination
@@ -162,7 +166,7 @@ export default function InventoryPage() {
       const to = from + ITEMS_PER_PAGE - 1
 
       const { data, error, count } = await query
-        .order('created_at', { ascending: false })
+        .order(session.user.role === 'admin' ? 'created_at' : 'assigned_at', { ascending: false })
         .range(from, to)
 
       if (error) {
@@ -744,10 +748,10 @@ export default function InventoryPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {products.map((product) => {
+                    {products.map((product, index) => {
                       const stockStatus = product.stock === 0 ? 'out' : product.stock <= LOW_STOCK_THRESHOLD ? 'low' : 'good'
                       return (
-                        <TableRow key={product.id}>
+                        <TableRow key={`product-${product.id || index}`}>
                           <TableCell>
                             <div>
                               <div className="font-medium">{product.name}</div>
