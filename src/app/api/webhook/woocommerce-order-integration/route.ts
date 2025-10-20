@@ -57,6 +57,7 @@ interface WooCommerceOrderPayload {
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
+  let requestId = ''
   
   // Immediate console log for debugging
   console.log('🚨 WEBHOOK RECEIVED - WooCommerce Order Integration')
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Log complete request to test-logger (for debugging when needed)
-    const requestId = webhookLogger.logWebhookRequest({
+    requestId = webhookLogger.logWebhookRequest({
       method: request.method,
       url,
       headers,
@@ -99,6 +100,7 @@ export async function POST(request: NextRequest) {
     // Handle ping event
     const topic = request.headers.get('x-wc-webhook-topic')
     if (topic === 'ping' || body.webhook_id || !body.id) {
+      console.log('🏓 Ping event detected:', { topic, webhook_id: body.webhook_id })
 
       webhookLogger.logWebhookResponse(requestId, {
         status: 200,
@@ -113,32 +115,70 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    console.log('🔍 Processing WooCommerce order:', {
+      orderId: body.id,
+      status: body.status,
+      total: body.total,
+      customerEmail: body.billing?.email
+    })
+
     // Get the first active WooCommerce integration
-    const { data: integration } = await supabaseAdmin
+    console.log('🔗 Looking for active WooCommerce integration...')
+    const { data: integration, error: integrationError } = await supabaseAdmin
       .from('integrations')
-      .select('id, user_id')
+      .select('id, user_id, name, status, is_active, domain, base_url')
       .eq('type', 'woocommerce')
       .eq('is_active', true)
       .limit(1)
       .single()
 
-    if (!integration) {
+    if (integrationError) {
+      console.error('❌ Integration query error:', integrationError)
       webhookLogger.logWebhookError(requestId, {
-        error: 'No active WooCommerce integration found',
-        timestamp: new Date().toISOString()
+        error: `Integration query failed: ${integrationError.message}`,
+        timestamp: new Date().toISOString(),
+        processingTime: Date.now() - startTime
       })
-      return NextResponse.json({
-        error: 'No active WooCommerce integration found'
-      }, { status: 404 })
     }
 
-    webhookLogger.logWebhookProcessing(requestId, 'integration_found', {
-      integration_id: integration.id,
-      user_id: integration.user_id
+    if (!integration) {
+      console.error('❌ No active WooCommerce integration found')
+      webhookLogger.logWebhookError(requestId, {
+        error: 'No active WooCommerce integration found',
+        timestamp: new Date().toISOString(),
+        processingTime: Date.now() - startTime
+      })
+
+      return NextResponse.json(
+        {
+          error: 'Integration not found',
+          message: 'No active WooCommerce integration found. Please create a WooCommerce integration in your CRM.'
+        },
+        { status: 404 }
+      )
+    }
+
+    console.log('✅ Found active integration:', {
+      id: integration.id,
+      name: integration.name,
+      domain: integration.domain,
+      userId: integration.user_id
+    })
+
+    webhookLogger.logIntegrationOperation('woocommerce', 'integration_found', {
+      integrationId: integration.id,
+      integrationName: integration.name,
+      userId: integration.user_id
     })
 
     // Extract customer data
-        const customerName = `${body.billing.first_name} ${body.billing.last_name}`.trim()
+    console.log('👤 Extracting customer data:', {
+      name: `${body.billing.first_name} ${body.billing.last_name}`.trim(),
+      email: body.billing.email,
+      phone: body.billing.phone
+    })
+
+    const customerName = `${body.billing.first_name} ${body.billing.last_name}`.trim()
     const customerEmail = body.billing.email
     const customerPhone = body.billing.phone
     const customerAddress = {
@@ -169,31 +209,56 @@ export async function POST(request: NextRequest) {
 
     // Step 1: Check if order already exists first
     const externalOrderId = body.id.toString()
+    console.log('🔍 Checking for existing order:', { externalOrderId, integrationId: integration.id })
 
-    const { data: existingOrder, error: _orderLookupError } = await supabaseAdmin
+    const { data: existingOrder, error: orderLookupError } = await supabaseAdmin
       .from('orders')
       .select('id, customer_id')
       .eq('integration_id', integration.id)
       .eq('external_order_id', externalOrderId)
       .single()
 
+    if (orderLookupError && orderLookupError.code !== 'PGRST116') {
+      console.error('❌ Order lookup error:', orderLookupError)
+      webhookLogger.logWebhookError(requestId, {
+        error: 'Order lookup failed',
+        details: orderLookupError,
+        externalOrderId
+      })
+    }
 
     let customer
     let isNewOrder = !existingOrder
+    console.log('📦 Order status:', { isNewOrder, existingOrderId: existingOrder?.id })
 
     // Step 2: Handle Customer (only increment total_order for new orders)
+    console.log('👤 Looking up existing customer:', { email: customerEmail, userId: integration.user_id })
 
-    const { data: existingCustomer, error: _customerLookupError } = await supabaseAdmin
+    const { data: existingCustomer, error: customerLookupError } = await supabaseAdmin
       .from('customers')
       .select('id, total_order')
       .eq('email', customerEmail)
       .eq('user_id', integration.user_id)
       .single()
 
+    if (customerLookupError && customerLookupError.code !== 'PGRST116') {
+      console.error('❌ Customer lookup error:', customerLookupError)
+      webhookLogger.logWebhookError(requestId, {
+        error: 'Customer lookup failed',
+        details: customerLookupError,
+        customerEmail
+      })
+    }
 
     if (existingCustomer) {
+      console.log('👤 Updating existing customer:', {
+        customerId: existingCustomer.id,
+        currentTotalOrders: existingCustomer.total_order,
+        willIncrement: isNewOrder
+      })
+
       // Update existing customer, increment total_order only for new orders
-        const { data: updatedCustomer, error: updateError } = await supabaseAdmin
+      const { data: updatedCustomer, error: updateError } = await supabaseAdmin
         .from('customers')
         .update({
           name: customerName,
@@ -207,7 +272,7 @@ export async function POST(request: NextRequest) {
         .single()
 
       if (updateError) {
-        console.error('🔔 ❌ Failed to update customer:', updateError)
+        console.error('❌ Failed to update customer:', updateError)
         webhookLogger.logWebhookError(requestId, {
           error: 'Failed to update customer',
           details: updateError,
@@ -221,6 +286,19 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         )
       }
+
+      console.log('✅ Customer updated successfully:', {
+        customerId: updatedCustomer.id,
+        newTotalOrders: updatedCustomer.total_order
+      })
+
+      webhookLogger.logDatabaseOperation('update', 'customers', {
+        customerId: updatedCustomer.id,
+        customerEmail: customerEmail,
+        totalOrder: updatedCustomer.total_order,
+        isNewOrder
+      })
+
       webhookLogger.logWebhookProcessing(requestId, 'customer_updated', {
         customer_id: updatedCustomer.id,
         customer_email: customerEmail,
@@ -228,8 +306,10 @@ export async function POST(request: NextRequest) {
       })
       customer = updatedCustomer
     } else {
+      console.log('👤 Creating new customer:', { email: customerEmail, name: customerName })
+
       // Create new customer (new customers always start with total_order: 1)
-        const { data: newCustomer, error: insertError } = await supabaseAdmin
+      const { data: newCustomer, error: insertError } = await supabaseAdmin
         .from('customers')
         .insert([{
           user_id: integration.user_id,
@@ -244,7 +324,7 @@ export async function POST(request: NextRequest) {
         .single()
 
       if (insertError) {
-        console.error('🔔 ❌ Failed to create customer:', insertError)
+        console.error('❌ Failed to create customer:', insertError)
         webhookLogger.logWebhookError(requestId, {
           error: 'Failed to create customer',
           details: insertError,
@@ -258,6 +338,18 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         )
       }
+
+      console.log('✅ Customer created successfully:', {
+        customerId: newCustomer.id,
+        email: newCustomer.email
+      })
+
+      webhookLogger.logDatabaseOperation('insert', 'customers', {
+        customerId: newCustomer.id,
+        customerEmail: customerEmail,
+        userId: integration.user_id
+      })
+
       webhookLogger.logWebhookProcessing(requestId, 'customer_created', {
         customer_id: newCustomer.id,
         customer_email: customerEmail,
@@ -267,13 +359,27 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 3: Upsert Order
-        const orderCreatedAt = new Date(body.date_created).toISOString()
+    console.log('📦 Processing order:', {
+      externalOrderId,
+      status: body.status,
+      totalAmount: parseFloat(body.total),
+      orderCreatedAt: new Date(body.date_created).toISOString(),
+      isNewOrder
+    })
+
+    const orderCreatedAt = new Date(body.date_created).toISOString()
     const totalAmount = parseFloat(body.total)
 
     let order
     if (existingOrder) {
+      console.log('📦 Updating existing order:', {
+        orderId: existingOrder.id,
+        newStatus: body.status,
+        newTotal: totalAmount
+      })
+
       // Update existing order
-        const { data: updatedOrder, error: updateError } = await supabaseAdmin
+      const { data: updatedOrder, error: updateError } = await supabaseAdmin
         .from('orders')
         .update({
           user_id: integration.user_id,
@@ -288,7 +394,7 @@ export async function POST(request: NextRequest) {
         .single()
 
       if (updateError) {
-        console.error('🔔 ❌ Failed to update order:', updateError)
+        console.error('❌ Failed to update order:', updateError)
         webhookLogger.logWebhookError(requestId, {
           error: 'Failed to update order',
           details: updateError,
@@ -302,6 +408,20 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         )
       }
+
+      console.log('✅ Order updated successfully:', {
+        orderId: updatedOrder.id,
+        status: updatedOrder.status,
+        totalAmount: updatedOrder.total_amount
+      })
+
+      webhookLogger.logDatabaseOperation('update', 'orders', {
+        orderId: updatedOrder.id,
+        externalOrderId,
+        status: updatedOrder.status,
+        totalAmount: updatedOrder.total_amount
+      })
+
       webhookLogger.logWebhookProcessing(requestId, 'order_updated', {
         order_id: updatedOrder.id,
         external_order_id: externalOrderId,
@@ -310,8 +430,15 @@ export async function POST(request: NextRequest) {
       })
       order = updatedOrder
     } else {
+      console.log('📦 Creating new order:', {
+        externalOrderId,
+        customerId: customer.id,
+        status: body.status,
+        totalAmount
+      })
+
       // Create new order
-        const { data: newOrder, error: insertError } = await supabaseAdmin
+      const { data: newOrder, error: insertError } = await supabaseAdmin
         .from('orders')
         .insert([{
           user_id: integration.user_id,
@@ -326,7 +453,7 @@ export async function POST(request: NextRequest) {
         .single()
 
       if (insertError) {
-        console.error('🔔 ❌ Failed to create order:', insertError)
+        console.error('❌ Failed to create order:', insertError)
         webhookLogger.logWebhookError(requestId, {
           error: 'Failed to create order',
           details: insertError,
@@ -340,6 +467,22 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         )
       }
+
+      console.log('✅ Order created successfully:', {
+        orderId: newOrder.id,
+        externalOrderId,
+        status: newOrder.status,
+        totalAmount: newOrder.total_amount
+      })
+
+      webhookLogger.logDatabaseOperation('insert', 'orders', {
+        orderId: newOrder.id,
+        externalOrderId,
+        status: newOrder.status,
+        totalAmount: newOrder.total_amount,
+        customerId: customer.id
+      })
+
       webhookLogger.logWebhookProcessing(requestId, 'order_created', {
         order_id: newOrder.id,
         external_order_id: externalOrderId,
@@ -352,16 +495,23 @@ export async function POST(request: NextRequest) {
     // Step 4: Handle Order Items
     if (existingOrder) {
       // Delete existing order items for updates
-        const { error: deleteError } = await supabaseAdmin
+      const { error: deleteError } = await supabaseAdmin
         .from('order_items')
         .delete()
         .eq('order_id', order.id)
 
-      if (deleteError) {      }
+      if (deleteError) {
+        console.error('❌ Failed to delete existing order items:', deleteError)
+        webhookLogger.logWebhookError(requestId, {
+          error: 'Failed to delete existing order items',
+          details: deleteError,
+          order_id: order.id
+        })
+      }
     }
 
     // Insert new order items
-        const orderItems = body.line_items.map(item => ({
+    const orderItems = body.line_items.map(item => ({
       order_id: order.id,
       product_sku: item.sku || '',
       product_name: item.name,
@@ -375,7 +525,7 @@ export async function POST(request: NextRequest) {
         .insert(orderItems)
 
       if (itemsInsertError) {
-        console.error('🔔 ❌ Failed to create order items:', itemsInsertError)
+        console.error('❌ Failed to create order items:', itemsInsertError)
         webhookLogger.logWebhookError(requestId, {
           error: 'Failed to create order items',
           details: itemsInsertError,
@@ -389,13 +539,31 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         )
       }
+
+      console.log('✅ Order items created successfully:', {
+        orderId: order.id,
+        itemsCount: orderItems.length
+      })
+
+      webhookLogger.logDatabaseOperation('insert', 'order_items', {
+        orderId: order.id,
+        itemsCount: orderItems.length
+      })
+
       webhookLogger.logWebhookProcessing(requestId, 'order_items_saved', {
         order_id: order.id,
         items_count: orderItems.length
       })
     }
-    // Send Telegram notification to integration owner (non-blocking)
-    try {
+
+    // Step 5: Send Telegram Notification (only for new orders)
+    if (isNewOrder) {
+      console.log('📱 Sending Telegram notification for new order:', {
+        orderId: order.id,
+        customerEmail: customerEmail,
+        totalAmount: body.total
+      })
+
       const orderData = {
         externalOrderId,
         customer: { name: customerName, email: customerEmail },
@@ -409,72 +577,51 @@ export async function POST(request: NextRequest) {
         })),
         isUpdate: !isNewOrder
       }
-      
-      webhookLogger.logWebhookProcessing(requestId, 'sending_telegram_notification', {
-        user_id: integration.user_id,
-        order_id: order.id
+
+      webhookLogger.logTelegramOperation('send_notification', {
+        userId: integration.user_id,
+        orderId: order.id,
+        customerEmail: customerEmail,
+        totalAmount: body.total
       })
-      
+
       sendOrderNotification(integration.user_id, orderData)
         .then((result) => {
           if (result.success) {
-            webhookLogger.logWebhookProcessing(requestId, 'telegram_notification_sent', {
-              user_id: integration.user_id,
-              order_id: order.id,
-              message: 'Telegram notification sent successfully'
+            console.log('✅ Telegram notification sent successfully')
+            webhookLogger.logTelegramOperation('notification_sent', {
+              userId: integration.user_id,
+              orderId: order.id,
+              success: true
             })
           } else {
-            webhookLogger.logWebhookError(requestId, {
-              error: 'Telegram notification failed',
-              message: result.error || 'Unknown telegram error',
-              user_id: integration.user_id,
-              order_id: order.id,
-              telegram_error_details: result
+            console.error('❌ Telegram notification failed:', result.error)
+            webhookLogger.logTelegramOperation('notification_failed', {
+              userId: integration.user_id,
+              orderId: order.id,
+              error: result.error
             })
           }
         })
         .catch((error) => {
-          webhookLogger.logWebhookError(requestId, {
-            error: 'Telegram notification exception',
-            message: error.message || 'Unknown telegram exception',
-            user_id: integration.user_id,
-            order_id: order.id,
-            telegram_exception_details: error
+          console.error('❌ Telegram notification error:', error)
+          webhookLogger.logTelegramOperation('notification_error', {
+            userId: integration.user_id,
+            orderId: order.id,
+            error: error.message
           })
         })
-    } catch (error) {
-      webhookLogger.logWebhookError(requestId, {
-        error: 'Telegram notification setup failed',
-        message: error.message || 'Failed to setup telegram notification',
-        user_id: integration.user_id,
-        order_id: order.id
-      })
-    }
-
-
-    // Verify order was created in CRM
-    const { data: verifyOrder, error: verifyError } = await supabaseAdmin
-      .from('orders')
-      .select('id, external_order_id, status, total_amount, customer_id')
-      .eq('id', order.id)
-      .single()
-
-    if (verifyError || !verifyOrder) {
-      webhookLogger.logWebhookError(requestId, {
-        error: 'Order verification failed',
-        message: 'Order was not found in CRM after creation',
-        order_id: order.id,
-        verification_error: verifyError
-      })
     } else {
-      webhookLogger.logWebhookProcessing(requestId, 'order_verified_in_crm', {
-        order_id: verifyOrder.id,
-        external_order_id: verifyOrder.external_order_id,
-        status: verifyOrder.status,
-        total_amount: verifyOrder.total_amount,
-        customer_id: verifyOrder.customer_id
-      })
+      console.log('📱 Skipping Telegram notification for order update')
     }
+
+    console.log('✅ Webhook processing completed successfully:', {
+      orderId: order.id,
+      customerId: customer.id,
+      externalOrderId,
+      isNewOrder,
+      processingTime: Date.now() - startTime
+    })
 
     webhookLogger.logWebhookResponse(requestId, {
       status: 200,
@@ -483,8 +630,7 @@ export async function POST(request: NextRequest) {
         order_id: order.id,
         customer_id: customer.id,
         external_order_id: externalOrderId,
-        is_new_order: isNewOrder,
-        crm_verified: !!verifyOrder
+        is_new_order: isNewOrder
       },
       processingTime: Date.now() - startTime
     })
@@ -493,31 +639,31 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'Order processed successfully',
       orderId: order.id,
-      customerId: customer.id,
-      crmVerified: !!verifyOrder
+      customerId: customer.id
     })
 
   } catch (error: any) {
-    console.error('❌ Webhook error:', error.message)
+    console.error('❌ Webhook processing error:', {
+      message: error.message,
+      stack: error.stack,
+      processingTime: Date.now() - startTime
+    })
 
     // Log error if requestId exists
-    try {
-      const headers = Object.fromEntries(request.headers.entries())
-      const url = request.url
-      const requestId = webhookLogger.logWebhookRequest({
-        method: request.method,
-        url,
-        headers,
-        body: {},
-        query: {}
-      })
-
+    if (requestId) {
       webhookLogger.logWebhookError(requestId, {
-        error: 'Internal server error',
-        message: error.message,
-        stack: error.stack
+        error: error.message,
+        stack: error.stack,
+        processingTime: Date.now() - startTime
       })
-    } catch {}
+    } else {
+      // If we don't have a requestId, create a basic log entry
+      webhookLogger.logOperation('webhook_error', {
+        error: error.message,
+        stack: error.stack,
+        processingTime: Date.now() - startTime
+      })
+    }
 
     return NextResponse.json({
       error: 'Internal server error',

@@ -248,6 +248,54 @@ class WebhookLogger {
     } catch (error) {    }
   }
 
+  // Enhanced logging methods for comprehensive operation tracking
+  public logOperation(operation: string, data: any) {
+    const logData = {
+      operation,
+      timestamp: new Date().toISOString(),
+      ...data
+    }
+    this.writeLog(`🔧 OPERATION [${operation}]`, logData)
+  }
+
+  public logDatabaseOperation(operation: string, table: string, data: any) {
+    const logData = {
+      operation,
+      table,
+      timestamp: new Date().toISOString(),
+      ...data
+    }
+    this.writeLog(`🗄️ DATABASE [${operation}] ${table}`, logData)
+  }
+
+  public logTelegramOperation(operation: string, data: any) {
+    const logData = {
+      operation,
+      timestamp: new Date().toISOString(),
+      ...data
+    }
+    this.writeLog(`📱 TELEGRAM [${operation}]`, logData)
+  }
+
+  public logIntegrationOperation(integration: string, operation: string, data: any) {
+    const logData = {
+      integration,
+      operation,
+      timestamp: new Date().toISOString(),
+      ...data
+    }
+    this.writeLog(`🔗 INTEGRATION [${integration}] ${operation}`, logData)
+  }
+
+  public logSecurityEvent(event: string, data: any) {
+    const logData = {
+      event,
+      timestamp: new Date().toISOString(),
+      ...data
+    }
+    this.writeLog(`🔒 SECURITY [${event}]`, logData)
+  }
+
   // Simple log method for general logging
   public log(...args: any[]) {
     try {

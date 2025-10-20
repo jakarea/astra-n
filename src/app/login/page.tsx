@@ -31,6 +31,18 @@ export default function LoginPage() {
     }
   }, [router])
 
+  // Show session expired notice
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const reason = params.get('reason')
+      if (reason === 'session_expired') {
+        setError('Your session has expired. Please log in again.')
+      }
+    } catch {}
+  }, [])
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
     if (error) setError('')

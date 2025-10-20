@@ -179,7 +179,7 @@ export default function InventoryPage() {
         processedProducts = data || []
       } else {
       // For sellers, extract product data and add assignment info
-        processedProducts = (data || []).map(item => ({
+        processedProducts = (data || []).map((item: any) => ({
           ...item.product,
           assignedAt: item.assignedAt
         }))

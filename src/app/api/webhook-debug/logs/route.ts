@@ -1,10 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { webhookLogger } from '@/lib/webhook-logger'
+import { getSessionUser } from '@/lib/auth'
+import { createClient } from '@supabase/supabase-js'
+
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
-import { webhookLogger } from '@/lib/webhook-logger'
-import { getSessionUser } from '@/lib/auth'
 
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+})
+
+// GET - Retrieve webhook logs
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url)
@@ -60,20 +73,19 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: any) {
+    console.error('Error retrieving webhook logs:', error)
     return NextResponse.json(
-      {
-        error: 'Failed to retrieve logs',
-        message: error.message
-      },
+      { error: error.message || 'Internal server error' },
       { status: 500 }
     )
   }
 }
 
-export async function DELETE(request: NextRequest) {
+// POST - Clear logs
+export async function POST(request: NextRequest) {
   try {
-    // Check authentication
-        const user = await getSessionUser(request)
+    const user = await getSessionUser(request)
+
     if (!user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -81,19 +93,31 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
+    // Check if user is admin
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (userError || !userData || userData.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Admin role required' },
+        { status: 403 }
+      )
+    }
+
     webhookLogger.clearLogs()
 
     return NextResponse.json({
       success: true,
-      message: 'Webhook logs cleared successfully'
+      message: 'Logs cleared successfully'
     })
 
   } catch (error: any) {
+    console.error('Error clearing webhook logs:', error)
     return NextResponse.json(
-      {
-        error: 'Failed to clear logs',
-        message: error.message
-      },
+      { error: error.message || 'Internal server error' },
       { status: 500 }
     )
   }
