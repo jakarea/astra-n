@@ -637,6 +637,14 @@ export async function POST(request: NextRequest) {
         status: 'queued'
       })
 
+      // Try to process immediately (for Hobby account compatibility)
+      try {
+        await telegramQueue.processQueue()
+        console.log('🚀 Immediate queue processing completed')
+      } catch (processError) {
+        console.log('⏳ Queue processing will be handled by daily cron job')
+      }
+
     } catch (telegramError: any) {
       console.error('❌ Failed to queue Telegram notification:', telegramError)
       // Don't fail the webhook if Telegram queueing fails
