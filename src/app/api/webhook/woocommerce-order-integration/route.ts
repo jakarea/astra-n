@@ -339,49 +339,55 @@ export async function POST(request: NextRequest) {
     } else {
       console.log('👤 Creating new customer:', { email: customerEmail, name: customerName })
 
-      // Create new customer (new customers always start with total_order: 1)
-      const { data: newCustomer, error: insertError } = await supabaseAdmin
+      // Use upsert to handle potential race conditions and duplicate email constraints
+      const { data: newCustomer, error: upsertError } = await supabaseAdmin
         .from('customers')
-        .insert([{
+        .upsert({
           user_id: integration.user_id,
           name: customerName,
           email: customerEmail,
           phone: customerPhone || null,
           address: customerAddress,
           source: 'woocommerce',
-          total_order: 1
-        }])
+          total_order: 1,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,email', // Handle the composite unique constraint (user_id, email)
+          ignoreDuplicates: false
+        })
         .select()
         .single()
 
-      if (insertError) {
-        console.error('❌ Failed to create customer:', insertError)
+      if (upsertError) {
+        console.error('❌ Failed to upsert customer:', upsertError)
         webhookLogger.logWebhookError(requestId, {
-          error: 'Failed to create customer',
-          details: insertError,
+          error: 'Failed to upsert customer',
+          details: upsertError,
           customer_email: customerEmail
         })
         return NextResponse.json(
           {
             error: 'Database error',
-            message: 'Failed to create customer'
+            message: 'Failed to upsert customer'
           },
           { status: 500 }
         )
       }
 
-      console.log('✅ Customer created successfully:', {
+      console.log('✅ Customer upserted successfully:', {
         customerId: newCustomer.id,
-        email: newCustomer.email
+        email: newCustomer.email,
+        totalOrder: newCustomer.total_order
       })
 
-      webhookLogger.logDatabaseOperation('insert', 'customers', {
+      webhookLogger.logDatabaseOperation('upsert', 'customers', {
         customerId: newCustomer.id,
         customerEmail: customerEmail,
-        userId: integration.user_id
+        userId: integration.user_id,
+        totalOrder: newCustomer.total_order
       })
 
-      webhookLogger.logWebhookProcessing(requestId, 'customer_created', {
+      webhookLogger.logWebhookProcessing(requestId, 'customer_upserted', {
         customer_id: newCustomer.id,
         customer_email: customerEmail,
         total_order: newCustomer.total_order
