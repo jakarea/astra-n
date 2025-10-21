@@ -284,19 +284,16 @@ export async function POST(request: NextRequest) {
     }
 
     if (existingCustomer) {
-      console.log('👤 Updating existing customer:', {
+      console.log('👤 Customer exists, incrementing order count:', {
         customerId: existingCustomer.id,
         currentTotalOrders: existingCustomer.total_order,
         willIncrement: isNewOrder
       })
 
-      // Update existing customer, increment total_order only for new orders
+      // Only increment total_order for new orders, no need to update other fields
       const { data: updatedCustomer, error: updateError } = await supabaseAdmin
         .from('customers')
         .update({
-          name: customerName,
-          phone: customerPhone || null,
-          address: customerAddress,
           total_order: isNewOrder ? existingCustomer.total_order + 1 : existingCustomer.total_order,
           updated_at: new Date().toISOString()
         })
@@ -305,22 +302,22 @@ export async function POST(request: NextRequest) {
         .single()
 
       if (updateError) {
-        console.error('❌ Failed to update customer:', updateError)
+        console.error('❌ Failed to update customer order count:', updateError)
         webhookLogger.logWebhookError(requestId, {
-          error: 'Failed to update customer',
+          error: 'Failed to update customer order count',
           details: updateError,
           customer_email: customerEmail
         })
         return NextResponse.json(
           {
             error: 'Database error',
-            message: 'Failed to update customer'
+            message: 'Failed to update customer order count'
           },
           { status: 500 }
         )
       }
 
-      console.log('✅ Customer updated successfully:', {
+      console.log('✅ Customer order count updated:', {
         customerId: updatedCustomer.id,
         newTotalOrders: updatedCustomer.total_order
       })
@@ -329,10 +326,11 @@ export async function POST(request: NextRequest) {
         customerId: updatedCustomer.id,
         customerEmail: customerEmail,
         totalOrder: updatedCustomer.total_order,
-        isNewOrder
+        isNewOrder,
+        operation: 'increment_order_count'
       })
 
-      webhookLogger.logWebhookProcessing(requestId, 'customer_updated', {
+      webhookLogger.logWebhookProcessing(requestId, 'customer_order_count_updated', {
         customer_id: updatedCustomer.id,
         customer_email: customerEmail,
         total_order: updatedCustomer.total_order
