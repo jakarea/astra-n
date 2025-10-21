@@ -617,7 +617,39 @@ export async function POST(request: NextRequest) {
         order_id: order.id,
         items_count: orderItems.length
       })
+    }
 
+    console.log('✅ Webhook processing completed successfully:', {
+      requestId: uniqueRequestId,
+      orderId: order.id,
+      customerId: customer.id,
+      externalOrderId,
+      isNewOrder,
+      processingTime: Date.now() - startTime,
+      completedAt: new Date().toISOString()
+    })
+
+    const response = {
+      success: true,
+      message: 'Shopify order processed successfully',
+      data: {
+        orderId: order.id,
+        customerId: customer.id,
+        externalOrderId,
+        status: body.financial_status,
+        totalAmount,
+        itemsCount: orderItems.length,
+        isNewOrder
+      }
+    }
+
+    const processingTime = Date.now() - startTime
+
+    webhookLogger.logWebhookResponse(requestId, {
+      status: 200,
+      message: 'Order processed successfully',
+      data: response.data,
+      processingTime
     })
 
     return NextResponse.json(response, { 
