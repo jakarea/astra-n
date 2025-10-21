@@ -182,7 +182,7 @@ export default function IntegrationPage() {
         .from('integrations')
         .select(`
           *,
-          user:users(name),
+          user:users!user_id(name, email),
           orders:orders(
             id,
             total_amount
@@ -842,7 +842,14 @@ export default function IntegrationPage() {
                           {isUserAdmin() && (
                             <TableCell>
                               <div className="text-sm">
-                                {integration.user?.name || 'Unknown User'}
+                                <div className="font-medium">
+                                  {integration.user?.name || 'Unknown User'}
+                                </div>
+                                {integration.user?.email && (
+                                  <div className="text-xs text-muted-foreground">
+                                    {integration.user.email}
+                                  </div>
+                                )}
                               </div>
                             </TableCell>
                           )}

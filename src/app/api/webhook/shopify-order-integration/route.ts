@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendOrderNotification } from '@/lib/telegram'
 import { webhookLogger } from '@/lib/webhook-logger'
+import crypto from 'crypto'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -15,6 +17,24 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
     persistSession: false
   }
 })
+
+// Shopify HMAC verification function
+function verifyShopifyHmac(body: string, hmac: string, secret: string): boolean {
+  try {
+    const digest = crypto
+      .createHmac('sha256', secret)
+      .update(body, 'utf8')
+      .digest('base64')
+    
+    return crypto.timingSafeEqual(
+      Buffer.from(digest, 'base64'),
+      Buffer.from(hmac, 'base64')
+    )
+  } catch (error) {
+    console.error('❌ HMAC verification error:', error)
+    return false
+  }
+}
 
 interface ShopifyOrderPayload {
   id: number
@@ -76,6 +96,7 @@ interface ShopifyOrderPayload {
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
+  let requestId = ''
   
   // Immediate console log for debugging
   console.log('🚨 WEBHOOK RECEIVED - Shopify Order Integration')
@@ -87,13 +108,16 @@ export async function POST(request: NextRequest) {
     // Capture request details for logging
     const headers = Object.fromEntries(request.headers.entries())
     const url = request.url
-    const body = await request.json()
+    
+    // Get raw body for HMAC verification
+    const rawBody = await request.text()
+    const body = JSON.parse(rawBody)
     
     console.log('📋 Headers:', JSON.stringify(headers, null, 2))
     console.log('📋 Body:', JSON.stringify(body, null, 2))
 
-    // Log complete request to test-logger (for debugging when needed)
-    const requestId = webhookLogger.logWebhookRequest({
+    // Log complete request
+    requestId = webhookLogger.logWebhookRequest({
       method: request.method,
       url,
       headers,
@@ -101,64 +125,144 @@ export async function POST(request: NextRequest) {
       query: {}
     })
 
-    // Get shop domain from header
+    // Step 1: Verify Shopify HMAC signature
+    const shopifyHmac = request.headers.get('x-shopify-hmac-sha256')
     const shopDomain = request.headers.get('x-shopify-shop-domain')
-    if (!shopDomain) {
+    
+    console.log('🔐 Verifying Shopify webhook authentication:', {
+      hasHmac: !!shopifyHmac,
+      shopDomain: shopDomain
+    })
+
+    if (!shopifyHmac || !shopDomain) {
+      console.error('❌ Missing Shopify authentication headers')
       webhookLogger.logWebhookError(requestId, {
-        message: 'Missing x-shopify-shop-domain header',
-        status: 400,
+        error: 'Missing Shopify authentication headers',
+        message: 'x-shopify-hmac-sha256 and x-shopify-shop-domain headers are required',
+        status: 401,
         processingTime: Date.now() - startTime
       })
+      
       return NextResponse.json(
         {
-          error: 'Invalid webhook',
-          message: 'x-shopify-shop-domain header is required'
+          error: 'Unauthorized',
+          message: 'Missing Shopify authentication headers'
         },
-        { status: 400 }
+        { 
+          status: 401,
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+            'Surrogate-Control': 'no-store'
+          }
+        }
       )
     }
 
-    // For Shopify webhooks, just get the first active Shopify integration
-    // Since Shopify always sends *.myshopify.com domain
-    const { data: integration, error: integrationError } = await supabaseAdmin
+    // Step 2: Find Shopify integration by admin access token (not domain)
+    console.log('🔍 Looking for Shopify integration by HMAC verification...')
+    
+    // First, get all active Shopify integrations to verify HMAC
+    const { data: allIntegrations, error: integrationsError } = await supabaseAdmin
       .from('integrations')
-      .select('id, user_id, name, status, is_active, domain, base_url')
+      .select('id, user_id, name, status, is_active, domain, base_url, admin_access_token')
       .eq('type', 'shopify')
       .eq('is_active', true)
-      .limit(1)
-      .single()
 
-    if (integrationError || !integration) {
+    if (integrationsError || !allIntegrations || allIntegrations.length === 0) {
+      console.error('❌ No active Shopify integrations found')
       webhookLogger.logWebhookError(requestId, {
-        message: `No active Shopify integration found. Please create a Shopify integration first.`,
+        error: 'No integrations found',
+        message: 'No active Shopify integrations found. Please create a Shopify integration first.',
         status: 404,
         processingTime: Date.now() - startTime
       })
+      
       return NextResponse.json(
         {
           error: 'Integration not found',
-          message: `No active Shopify integration found. Please create a Shopify integration in your CRM.`
+          message: 'No active Shopify integrations found. Please create a Shopify integration first.'
         },
-        { status: 404 }
+        { 
+          status: 404,
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+            'Surrogate-Control': 'no-store'
+          }
+        }
       )
     }
 
-    webhookLogger.logWebhookProcessing(requestId, {
-      integration: {
-        id: integration.id,
-        name: integration.name,
-        domain: integration.domain
+    // Step 3: Find the correct integration by verifying HMAC with each admin access token
+    let integration = null
+    let validToken = null
+
+    console.log(`🔐 Verifying HMAC against ${allIntegrations.length} Shopify integrations...`)
+
+    for (const int of allIntegrations) {
+      if (!int.admin_access_token) {
+        console.log(`⚠️ Integration ${int.id} missing admin access token, skipping`)
+        continue
       }
-    })
-    // Validate that we have a valid user_id from webhook secret
-    if (!integration.user_id) {      return NextResponse.json(
+
+      const isValidHmac = verifyShopifyHmac(rawBody, shopifyHmac, int.admin_access_token)
+      
+      if (isValidHmac) {
+        integration = int
+        validToken = int.admin_access_token
+        console.log(`✅ HMAC verification successful for integration ${int.id}`)
+        break
+      } else {
+        console.log(`❌ HMAC verification failed for integration ${int.id}`)
+      }
+    }
+
+    if (!integration) {
+      console.error('❌ No Shopify integration found with matching admin access token')
+      webhookLogger.logWebhookError(requestId, {
+        error: 'Invalid HMAC signature',
+        message: 'Webhook HMAC signature verification failed against all integrations',
+        shopDomain,
+        integrationsChecked: allIntegrations.length,
+        status: 401,
+        processingTime: Date.now() - startTime
+      })
+      
+      return NextResponse.json(
         {
-          error: 'Invalid integration',
-          message: 'Integration does not have a valid user_id'
+          error: 'Unauthorized',
+          message: 'Invalid webhook signature - no matching integration found'
         },
-        { status: 400 }
+        { 
+          status: 401,
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+            'Surrogate-Control': 'no-store'
+          }
+        }
       )
     }
+
+    console.log('✅ Shopify webhook authentication successful:', {
+      integrationId: integration.id,
+      userId: integration.user_id,
+      shopDomain: shopDomain,
+      integrationDomain: integration.domain,
+      authenticationMethod: 'HMAC verification'
+    })
+
+    webhookLogger.logIntegrationOperation('shopify', 'webhook_authenticated', {
+      integrationId: integration.id,
+      userId: integration.user_id,
+      shopDomain: shopDomain,
+      integrationDomain: integration.domain,
+      authenticationMethod: 'HMAC verification'
+    })
     // Extract customer data
         const customerName = `${body.customer.first_name} ${body.customer.last_name}`.trim()
     const customerEmail = body.customer.email || body.email
@@ -196,79 +300,69 @@ export async function POST(request: NextRequest) {
       .eq('external_order_id', externalOrderId)
       .single()
 
-    let customer
     let isNewOrder = !existingOrder
 
-    // Step 2: Handle Customer (only increment total_order for new orders)
-        const { data: existingCustomer, error: _customerLookupError } = await supabaseAdmin
+    // Step 2: Handle Customer with simple upsert approach
+    console.log('👤 Processing customer:', { customerEmail, customerName, isNewOrder })
+    
+    // First, get current customer to check total_order
+    const { data: existingCustomer, error: _customerLookupError } = await supabaseAdmin
       .from('customers')
       .select('id, total_order')
       .eq('email', customerEmail)
       .eq('user_id', integration.user_id)
       .single()
 
-    if (existingCustomer) {
-      // Update existing customer, increment total_order only for new orders
-        const { data: updatedCustomer, error: updateError } = await supabaseAdmin
-        .from('customers')
-        .update({
-          name: customerName,
-          phone: customerPhone || null,
-          address: customerAddress,
-          total_order: isNewOrder ? existingCustomer.total_order + 1 : existingCustomer.total_order,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', existingCustomer.id)
-        .select()
-        .single()
+    const currentTotalOrder = existingCustomer?.total_order || 0
+    const newTotalOrder = isNewOrder ? currentTotalOrder + 1 : currentTotalOrder
 
-      if (updateError) {
-        webhookLogger.logWebhookError(requestId, {
-          error: 'Failed to update customer',
-          details: updateError,
-          customer_email: customerEmail
-        })
-        return NextResponse.json(
-          {
-            error: 'Database error',
-            message: 'Failed to update customer'
-          },
-          { status: 500 }
-        )
-      }
-      customer = updatedCustomer
-    } else {
-      // Create new customer (new customers always start with total_order: 1)
-        const { data: newCustomer, error: insertError } = await supabaseAdmin
-        .from('customers')
-        .insert([{
-          user_id: integration.user_id,
-          name: customerName,
-          email: customerEmail,
-          phone: customerPhone || null,
-          address: customerAddress,
-          source: 'shopify',
-          total_order: 1
-        }])
-        .select()
-        .single()
+    console.log('👤 Customer info:', { 
+      exists: !!existingCustomer,
+      currentTotalOrder,
+      newTotalOrder,
+      willIncrement: isNewOrder
+    })
 
-      if (insertError) {
-        webhookLogger.logWebhookError(requestId, {
-          error: 'Failed to create customer',
-          details: insertError,
-          customer_email: customerEmail
-        })
-        return NextResponse.json(
-          {
-            error: 'Database error',
-            message: 'Failed to create customer'
-          },
-          { status: 500 }
-        )
-      }
-      customer = newCustomer
+    // Use upsert to handle both create and update cases
+    const { data: customer, error: upsertError } = await supabaseAdmin
+      .from('customers')
+      .upsert({
+        user_id: integration.user_id,
+        name: customerName,
+        email: customerEmail,
+        phone: customerPhone || null,
+        address: customerAddress,
+        source: 'shopify',
+        total_order: newTotalOrder,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'email,user_id',
+        ignoreDuplicates: false
+      })
+      .select('id, total_order, name, email')
+      .single()
+
+    if (upsertError || !customer) {
+      console.error('❌ Failed to upsert customer:', upsertError)
+      webhookLogger.logWebhookError(requestId, {
+        error: 'Failed to upsert customer',
+        details: upsertError,
+        customer_email: customerEmail
+      })
+      return NextResponse.json(
+        {
+          error: 'Database error',
+          message: 'Failed to upsert customer'
+        },
+        { status: 500 }
+      )
     }
+
+    console.log('✅ Customer processed successfully:', { 
+      customerId: customer.id, 
+      totalOrder: customer.total_order,
+      wasExisting: !!existingCustomer
+    })
 
     // Step 3: Upsert Order
         const orderCreatedAt = new Date(body.created_at).toISOString()
@@ -390,7 +484,9 @@ export async function POST(request: NextRequest) {
       })
 
       // Send Telegram notification (non-blocking)
-        const orderData = {
+      console.log('📱 Preparing Telegram notification for user:', notificationUserId)
+      
+      const orderData = {
         externalOrderId,
         customer: {
           name: customerName,
@@ -407,34 +503,42 @@ export async function POST(request: NextRequest) {
         isUpdate: !isNewOrder
       }
 
+      console.log('📱 Order data for notification:', JSON.stringify(orderData, null, 2))
+
       sendOrderNotification(notificationUserId, orderData).then((result) => {
+        console.log('📱 Telegram notification result:', result)
         if (result.success) {
-          webhookLogger.logWebhookProcessing(requestId, 'telegram_notification_sent', {
+          console.log('✅ Telegram notification sent successfully')
+          webhookLogger.logTelegramOperation('send_notification', {
             user_id: notificationUserId,
-            order_id: order.id
+            order_id: order.id,
+            success: true
           })
         } else {
-          webhookLogger.logWebhookError(requestId, {
-            error: 'Telegram notification failed',
-            message: result.error || 'Unknown telegram error',
+          console.error('❌ Telegram notification failed:', result.error)
+          webhookLogger.logTelegramOperation('send_notification', {
             user_id: notificationUserId,
-            order_id: order.id
+            order_id: order.id,
+            success: false,
+            error: result.error
           })
         }
       }).catch((error) => {
-        webhookLogger.logWebhookError(requestId, {
-          error: 'Telegram notification exception',
-          message: error.message || 'Unknown telegram exception',
+        console.error('❌ Telegram notification exception:', error)
+        webhookLogger.logTelegramOperation('send_notification', {
           user_id: notificationUserId,
-          order_id: order.id
+          order_id: order.id,
+          success: false,
+          error: error.message
         })
       })
     } catch (telegramError) {
-      webhookLogger.logWebhookError(requestId, {
-        error: 'Telegram notification setup failed',
-        message: telegramError.message || 'Failed to setup telegram notification',
+      console.error('❌ Telegram notification setup failed:', telegramError)
+      webhookLogger.logTelegramOperation('send_notification', {
         user_id: integration.user_id,
-        order_id: order.id
+        order_id: order.id,
+        success: false,
+        error: telegramError.message || 'Failed to setup telegram notification'
       })
     }
 
@@ -461,7 +565,15 @@ export async function POST(request: NextRequest) {
       processingTime
     })
 
-    return NextResponse.json(response, { status: 200 })
+    return NextResponse.json(response, { 
+      status: 200,
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+        'Surrogate-Control': 'no-store'
+      }
+    })
 
   } catch (error: any) {
     const processingTime = Date.now() - startTime
@@ -478,7 +590,15 @@ export async function POST(request: NextRequest) {
         error: 'Internal server error',
         message: 'An unexpected error occurred while processing the webhook'
       },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+          'Surrogate-Control': 'no-store'
+        }
+      }
     )
   }
 }
