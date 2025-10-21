@@ -305,31 +305,14 @@ export async function POST(request: NextRequest) {
     let isNewOrder = !existingOrder
 
     // Step 2: Handle Customer (optimized approach)
-    console.log('👤 STEP 1: Looking up existing customer:', { 
-      email: customerEmail, 
-      userId: integration.user_id,
-      step: 'customer_lookup',
-      reason: 'Check if customer already exists for this user'
-    })
+    console.log('👤 Looking up existing customer:', { email: customerEmail, userId: integration.user_id })
 
     const { data: existingCustomer, error: customerLookupError } = await supabaseAdmin
       .from('customers')
-      .select('id, total_order, name, email, user_id')
+      .select('id, total_order')
       .eq('email', customerEmail)
       .eq('user_id', integration.user_id)
       .single()
-
-    console.log('👤 STEP 1 RESULT: Customer lookup completed:', {
-      found: !!existingCustomer,
-      customerId: existingCustomer?.id,
-      currentTotalOrders: existingCustomer?.total_order,
-      customerName: existingCustomer?.name,
-      customerEmail: existingCustomer?.email,
-      customerUserId: existingCustomer?.user_id,
-      lookupError: customerLookupError?.code,
-      step: 'customer_lookup_result',
-      reason: existingCustomer ? 'Customer found, will increment order count' : 'Customer not found, will create new customer'
-    })
 
     if (customerLookupError && customerLookupError.code !== 'PGRST116') {
       console.error('❌ Customer lookup error:', customerLookupError)
@@ -340,38 +323,12 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Additional check: Look for customer with same email across ALL users
-    console.log('👤 STEP 1.5: Checking if customer exists with same email across all users:', {
-      email: customerEmail,
-      step: 'cross_user_customer_check',
-      reason: 'Verify if email constraint will cause issues'
-    })
-
-    const { data: allCustomersWithEmail, error: allCustomersError } = await supabaseAdmin
-      .from('customers')
-      .select('id, total_order, name, email, user_id')
-      .eq('email', customerEmail)
-
-    console.log('👤 STEP 1.5 RESULT: Cross-user customer check:', {
-      totalCustomersFound: allCustomersWithEmail?.length || 0,
-      customers: allCustomersWithEmail?.map(c => ({
-        id: c.id,
-        name: c.name,
-        userId: c.user_id,
-        totalOrder: c.total_order
-      })),
-      step: 'cross_user_customer_result',
-      reason: allCustomersWithEmail?.length > 0 ? 'Customer exists for other user(s), will use upsert to handle' : 'No existing customers with this email'
-    })
-
     let customer
     if (existingCustomer) {
-      console.log('👤 STEP 2: Customer exists for this user, incrementing order count:', {
+      console.log('👤 Customer exists, incrementing order count:', {
         customerId: existingCustomer.id,
         currentTotalOrders: existingCustomer.total_order,
-        willIncrement: isNewOrder,
-        step: 'update_existing_customer',
-        reason: 'Customer found for this user, only increment order count'
+        willIncrement: isNewOrder
       })
 
       // Only increment total_order for new orders, no need to update other fields
@@ -386,7 +343,7 @@ export async function POST(request: NextRequest) {
         .single()
 
       if (updateError) {
-        console.error('❌ STEP 2 FAILED: Failed to update customer order count:', updateError)
+        console.error('❌ Failed to update customer order count:', updateError)
         webhookLogger.logWebhookError(requestId, {
           error: 'Failed to update customer order count',
           details: updateError,
@@ -401,11 +358,9 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      console.log('✅ STEP 2 SUCCESS: Customer order count updated:', {
+      console.log('✅ Customer order count updated:', {
         customerId: updatedCustomer.id,
-        newTotalOrders: updatedCustomer.total_order,
-        step: 'customer_order_count_updated',
-        reason: 'Successfully incremented order count for existing customer'
+        newTotalOrders: updatedCustomer.total_order
       })
 
       webhookLogger.logDatabaseOperation('update', 'customers', {
@@ -423,12 +378,7 @@ export async function POST(request: NextRequest) {
       })
       customer = updatedCustomer
     } else {
-      console.log('👤 STEP 2: Customer not found for this user, creating/upserting customer:', { 
-        email: customerEmail, 
-        name: customerName,
-        step: 'create_or_upsert_customer',
-        reason: 'Customer not found for this user, will create new or update existing if email exists for other user'
-      })
+      console.log('👤 Creating new customer:', { email: customerEmail, name: customerName })
 
       // Use upsert to handle potential race conditions and duplicate email constraints
       const { data: newCustomer, error: upsertError } = await supabaseAdmin
@@ -450,7 +400,7 @@ export async function POST(request: NextRequest) {
         .single()
 
       if (upsertError) {
-        console.error('❌ STEP 2 FAILED: Failed to upsert customer:', upsertError)
+        console.error('❌ Failed to upsert customer:', upsertError)
         webhookLogger.logWebhookError(requestId, {
           error: 'Failed to upsert customer',
           details: upsertError,
@@ -465,12 +415,10 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      console.log('✅ STEP 2 SUCCESS: Customer upserted successfully:', {
+      console.log('✅ Customer upserted successfully:', {
         customerId: newCustomer.id,
         email: newCustomer.email,
-        totalOrder: newCustomer.total_order,
-        step: 'customer_upserted',
-        reason: 'Successfully created new customer or updated existing customer with same email'
+        totalOrder: newCustomer.total_order
       })
 
       webhookLogger.logDatabaseOperation('upsert', 'customers', {
@@ -677,6 +625,54 @@ export async function POST(request: NextRequest) {
         order_id: order.id,
         items_count: orderItems.length
       })
+    }
+
+    // Step 5: Queue Telegram Notification (background job)
+    console.log('📱 Queueing Telegram notification for background processing:', { 
+      orderId: order.id, 
+      customerEmail: customerEmail, 
+      totalAmount: totalAmount.toString() 
+    })
+
+    try {
+      // Import queue dynamically
+      const { telegramQueue } = await import('@/lib/telegram-queue')
+      
+      // Prepare order data for Telegram notification
+      const orderData = {
+        externalOrderId: externalOrderId,
+        customer: {
+          name: customerName,
+          email: customerEmail
+        },
+        totalAmount: totalAmount.toString(),
+        status: body.financial_status,
+        orderCreatedAt: orderCreatedAt.split('T')[0], // Format: YYYY-MM-DD
+        items: body.line_items.map(item => ({
+          productName: item.title,
+          quantity: item.quantity,
+          pricePerUnit: item.price
+        })),
+        isUpdate: !isNewOrder
+      }
+
+      // Add job to queue (non-blocking)
+      await telegramQueue.addJob({
+        userId: integration.user_id,
+        orderId: order.id,
+        orderData,
+        maxAttempts: 3
+      })
+
+      console.log('✅ Telegram notification queued successfully:', {
+        userId: integration.user_id,
+        orderId: order.id,
+        status: 'queued'
+      })
+
+    } catch (telegramError: any) {
+      console.error('❌ Failed to queue Telegram notification:', telegramError)
+      // Don't fail the webhook if Telegram queueing fails
     }
 
     console.log('✅ Webhook processing completed successfully:', {

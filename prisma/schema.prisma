@@ -35,6 +35,7 @@ model User {
   leadEvents         CrmLeadEvent[]
   assignedProducts   SellerProduct[] @relation("SellerProducts") // Products assigned to this seller
   productAssignments SellerProduct[] @relation("ProductAssignments") // Assignments made by this admin
+  telegramJobs       TelegramJob[] // Background job queue for Telegram notifications
 
   @@index([role])
   @@index([accountStatus])
@@ -161,6 +162,7 @@ model Order {
   customer    Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
   items       OrderItem[]
   crmLead     CrmLead?
+  telegramJobs TelegramJob[] // Background job queue for Telegram notifications
 
   @@unique([integrationId, externalOrderId])
   @@index([userId])
@@ -256,4 +258,29 @@ model CrmLeadTag {
 
   @@id([leadId, tagId])
   @@map("crm_lead_tags")
+}
+
+// Background Job Queue Tables
+
+model TelegramJob {
+  id         Int      @id @default(autoincrement())
+  userId     String   @map("user_id") @db.Uuid
+  orderId    Int      @map("order_id")
+  orderData  Json     @map("order_data")
+  status     String   @default("pending") // 'pending', 'processing', 'completed', 'failed'
+  attempts   Int      @default(0)
+  maxAttempts Int    @default(3) @map("max_attempts")
+  error      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([userId])
+  @@index([orderId])
+  @@index([createdAt])
+  @@map("telegram_jobs")
 }

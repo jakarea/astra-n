@@ -593,17 +593,25 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Step 5: Send Telegram Notification (only for new orders)
-    if (isNewOrder) {
-      console.log('📱 Sending Telegram notification for new order:', {
-        orderId: order.id,
-        customerEmail: customerEmail,
-        totalAmount: body.total
-      })
+    // Step 5: Queue Telegram Notification (background job)
+    console.log('📱 Queueing Telegram notification for background processing:', { 
+      orderId: order.id, 
+      customerEmail: customerEmail, 
+      totalAmount: body.total,
+      isNewOrder
+    })
 
+    try {
+      // Import queue dynamically
+      const { telegramQueue } = await import('@/lib/telegram-queue')
+      
+      // Prepare order data for Telegram notification
       const orderData = {
         externalOrderId,
-        customer: { name: customerName, email: customerEmail },
+        customer: { 
+          name: customerName, 
+          email: customerEmail 
+        },
         totalAmount: body.total,
         status: body.status,
         orderCreatedAt: body.date_created,
@@ -615,41 +623,23 @@ export async function POST(request: NextRequest) {
         isUpdate: !isNewOrder
       }
 
-      webhookLogger.logTelegramOperation('send_notification', {
+      // Add job to queue (non-blocking)
+      await telegramQueue.addJob({
         userId: integration.user_id,
         orderId: order.id,
-        customerEmail: customerEmail,
-        totalAmount: body.total
+        orderData,
+        maxAttempts: 3
       })
 
-      sendOrderNotification(integration.user_id, orderData)
-        .then((result) => {
-          if (result.success) {
-            console.log('✅ Telegram notification sent successfully')
-            webhookLogger.logTelegramOperation('notification_sent', {
-              userId: integration.user_id,
-              orderId: order.id,
-              success: true
-            })
-          } else {
-            console.error('❌ Telegram notification failed:', result.error)
-            webhookLogger.logTelegramOperation('notification_failed', {
-              userId: integration.user_id,
-              orderId: order.id,
-              error: result.error
-            })
-          }
-        })
-        .catch((error) => {
-          console.error('❌ Telegram notification error:', error)
-          webhookLogger.logTelegramOperation('notification_error', {
-            userId: integration.user_id,
-            orderId: order.id,
-            error: error.message
-          })
-        })
-    } else {
-      console.log('📱 Skipping Telegram notification for order update')
+      console.log('✅ Telegram notification queued successfully:', {
+        userId: integration.user_id,
+        orderId: order.id,
+        status: 'queued'
+      })
+
+    } catch (telegramError: any) {
+      console.error('❌ Failed to queue Telegram notification:', telegramError)
+      // Don't fail the webhook if Telegram queueing fails
     }
 
     console.log('✅ Webhook processing completed successfully:', {
