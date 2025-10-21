@@ -705,7 +705,7 @@ export async function POST(request: NextRequest) {
 
     const processingTime = Date.now() - startTime
 
-    webhookLogger.logWebhookResponse(requestId, {
+    webhookLogger.logWebhookResponse(requestId || uniqueRequestId, {
       status: 200,
       message: 'Order processed successfully',
       data: response.data,
@@ -725,7 +725,10 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     const processingTime = Date.now() - startTime
 
-    webhookLogger.logWebhookError(requestId, {
+    // Use uniqueRequestId if requestId is not set (early error)
+    const errorRequestId = requestId || uniqueRequestId
+
+    webhookLogger.logWebhookError(errorRequestId, {
       message: error.message || 'Unknown error',
       stack: error.stack,
       status: 500,
