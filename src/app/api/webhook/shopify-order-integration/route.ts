@@ -96,10 +96,12 @@ interface ShopifyOrderPayload {
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
+  const uniqueRequestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   let requestId = ''
   
   // Immediate console log for debugging
   console.log('🚨 WEBHOOK RECEIVED - Shopify Order Integration')
+  console.log('🆔 Request ID:', uniqueRequestId)
   console.log('⏰ Time:', new Date().toLocaleString())
   console.log('🌐 URL:', request.url)
   console.log('🔗 Method:', request.method)
