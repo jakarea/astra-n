@@ -3,6 +3,11 @@ import { createClient } from '@supabase/supabase-js'
 import { sendOrderNotification } from '@/lib/telegram'
 import { webhookLogger } from '@/lib/webhook-logger'
 
+// Disable all caching for webhook endpoints
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
@@ -57,10 +62,12 @@ interface WooCommerceOrderPayload {
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
+  const uniqueRequestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   let requestId = ''
   
   // Immediate console log for debugging
   console.log('🚨 WEBHOOK RECEIVED - WooCommerce Order Integration')
+  console.log('🆔 Request ID:', uniqueRequestId)
   console.log('⏰ Time:', new Date().toLocaleString())
   console.log('🌐 URL:', request.url)
   console.log('🔗 Method:', request.method)
@@ -116,10 +123,14 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('🔍 Processing WooCommerce order:', {
+      requestId: uniqueRequestId,
       orderId: body.id,
       status: body.status,
       total: body.total,
-      customerEmail: body.billing?.email
+      customerEmail: body.billing?.email,
+      orderCreatedAt: body.date_created,
+      webhookReceivedAt: new Date().toISOString(),
+      processingDelay: Date.now() - startTime
     })
 
     // Get the first active WooCommerce integration
@@ -209,14 +220,36 @@ export async function POST(request: NextRequest) {
 
     // Step 1: Check if order already exists first
     const externalOrderId = body.id.toString()
-    console.log('🔍 Checking for existing order:', { externalOrderId, integrationId: integration.id })
+    console.log('🔍 Checking for existing order:', { 
+      requestId: uniqueRequestId,
+      externalOrderId, 
+      integrationId: integration.id 
+    })
 
     const { data: existingOrder, error: orderLookupError } = await supabaseAdmin
       .from('orders')
-      .select('id, customer_id')
+      .select('id, customer_id, created_at, updated_at')
       .eq('integration_id', integration.id)
       .eq('external_order_id', externalOrderId)
       .single()
+
+    // Also check for any recent orders to detect sequence issues
+    const { data: recentOrders } = await supabaseAdmin
+      .from('orders')
+      .select('id, external_order_id, created_at')
+      .eq('integration_id', integration.id)
+      .order('created_at', { ascending: false })
+      .limit(5)
+
+    console.log('📊 Recent orders for sequence tracking:', {
+      requestId: uniqueRequestId,
+      currentOrderId: externalOrderId,
+      recentOrders: recentOrders?.map(o => ({
+        id: o.id,
+        externalOrderId: o.external_order_id,
+        createdAt: o.created_at
+      }))
+    })
 
     if (orderLookupError && orderLookupError.code !== 'PGRST116') {
       console.error('❌ Order lookup error:', orderLookupError)
@@ -616,11 +649,13 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('✅ Webhook processing completed successfully:', {
+      requestId: uniqueRequestId,
       orderId: order.id,
       customerId: customer.id,
       externalOrderId,
       isNewOrder,
-      processingTime: Date.now() - startTime
+      processingTime: Date.now() - startTime,
+      completedAt: new Date().toISOString()
     })
 
     webhookLogger.logWebhookResponse(requestId, {
@@ -640,6 +675,14 @@ export async function POST(request: NextRequest) {
       message: 'Order processed successfully',
       orderId: order.id,
       customerId: customer.id
+    }, {
+      status: 200,
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+        'Surrogate-Control': 'no-store'
+      }
     })
 
   } catch (error: any) {
@@ -668,7 +711,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       error: 'Internal server error',
       message: error.message
-    }, { status: 500 })
+    }, { 
+      status: 500,
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+        'Surrogate-Control': 'no-store'
+      }
+    })
   }
 }
 

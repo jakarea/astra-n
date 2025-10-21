@@ -249,25 +249,28 @@ export function AddIntegrationModal({ isOpen, onClose, onSuccess }: AddIntegrati
             </div>
           </div>
 
-          {/* API Configuration */}
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="adminAccessToken" className="flex items-center gap-2">
-                <Link className="h-4 w-4" />
-                Admin Access Token
-              </Label>
-              <Input
-                id="adminAccessToken"
-                type="password"
-                value={formData.adminAccessToken}
-                onChange={(e) => setFormData(prev => ({ ...prev, adminAccessToken: e.target.value }))}
-                placeholder="Your API access token (optional)"
-              />
-              <p className="text-xs text-muted-foreground">
-                Used for API calls to your webshop. Leave empty if not required.
-              </p>
+          {/* API Configuration - Only show for Shopify */}
+          {formData.type === 'shopify' && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="adminAccessToken" className="flex items-center gap-2">
+                  <Link className="h-4 w-4" />
+                  Admin Access Token *
+                </Label>
+                <Input
+                  id="adminAccessToken"
+                  type="password"
+                  value={formData.adminAccessToken}
+                  onChange={(e) => setFormData(prev => ({ ...prev, adminAccessToken: e.target.value }))}
+                  placeholder="Your Shopify Admin API access token"
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Required for Shopify integrations. Get this from your Shopify admin panel under Apps → App and sales channel settings.
+                </p>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Supported Actions */}
           {supportedActions.length > 0 && (
@@ -308,7 +311,7 @@ export function AddIntegrationModal({ isOpen, onClose, onSuccess }: AddIntegrati
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading || !formData.name || !formData.type || !formData.domain}>
+            <Button type="submit" disabled={loading || !formData.name || !formData.type || !formData.domain || (formData.type === 'shopify' && !formData.adminAccessToken)}>
               {loading ? (
                 <>
                   <LoadingSpinner className="mr-2" />
