@@ -303,14 +303,31 @@ export async function POST(request: NextRequest) {
     let isNewOrder = !existingOrder
 
     // Step 2: Handle Customer (optimized approach)
-    console.log('👤 Looking up existing customer:', { email: customerEmail, userId: integration.user_id })
+    console.log('👤 STEP 1: Looking up existing customer:', { 
+      email: customerEmail, 
+      userId: integration.user_id,
+      step: 'customer_lookup',
+      reason: 'Check if customer already exists for this user'
+    })
 
     const { data: existingCustomer, error: customerLookupError } = await supabaseAdmin
       .from('customers')
-      .select('id, total_order')
+      .select('id, total_order, name, email, user_id')
       .eq('email', customerEmail)
       .eq('user_id', integration.user_id)
       .single()
+
+    console.log('👤 STEP 1 RESULT: Customer lookup completed:', {
+      found: !!existingCustomer,
+      customerId: existingCustomer?.id,
+      currentTotalOrders: existingCustomer?.total_order,
+      customerName: existingCustomer?.name,
+      customerEmail: existingCustomer?.email,
+      customerUserId: existingCustomer?.user_id,
+      lookupError: customerLookupError?.code,
+      step: 'customer_lookup_result',
+      reason: existingCustomer ? 'Customer found, will increment order count' : 'Customer not found, will create new customer'
+    })
 
     if (customerLookupError && customerLookupError.code !== 'PGRST116') {
       console.error('❌ Customer lookup error:', customerLookupError)
@@ -321,12 +338,38 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Additional check: Look for customer with same email across ALL users
+    console.log('👤 STEP 1.5: Checking if customer exists with same email across all users:', {
+      email: customerEmail,
+      step: 'cross_user_customer_check',
+      reason: 'Verify if email constraint will cause issues'
+    })
+
+    const { data: allCustomersWithEmail, error: allCustomersError } = await supabaseAdmin
+      .from('customers')
+      .select('id, total_order, name, email, user_id')
+      .eq('email', customerEmail)
+
+    console.log('👤 STEP 1.5 RESULT: Cross-user customer check:', {
+      totalCustomersFound: allCustomersWithEmail?.length || 0,
+      customers: allCustomersWithEmail?.map(c => ({
+        id: c.id,
+        name: c.name,
+        userId: c.user_id,
+        totalOrder: c.total_order
+      })),
+      step: 'cross_user_customer_result',
+      reason: allCustomersWithEmail?.length > 0 ? 'Customer exists for other user(s), will use upsert to handle' : 'No existing customers with this email'
+    })
+
     let customer
     if (existingCustomer) {
-      console.log('👤 Customer exists, incrementing order count:', {
+      console.log('👤 STEP 2: Customer exists for this user, incrementing order count:', {
         customerId: existingCustomer.id,
         currentTotalOrders: existingCustomer.total_order,
-        willIncrement: isNewOrder
+        willIncrement: isNewOrder,
+        step: 'update_existing_customer',
+        reason: 'Customer found for this user, only increment order count'
       })
 
       // Only increment total_order for new orders, no need to update other fields
@@ -341,7 +384,7 @@ export async function POST(request: NextRequest) {
         .single()
 
       if (updateError) {
-        console.error('❌ Failed to update customer order count:', updateError)
+        console.error('❌ STEP 2 FAILED: Failed to update customer order count:', updateError)
         webhookLogger.logWebhookError(requestId, {
           error: 'Failed to update customer order count',
           details: updateError,
@@ -356,9 +399,11 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      console.log('✅ Customer order count updated:', {
+      console.log('✅ STEP 2 SUCCESS: Customer order count updated:', {
         customerId: updatedCustomer.id,
-        newTotalOrders: updatedCustomer.total_order
+        newTotalOrders: updatedCustomer.total_order,
+        step: 'customer_order_count_updated',
+        reason: 'Successfully incremented order count for existing customer'
       })
 
       webhookLogger.logDatabaseOperation('update', 'customers', {
@@ -376,51 +421,64 @@ export async function POST(request: NextRequest) {
       })
       customer = updatedCustomer
     } else {
-      console.log('👤 Creating new customer:', { email: customerEmail, name: customerName })
+      console.log('👤 STEP 2: Customer not found for this user, creating/upserting customer:', { 
+        email: customerEmail, 
+        name: customerName,
+        step: 'create_or_upsert_customer',
+        reason: 'Customer not found for this user, will create new or update existing if email exists for other user'
+      })
 
-      // Create new customer (new customers always start with total_order: 1)
-      const { data: newCustomer, error: insertError } = await supabaseAdmin
+      // Use upsert to handle potential race conditions and duplicate email constraints
+      const { data: newCustomer, error: upsertError } = await supabaseAdmin
         .from('customers')
-        .insert([{
+        .upsert({
           user_id: integration.user_id,
           name: customerName,
           email: customerEmail,
           phone: customerPhone || null,
           address: customerAddress,
           source: 'shopify',
-          total_order: 1
-        }])
+          total_order: 1,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,email', // Handle the composite unique constraint (user_id, email)
+          ignoreDuplicates: false
+        })
         .select()
         .single()
 
-      if (insertError) {
-        console.error('❌ Failed to create customer:', insertError)
+      if (upsertError) {
+        console.error('❌ STEP 2 FAILED: Failed to upsert customer:', upsertError)
         webhookLogger.logWebhookError(requestId, {
-          error: 'Failed to create customer',
-          details: insertError,
+          error: 'Failed to upsert customer',
+          details: upsertError,
           customer_email: customerEmail
         })
         return NextResponse.json(
           {
             error: 'Database error',
-            message: 'Failed to create customer'
+            message: 'Failed to upsert customer'
           },
           { status: 500 }
         )
       }
 
-      console.log('✅ Customer created successfully:', {
+      console.log('✅ STEP 2 SUCCESS: Customer upserted successfully:', {
         customerId: newCustomer.id,
-        email: newCustomer.email
+        email: newCustomer.email,
+        totalOrder: newCustomer.total_order,
+        step: 'customer_upserted',
+        reason: 'Successfully created new customer or updated existing customer with same email'
       })
 
-      webhookLogger.logDatabaseOperation('insert', 'customers', {
+      webhookLogger.logDatabaseOperation('upsert', 'customers', {
         customerId: newCustomer.id,
         customerEmail: customerEmail,
-        userId: integration.user_id
+        userId: integration.user_id,
+        totalOrder: newCustomer.total_order
       })
 
-      webhookLogger.logWebhookProcessing(requestId, 'customer_created', {
+      webhookLogger.logWebhookProcessing(requestId, 'customer_upserted', {
         customer_id: newCustomer.id,
         customer_email: customerEmail,
         total_order: newCustomer.total_order
